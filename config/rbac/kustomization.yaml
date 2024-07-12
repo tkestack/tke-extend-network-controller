@@ -22,6 +22,8 @@ resources:
 # default, aiding admins in cluster management. Those roles are
 # not used by the Project itself. You can comment the following lines
 # if you do not want those helpers be installed with your Project.
+- dedicatedclbservice_editor_role.yaml
+- dedicatedclbservice_viewer_role.yaml
 - uniqclbendpoint_editor_role.yaml
 - uniqclbendpoint_viewer_role.yaml
 

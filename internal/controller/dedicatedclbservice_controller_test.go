@@ -30,7 +30,7 @@ import (
 	networkingv1alpha1 "github.com/imroc/tke-extend-network-controller/api/v1alpha1"
 )
 
-var _ = Describe("UniqCLBEndpoint Controller", func() {
+var _ = Describe("DedicatedCLBService Controller", func() {
 	Context("When reconciling a resource", func() {
 		const resourceName = "test-resource"
 
@@ -40,13 +40,13 @@ var _ = Describe("UniqCLBEndpoint Controller", func() {
 			Name:      resourceName,
 			Namespace: "default", // TODO(user):Modify as needed
 		}
-		uniqclbendpoint := &networkingv1alpha1.UniqCLBEndpoint{}
+		dedicatedclbservice := &networkingv1alpha1.DedicatedCLBService{}
 
 		BeforeEach(func() {
-			By("creating the custom resource for the Kind UniqCLBEndpoint")
-			err := k8sClient.Get(ctx, typeNamespacedName, uniqclbendpoint)
+			By("creating the custom resource for the Kind DedicatedCLBService")
+			err := k8sClient.Get(ctx, typeNamespacedName, dedicatedclbservice)
 			if err != nil && errors.IsNotFound(err) {
-				resource := &networkingv1alpha1.UniqCLBEndpoint{
+				resource := &networkingv1alpha1.DedicatedCLBService{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      resourceName,
 						Namespace: "default",
@@ -59,16 +59,16 @@ var _ = Describe("UniqCLBEndpoint Controller", func() {
 
 		AfterEach(func() {
 			// TODO(user): Cleanup logic after each test, like removing the resource instance.
-			resource := &networkingv1alpha1.UniqCLBEndpoint{}
+			resource := &networkingv1alpha1.DedicatedCLBService{}
 			err := k8sClient.Get(ctx, typeNamespacedName, resource)
 			Expect(err).NotTo(HaveOccurred())
 
-			By("Cleanup the specific resource instance UniqCLBEndpoint")
+			By("Cleanup the specific resource instance DedicatedCLBService")
 			Expect(k8sClient.Delete(ctx, resource)).To(Succeed())
 		})
 		It("should successfully reconcile the resource", func() {
 			By("Reconciling the created resource")
-			controllerReconciler := &UniqCLBEndpointReconciler{
+			controllerReconciler := &DedicatedCLBServiceReconciler{
 				Client: k8sClient,
 				Scheme: k8sClient.Scheme(),
 			}

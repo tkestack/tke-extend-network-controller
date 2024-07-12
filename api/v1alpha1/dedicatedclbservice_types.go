@@ -20,17 +20,20 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// UniqCLBEndpointSpec defines the desired state of UniqCLBEndpoint
-type UniqCLBEndpointSpec struct {
+// EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
+// NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
+
+// DedicatedCLBServiceSpec defines the desired state of DedicatedCLBService
+type DedicatedCLBServiceSpec struct {
 	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
 
-	// Foo is an example field of UniqCLBEndpoint. Edit uniqclbendpoint_types.go to remove/update
+	// Foo is an example field of DedicatedCLBService. Edit dedicatedclbservice_types.go to remove/update
 	Foo string `json:"foo,omitempty"`
 }
 
-// UniqCLBEndpointStatus defines the observed state of UniqCLBEndpoint
-type UniqCLBEndpointStatus struct {
+// DedicatedCLBServiceStatus defines the observed state of DedicatedCLBService
+type DedicatedCLBServiceStatus struct {
 	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
 }
@@ -38,24 +41,24 @@ type UniqCLBEndpointStatus struct {
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
 
-// UniqCLBEndpoint is the Schema for the uniqclbendpoints API
-type UniqCLBEndpoint struct {
+// DedicatedCLBService is the Schema for the dedicatedclbservices API
+type DedicatedCLBService struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	Spec   UniqCLBEndpointSpec   `json:"spec,omitempty"`
-	Status UniqCLBEndpointStatus `json:"status,omitempty"`
+	Spec   DedicatedCLBServiceSpec   `json:"spec,omitempty"`
+	Status DedicatedCLBServiceStatus `json:"status,omitempty"`
 }
 
 // +kubebuilder:object:root=true
 
-// UniqCLBEndpointList contains a list of UniqCLBEndpoint
-type UniqCLBEndpointList struct {
+// DedicatedCLBServiceList contains a list of DedicatedCLBService
+type DedicatedCLBServiceList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
-	Items           []UniqCLBEndpoint `json:"items"`
+	Items           []DedicatedCLBService `json:"items"`
 }
 
 func init() {
-	SchemeBuilder.Register(&UniqCLBEndpoint{}, &UniqCLBEndpointList{})
+	SchemeBuilder.Register(&DedicatedCLBService{}, &DedicatedCLBServiceList{})
 }

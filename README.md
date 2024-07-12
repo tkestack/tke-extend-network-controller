@@ -12,7 +12,7 @@
 
 ```yaml
 apiVersion: networking.cloud.tencent.com/v1apha1
-kind: UniqNatGwEndpoint
+kind: DedicatedNatgwService
 metadata:
   namespace: demo
   name: gameserver
@@ -33,7 +33,7 @@ spec:
 
 ```yaml
 apiVersion: networking.cloud.tencent.com/v1apha1
-kind: UniqCLBEndpoint
+kind: DedicatedCLBService
 metadata:
   namespace: demo
   name: gameserver

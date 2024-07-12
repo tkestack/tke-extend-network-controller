@@ -27,26 +27,26 @@ import (
 	networkingv1alpha1 "github.com/imroc/tke-extend-network-controller/api/v1alpha1"
 )
 
-// UniqCLBEndpointReconciler reconciles a UniqCLBEndpoint object
-type UniqCLBEndpointReconciler struct {
+// DedicatedCLBServiceReconciler reconciles a DedicatedCLBService object
+type DedicatedCLBServiceReconciler struct {
 	client.Client
 	Scheme *runtime.Scheme
 }
 
-// +kubebuilder:rbac:groups=networking.cloud.tencent.com,resources=uniqclbendpoints,verbs=get;list;watch;create;update;patch;delete
-// +kubebuilder:rbac:groups=networking.cloud.tencent.com,resources=uniqclbendpoints/status,verbs=get;update;patch
-// +kubebuilder:rbac:groups=networking.cloud.tencent.com,resources=uniqclbendpoints/finalizers,verbs=update
+// +kubebuilder:rbac:groups=networking.cloud.tencent.com,resources=dedicatedclbservices,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=networking.cloud.tencent.com,resources=dedicatedclbservices/status,verbs=get;update;patch
+// +kubebuilder:rbac:groups=networking.cloud.tencent.com,resources=dedicatedclbservices/finalizers,verbs=update
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
 // TODO(user): Modify the Reconcile function to compare the state specified by
-// the UniqCLBEndpoint object against the actual cluster state, and then
+// the DedicatedCLBService object against the actual cluster state, and then
 // perform operations to make the cluster state reflect the state specified by
 // the user.
 //
 // For more details, check Reconcile and its Result here:
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.18.4/pkg/reconcile
-func (r *UniqCLBEndpointReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
+func (r *DedicatedCLBServiceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	_ = log.FromContext(ctx)
 
 	// TODO(user): your logic here
@@ -55,8 +55,8 @@ func (r *UniqCLBEndpointReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 }
 
 // SetupWithManager sets up the controller with the Manager.
-func (r *UniqCLBEndpointReconciler) SetupWithManager(mgr ctrl.Manager) error {
+func (r *DedicatedCLBServiceReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&networkingv1alpha1.UniqCLBEndpoint{}).
+		For(&networkingv1alpha1.DedicatedCLBService{}).
 		Complete(r)
 }
