@@ -20,9 +20,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
-// NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
-
 // UniqCLBEndpointSpec defines the desired state of UniqCLBEndpoint
 type UniqCLBEndpointSpec struct {
 	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
