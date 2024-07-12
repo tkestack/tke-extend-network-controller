@@ -1,6 +1,6 @@
 # tke-extend-network-controller
 
-`tke-extend-network-controller` 是针对 TKE 集群一些特殊场景的的网络控制器。
+针对 TKE 集群一些特殊场景的的网络控制器。
 
 ## 游戏场景
 
