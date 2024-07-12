@@ -1,4 +1,5 @@
 ## Append samples of your project ##
 resources:
   - networking_v1alpha1_dedicatedclbservice.yaml
+- networking_v1alpha1_dedicatednatgwservice.yaml
 # +kubebuilder:scaffold:manifestskustomizesamples

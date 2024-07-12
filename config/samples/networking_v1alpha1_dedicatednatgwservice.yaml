@@ -1,0 +1,9 @@
+apiVersion: networking.cloud.tencent.com/v1alpha1
+kind: DedicatedNatgwService
+metadata:
+  labels:
+    app.kubernetes.io/name: tke-extend-network-controller
+    app.kubernetes.io/managed-by: kustomize
+  name: dedicatednatgwservice-sample
+spec:
+  # TODO(user): Add fields here

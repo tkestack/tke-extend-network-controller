@@ -24,3 +24,10 @@ resources:
   # if you do not want those helpers be installed with your Project.
   - dedicatedclbservice_editor_role.yaml
   - dedicatedclbservice_viewer_role.yaml
+# For each CRD, "Editor" and "Viewer" roles are scaffolded by
+# default, aiding admins in cluster management. Those roles are
+# not used by the Project itself. You can comment the following lines
+# if you do not want those helpers be installed with your Project.
+- dedicatednatgwservice_editor_role.yaml
+- dedicatednatgwservice_viewer_role.yaml
+
