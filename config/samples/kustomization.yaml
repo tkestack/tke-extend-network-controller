@@ -1,5 +1,4 @@
 ## Append samples of your project ##
 resources:
-- networking_v1alpha1_uniqclbendpoint.yaml
-- networking_v1alpha1_dedicatedclbservice.yaml
+  - networking_v1alpha1_dedicatedclbservice.yaml
 # +kubebuilder:scaffold:manifestskustomizesamples

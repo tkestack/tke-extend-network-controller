@@ -14,15 +14,6 @@ resources:
   controller: true
   domain: cloud.tencent.com
   group: networking
-  kind: UniqCLBEndpoint
-  path: github.com/imroc/tke-extend-network-controller/api/v1alpha1
-  version: v1alpha1
-- api:
-    crdVersion: v1
-    namespaced: true
-  controller: true
-  domain: cloud.tencent.com
-  group: networking
   kind: DedicatedCLBService
   path: github.com/imroc/tke-extend-network-controller/api/v1alpha1
   version: v1alpha1

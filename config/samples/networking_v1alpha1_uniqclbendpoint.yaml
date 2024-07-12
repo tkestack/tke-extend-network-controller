@@ -1,9 +1,0 @@
-apiVersion: networking.cloud.tencent.com/v1alpha1
-kind: UniqCLBEndpoint
-metadata:
-  labels:
-    app.kubernetes.io/name: tke-extend-network-controller
-    app.kubernetes.io/managed-by: kustomize
-  name: uniqclbendpoint-sample
-spec:
-  # TODO(user): Add fields here
