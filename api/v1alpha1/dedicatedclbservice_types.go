@@ -28,8 +28,15 @@ type DedicatedCLBServiceSpec struct {
 	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
 
-	// Foo is an example field of DedicatedCLBService. Edit dedicatedclbservice_types.go to remove/update
-	Foo string `json:"foo,omitempty"`
+	// +default=500
+	MinPort int32 `json:"minPort"`
+	// +default=550
+	MaxPort     int32 `json:"maxPort"`
+	ServiceName int32 `json:"serviceName"`
+	// +optional
+	ExtensiveParameters string `json:"extensiveParameters"`
+	// +optional
+	ExistedLbIds []string `json:"existedLbIds"`
 }
 
 // DedicatedCLBServiceStatus defines the observed state of DedicatedCLBService

@@ -19,9 +19,9 @@ metadata:
 spec:
   minPort: 500 # 在NAT网关自动创建端口转发，每个 Pod 占用 NAT 网关的一个 IP:Port，端口号范围在 500-600
   maxPort: 600
-  service: gameserver
+  serviceName: gameserver
   extensiveParameters: '{"InternetMaxBandwidthOut":5000, "NatProductVersion":2}' # 如果自动创建NAT，指定购买NAT接口的参数: https://cloud.tencent.com/document/api/215/36721
-  existNatgwIds: # 如果复用已有的 NAT 网关实例，指定 NAT 网关实例 ID 的列表
+  existedNatgwIds: # 如果复用已有的 NAT 网关实例，指定 NAT 网关实例 ID 的列表
     - nat-xxx
     - nat-yyy
     - nat-zzz
@@ -40,9 +40,9 @@ metadata:
 spec:
   minPort: 500 # 在CLB自动创建监听器，每个Pod占用一个端口，端口号范围在 500-600
   maxPort: 600
-  service: gameserver
+  serviceName: gameserver
   extensiveParameters: '{"VipIsp":"CTCC"}' # 如果自动创建CLB，指定购买CLB接口的参数: https://cloud.tencent.com/document/product/214/30692
-  existLbIds: # 如果复用已有的 CLB 实例，指定 CLB 实例 ID 的列表
+  existedLbIds: # 如果复用已有的 CLB 实例，指定 CLB 实例 ID 的列表
     - lb-xxx
     - lb-yyy
     - lb-zzz
