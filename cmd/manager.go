@@ -37,7 +37,7 @@ func init() {
 	// +kubebuilder:scaffold:scheme
 }
 
-func runManager() error {
+func runManager() {
 	metricsAddr := viper.GetString(metricsBindAddress)
 	probeAddr := viper.GetString(healthProbeBindAddress)
 	enableLeaderElection := viper.GetBool(leaderElect)
@@ -127,5 +127,4 @@ func runManager() error {
 		setupLog.Error(err, "problem running manager")
 		os.Exit(1)
 	}
-	return nil
 }

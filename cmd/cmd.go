@@ -12,8 +12,8 @@ import (
 var cmd = cobra.Command{
 	Use:   "tke-extend-network-controller",
 	Short: "A network controller for TKE",
-	RunE: func(cmd *cobra.Command, args []string) error {
-		return runManager()
+	Run: func(cmd *cobra.Command, args []string) {
+		runManager()
 	},
 }
 
