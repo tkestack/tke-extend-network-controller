@@ -3,6 +3,11 @@ package app
 import (
 	"crypto/tls"
 
+	"sigs.k8s.io/controller-runtime/pkg/cache"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+
+	corev1 "k8s.io/api/core/v1"
+
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/metrics/filters"
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
@@ -17,6 +22,13 @@ func getManagerOptions(metricsAddr, probeAddr string, enableLeaderElection bool)
 	})
 
 	return ctrl.Options{
+		Cache: cache.Options{
+			ByObject: map[client.Object]cache.ByObject{
+				&corev1.Pod{}: {
+					Transform: StripPodUnusedFields,
+				},
+			},
+		},
 		Scheme: scheme,
 		// Metrics endpoint is enabled in 'config/default/kustomization.yaml'. The Metrics options configure the server.
 		// More info:
