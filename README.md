@@ -47,8 +47,8 @@ spec:
   selector:
     app: gameserver
   ports:
-  - protocol: TCP
-    targetPort: 9000
+  - protocol: TCP # CLB 监听器协议（TCP/UDP）
+    targetPort: 9000 # 容器监听的端口
   extensiveParameters: '{"VipIsp":"CTCC"}' # 如果自动创建CLB，指定购买CLB接口的参数: https://cloud.tencent.com/document/product/214/30692
   existedLbIds: # 如果复用已有的 CLB 实例，指定 CLB 实例 ID 的列表
     - lb-xxx
