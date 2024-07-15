@@ -67,13 +67,13 @@ metadata:
   labels:
     networking.cloud.tencent.com/dedicated-clb-service-name: gameserver
 spec:
-  lbId: lb-xxx
-  lbRegion: ap-chengdu
-  podName: gameserver-xxx
-  podIP: 1.1.1.1
+  lbId: lb-xxx # 为 Pod 分配的 CLB 实例 ID
+  lbRegion: ap-chengdu # CLB 所在地域（支持跨地域绑定）
+  podName: gameserver-xxx # Pod 名称
+  podIP: 1.1.1.1 # Pod 的内部 IP
   ports:
   - port: 576 # 自动分配的 CLB 监听器端口
-    protocol: TCP # CLB 监听器协议 （TCP/UDP）
+    protocol: TCP # CLB 监听器协议（TCP/UDP）
     targetPort: 9000 # 容器监听的端口
 ```
 
