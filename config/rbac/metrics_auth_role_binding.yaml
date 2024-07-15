@@ -8,5 +8,4 @@ roleRef:
   name: metrics-auth-role
 subjects:
 - kind: ServiceAccount
-  name: controller-manager
-  namespace: system
+  namespace: kube-system

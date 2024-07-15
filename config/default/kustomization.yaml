@@ -113,7 +113,7 @@ patches:
 #  - source: # Add cert-manager annotation to the webhook Service
 #      kind: Service
 #      version: v1
-#      name: webhook-service
+#      name: tke-extend-network-controller-webhook-service
 #      fieldPath: .metadata.name # namespace of the service
 #    targets:
 #      - select:
@@ -130,7 +130,7 @@ patches:
 #  - source:
 #      kind: Service
 #      version: v1
-#      name: webhook-service
+#      name: tke-extend-network-controller-webhook-service
 #      fieldPath: .metadata.namespace # namespace of the service
 #    targets:
 #      - select:
