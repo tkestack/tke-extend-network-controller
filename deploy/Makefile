@@ -1,2 +1,2 @@
 install:
-	kubectl apply -k .
+	kubectl kustomize --enable-helm --load-restrictor=LoadRestrictionsNone . | kubectl apply -f -

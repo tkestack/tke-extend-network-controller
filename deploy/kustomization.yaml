@@ -8,3 +8,6 @@ resources:
   - leader_election_role.yaml
   - leader_election_role_binding.yaml
   - deployment.yaml
+  - ../config/crd/bases/networking.cloud.tencent.com_dedicatedclbservices.yaml
+  - ../config/crd/bases/networking.cloud.tencent.com_dedicatednatgwservices.yaml
+  - ../config/crd/bases/networking.cloud.tencent.com_clbpodbindings.yaml
