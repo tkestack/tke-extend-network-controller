@@ -72,9 +72,14 @@ spec:
   podName: gameserver-xxx # Pod 名称
   podIP: 1.1.1.1 # Pod 的内部 IP
   ports:
-  - port: 576 # 自动分配的 CLB 监听器端口
+  - port: 576 # 自动分配的 CLB 监听器的端口号
     protocol: TCP # CLB 监听器协议（TCP/UDP）
     targetPort: 9000 # 容器监听的端口
+status:
+  listenerStatuses:
+    - port: 576
+      listenerId: lbl-xxx # 自动创建的 CLB 监听器的 ID
+      state: Bound
 ```
 
 然后 controller 根据 `CLBPodBinding` 进行对账，自动将 Pod 绑定到对应的 CLB 监听器上。

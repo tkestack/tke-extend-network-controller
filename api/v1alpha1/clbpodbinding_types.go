@@ -20,18 +20,22 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
-// NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
+type ListenerPort struct {
+	Port       int32  `json:"port"`
+	Protocol   string `json:"protocol"`
+	TargetPort int32  `json:"targetPort"`
+}
 
 // CLBPodBindingSpec defines the desired state of CLBPodBinding
 type CLBPodBindingSpec struct {
 	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
 
-	LbId     string `json:"lbId"`
-	LbRegion string `json:"lbRegion"`
-	PodName  string `json:"podName"`
-	podIP    string `json:"podIP"`
+	LbId     string         `json:"lbId"`
+	LbRegion string         `json:"lbRegion"`
+	PodName  string         `json:"podName"`
+	PodIP    string         `json:"podIP"`
+	Ports    []ListenerPort `json:"ports"`
 }
 
 // CLBPodBindingStatus defines the observed state of CLBPodBinding
