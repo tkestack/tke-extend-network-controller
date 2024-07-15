@@ -28,8 +28,10 @@ type CLBPodBindingSpec struct {
 	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
 
-	// Foo is an example field of CLBPodBinding. Edit clbpodbinding_types.go to remove/update
-	Foo string `json:"foo,omitempty"`
+	LbId     string `json:"lbId"`
+	LbRegion string `json:"lbRegion"`
+	PodName  string `json:"podName"`
+	podIP    string `json:"podIP"`
 }
 
 // CLBPodBindingStatus defines the observed state of CLBPodBinding

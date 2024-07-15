@@ -70,6 +70,7 @@ spec:
   lbId: lb-xxx
   lbRegion: ap-chengdu
   podName: gameserver-xxx
+  podIP: 1.1.1.1
   ports:
   - protocol: TCP
     targetPort: 9000
