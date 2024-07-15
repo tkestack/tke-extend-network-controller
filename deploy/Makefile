@@ -1,0 +1,2 @@
+install:
+	kubectl apply -k .
