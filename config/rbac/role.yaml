@@ -7,6 +7,32 @@ rules:
 - apiGroups:
   - networking.cloud.tencent.com
   resources:
+  - clbpodbindings
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - networking.cloud.tencent.com
+  resources:
+  - clbpodbindings/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - networking.cloud.tencent.com
+  resources:
+  - clbpodbindings/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - networking.cloud.tencent.com
+  resources:
   - dedicatedclbservices
   verbs:
   - create
