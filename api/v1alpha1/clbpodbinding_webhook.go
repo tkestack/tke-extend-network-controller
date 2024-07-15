@@ -58,20 +58,29 @@ func (r *CLBPodBinding) Default() {
 
 var _ webhook.Validator = &CLBPodBinding{}
 
-func (r *CLBPodBinding) validateCLBBinding() (admission.Warnings, error) {
+func (r *CLBPodBinding) validateCLBBinding(path *field.Path, b *Binding) field.ErrorList {
 	var allErrs field.ErrorList
-	for i, bind := range r.Spec.Bindings {
-		if bind.LbId == "" {
-			allErrs = append(allErrs, field.Required(field.NewPath("spec").Child("bindings").Index(i).Child("lbId"), "lbId is required"))
-		}
-		if bind.Port == 0 {
-			allErrs = append(allErrs, field.Required(field.NewPath("spec").Child("bindings").Index(i).Child("port"), "port is required"))
-		}
-		if bind.Protocol == "" {
-			allErrs = append(allErrs, field.Required(field.NewPath("spec").Child("bindings").Index(i).Child("protocol"), "protocol is required"))
-		}
-		if bind.TargetPort == 0 {
-			allErrs = append(allErrs, field.Required(field.NewPath("spec").Child("bindings").Index(i).Child("targetPort"), "targetPort is required"))
+	if b.LbId == "" {
+		allErrs = append(allErrs, field.Required(path.Child("lbId"), "lbId is required"))
+	}
+	if b.Port == 0 {
+		allErrs = append(allErrs, field.Required(path.Child("port"), "port is required"))
+	}
+	if b.Protocol == "" {
+		allErrs = append(allErrs, field.Required(path.Child("protocol"), "protocol is required"))
+	}
+	if b.TargetPort == 0 {
+		allErrs = append(allErrs, field.Required(path.Child("targetPort"), "targetPort is required"))
+	}
+	return nil
+}
+
+func (r *CLBPodBinding) validateCLBBindings() (admission.Warnings, error) {
+	var allErrs field.ErrorList
+	bindingsPath := field.NewPath("spec").Child("bindings")
+	for i, b := range r.Spec.Bindings {
+		if errs := r.validateCLBBinding(bindingsPath.Index(i), &b); errs != nil {
+			allErrs = append(allErrs, errs...)
 		}
 	}
 	if len(allErrs) == 0 {
@@ -88,14 +97,14 @@ func (r *CLBPodBinding) validateCLBBinding() (admission.Warnings, error) {
 func (r *CLBPodBinding) ValidateCreate() (admission.Warnings, error) {
 	clbpodbindinglog.Info("validate create", "name", r.Name)
 
-	return r.validateCLBBinding()
+	return r.validateCLBBindings()
 }
 
 // ValidateUpdate implements webhook.Validator so a webhook will be registered for the type
 func (r *CLBPodBinding) ValidateUpdate(old runtime.Object) (admission.Warnings, error) {
 	clbpodbindinglog.Info("validate update", "name", r.Name)
 
-	return r.validateCLBBinding()
+	return r.validateCLBBindings()
 }
 
 // ValidateDelete implements webhook.Validator so a webhook will be registered for the type
