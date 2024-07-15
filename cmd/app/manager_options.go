@@ -8,6 +8,7 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 
+	kubelib "github.com/imroc/tke-extend-network-controller/pkg/kube"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/metrics/filters"
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
@@ -25,7 +26,7 @@ func getManagerOptions(metricsAddr, probeAddr string, enableLeaderElection bool)
 		Cache: cache.Options{
 			ByObject: map[client.Object]cache.ByObject{
 				&corev1.Pod{}: {
-					Transform: StripPodUnusedFields,
+					Transform: kubelib.StripPodUnusedFields,
 				},
 			},
 		},
