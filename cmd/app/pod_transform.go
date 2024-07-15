@@ -27,16 +27,19 @@ func StripPodUnusedFields(obj any) (any, error) {
 		}
 		oldSpec := pod.Spec
 		newSpec := corev1.PodSpec{
-			Containers:         containers,
-			ServiceAccountName: oldSpec.ServiceAccountName,
-			NodeName:           oldSpec.NodeName,
-			HostNetwork:        oldSpec.HostNetwork,
-			Hostname:           oldSpec.Hostname,
-			Subdomain:          oldSpec.Subdomain,
+			Containers:  containers,
+			NodeName:    oldSpec.NodeName,
+			HostNetwork: oldSpec.HostNetwork,
 		}
 		pod.Spec = newSpec
-		pod.Status.InitContainerStatuses = nil
-		pod.Status.ContainerStatuses = nil
+		pod.Status = corev1.PodStatus{
+			Phase:      pod.Status.Phase,
+			Conditions: pod.Status.Conditions,
+			PodIP:      pod.Status.PodIP,
+			Reason:     pod.Status.Reason,
+			Message:    pod.Status.Message,
+			PodIPs:     pod.Status.PodIPs,
+		}
 	}
 
 	return obj, nil
