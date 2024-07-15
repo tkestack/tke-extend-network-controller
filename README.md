@@ -65,7 +65,7 @@ metadata:
   namespace: demo
   name: gameserver
   labels:
-    networking.cloud.tencent.com/dedicated-clb-service-name: gameserver
+    networking.cloud.tencent.com/dedicated-clb-service-name: gameserver # 记录关联的 DedicatedCLBService 名称。通过 labelSelector 可查询到 DedicatedCLBService 所关联的所有 CLBPodBinding
 spec:
   lbId: lb-xxx # 为 Pod 分配的 CLB 实例 ID
   lbRegion: ap-chengdu # CLB 所在地域（支持跨地域绑定）
