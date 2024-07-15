@@ -7,6 +7,7 @@ import (
 	"github.com/spf13/viper"
 
 	"github.com/imroc/tke-extend-network-controller/internal/controller"
+	"github.com/imroc/tke-extend-network-controller/pkg/manager"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
@@ -44,7 +45,7 @@ func runManager() {
 
 	ctrl.SetLogger(zap.New(zap.UseFlagOptions(&opts)))
 
-	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), getManagerOptions(metricsAddr, probeAddr, enableLeaderElection))
+	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), manager.GetOptions(scheme, metricsAddr, probeAddr, enableLeaderElection))
 	if err != nil {
 		setupLog.Error(err, "unable to start manager")
 		os.Exit(1)

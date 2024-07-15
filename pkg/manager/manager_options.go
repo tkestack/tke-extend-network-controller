@@ -1,4 +1,4 @@
-package app
+package manager
 
 import (
 	"crypto/tls"
@@ -9,20 +9,21 @@ import (
 	corev1 "k8s.io/api/core/v1"
 
 	kubelib "github.com/imroc/tke-extend-network-controller/pkg/kube"
-	ctrl "sigs.k8s.io/controller-runtime"
+	"k8s.io/apimachinery/pkg/runtime"
+	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/metrics/filters"
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 )
 
-func getManagerOptions(metricsAddr, probeAddr string, enableLeaderElection bool) ctrl.Options {
+func GetOptions(scheme *runtime.Scheme, metricsAddr, probeAddr string, enableLeaderElection bool) manager.Options {
 	tlsOpts := []func(*tls.Config){}
 
 	webhookServer := webhook.NewServer(webhook.Options{
 		TLSOpts: tlsOpts,
 	})
 
-	return ctrl.Options{
+	return manager.Options{
 		Cache: cache.Options{
 			ByObject: map[client.Object]cache.ByObject{
 				&corev1.Pod{}: {
