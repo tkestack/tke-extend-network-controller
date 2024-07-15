@@ -49,6 +49,8 @@ spec:
   ports:
   - protocol: TCP # CLB 监听器协议（TCP/UDP）
     targetPort: 9000 # 容器监听的端口
+  - protocol: UDP
+    targetPort: 8000
   extensiveParameters: '{"VipIsp":"CTCC"}' # 如果自动创建CLB，指定购买CLB接口的参数: https://cloud.tencent.com/document/product/214/30692
   existedLbIds: # 如果复用已有的 CLB 实例，指定 CLB 实例 ID 的列表
     - lb-xxx
@@ -63,23 +65,31 @@ apiVersion: networking.cloud.tencent.com/v1apha1
 kind: CLBPodBinding
 metadata:
   namespace: demo
-  name: gameserver
-  labels:
-    networking.cloud.tencent.com/dedicated-clb-service-name: gameserver # 记录关联的 DedicatedCLBService 名称。通过 labelSelector 可查询到 DedicatedCLBService 所关联的所有 CLBPodBinding
+  name: gameserver-xxx # 与 Pod 同名
 spec:
-  lbId: lb-xxx # 为 Pod 分配的 CLB 实例 ID
-  lbRegion: ap-chengdu # CLB 所在地域（支持跨地域绑定）
-  podName: gameserver-xxx # Pod 名称
-  podIP: 1.1.1.1 # Pod 的内部 IP
-  ports:
-  - port: 576 # 自动分配的 CLB 监听器的端口号
-    protocol: TCP # CLB 监听器协议（TCP/UDP）
-    targetPort: 9000 # 容器监听的端口
+  bindings:
+    - lbId: lb-xxx # 为 Pod 分配的 CLB 实例 ID
+      port: 576 # 自动分配的 CLB 监听器的端口号
+      protocol: TCP # CLB 监听器协议（TCP/UDP）
+      targetPort: 9000 # 容器监听的端口
+    - lbId: lb-xxx
+      port: 577
+      protocol: TCP
+      targetPort: 8000
 status:
-  listenerStatuses:
-    - port: 576
-      listenerId: lbl-xxx # 自动创建的 CLB 监听器的 ID
-      state: Bound
+  state: Success
 ```
 
 然后 controller 根据 `CLBPodBinding` 进行对账，自动将 Pod 绑定到对应的 CLB 监听器上。
+
+另外，为了记录 CLB 的信息，controller 会自动为 CLB 创建 `CLB` 资源：
+
+```yaml
+apiVersion: networking.cloud.tencent.com/v1apha1
+kind: CLB
+metadata:
+  name: lb-xxx # 与 Pod 同名
+spec:
+  autoCreated: true # 标识是否为 controller 自动创建（用于在删除 DedicatedNatgwService 时决定是否自动清理CLB）
+  region: ap-chengdu # 记录 CLB 所在地域
+```

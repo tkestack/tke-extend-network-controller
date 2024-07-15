@@ -20,7 +20,8 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-type ListenerPort struct {
+type Binding struct {
+	LbId       string `json:"lbId"`
 	Port       int32  `json:"port"`
 	Protocol   string `json:"protocol"`
 	TargetPort int32  `json:"targetPort"`
@@ -31,17 +32,14 @@ type CLBPodBindingSpec struct {
 	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
 
-	LbId     string         `json:"lbId"`
-	LbRegion string         `json:"lbRegion"`
-	PodName  string         `json:"podName"`
-	PodIP    string         `json:"podIP"`
-	Ports    []ListenerPort `json:"ports"`
+	Bindings []Binding `json:"bindings"`
 }
 
 // CLBPodBindingStatus defines the observed state of CLBPodBinding
 type CLBPodBindingStatus struct {
 	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
+	State string `json:"state"`
 }
 
 // +kubebuilder:object:root=true
