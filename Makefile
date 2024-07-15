@@ -100,6 +100,10 @@ docker-push: ## Push docker image with the manager.
 .PHONY: docker-build-push
 docker-build-push: docker-build docker-push
 
+.PHONY: update-controller
+update-controller: docker-build-push
+	kubectl -n kube-system rollout restart deployment/tke-extend-network-controller
+
 # PLATFORMS defines the target platforms for the manager image be built to provide support to multiple
 # architectures. (i.e. make docker-buildx IMG=myregistry/mypoperator:0.0.1). To use this option you need to:
 # - be able to use docker buildx. More info: https://docs.docker.com/build/buildx/
