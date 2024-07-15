@@ -55,3 +55,24 @@ spec:
     - lb-yyy
     - lb-zzz
 ```
+
+controller 会自动为关联的所有 Pod 自动创建 `CLBPodBinding`:
+
+```yaml
+apiVersion: networking.cloud.tencent.com/v1apha1
+kind: CLBPodBinding
+metadata:
+  namespace: demo
+  name: gameserver
+  labels:
+    networking.cloud.tencent.com/dedicated-clb-service-name: gameserver
+spec:
+  lbId: lb-xxx
+  lbRegion: ap-chengdu
+  podName: gameserver-xxx
+  ports:
+  - protocol: TCP
+    targetPort: 9000
+```
+
+然后 controller 根据 `CLBPodBinding` 进行对账，自动将 Pod 绑定到对应的 CLB 监听器上。
