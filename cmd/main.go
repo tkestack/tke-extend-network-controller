@@ -16,8 +16,12 @@ limitations under the License.
 
 package main
 
+import (
+	"github.com/imroc/tke-extend-network-controller/cmd/app"
+)
+
 func main() {
-	if err := cmd.Execute(); err != nil {
+	if err := app.RootCommand.Execute(); err != nil {
 		panic(err)
 	}
 }

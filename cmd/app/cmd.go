@@ -1,4 +1,4 @@
-package main
+package app
 
 import (
 	"fmt"
@@ -9,7 +9,7 @@ import (
 	"github.com/spf13/viper"
 )
 
-var cmd = cobra.Command{
+var RootCommand = cobra.Command{
 	Use:   "tke-extend-network-controller",
 	Short: "A network controller for TKE",
 	Run: func(cmd *cobra.Command, args []string) {
@@ -29,7 +29,7 @@ func init() {
 	viper.AutomaticEnv()
 	viper.SetEnvKeyReplacer(envReplacer)
 
-	flags := cmd.Flags()
+	flags := RootCommand.Flags()
 	addStringFlag(flags, metricsBindAddress, "0", "The address the metrics endpoint binds to. Use :8443 for HTTPS or :8080 for HTTP, or leave as 0 to disable the metrics service.")
 	addStringFlag(flags, healthProbeBindAddress, ":8081", "The address the probe endpoint binds to.")
 	addBoolFlag(flags, leaderElect, false, "Enable leader election for controller manager. Enabling this will ensure there is only one active controller manager.")
