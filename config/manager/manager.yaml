@@ -51,6 +51,9 @@ spec:
       containers:
         - command:
             - /tke-extend-network-controller
+          args:
+            - --leader-elect
+            - --health-probe-bind-address=:8081
           image: imroc/tke-extend-network-controller:latest
           name: controller
           securityContext:
