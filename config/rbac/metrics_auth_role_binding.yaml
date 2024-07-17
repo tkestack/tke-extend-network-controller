@@ -7,5 +7,6 @@ roleRef:
   kind: ClusterRole
   name: metrics-auth-role
 subjects:
-- kind: ServiceAccount
-  namespace: kube-system
+  - kind: ServiceAccount
+    namespace: kube-system
+    name: tke-extend-network-controller
