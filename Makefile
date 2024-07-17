@@ -203,3 +203,12 @@ GOBIN=$(LOCALBIN) go install $${package} ;\
 mv "$$(echo "$(1)" | sed "s/-$(3)$$//")" $(1) ;\
 }
 endef
+
+.PHONY: generate-docs
+generate-docs:
+	crd-ref-docs \
+		--source-path=api \
+		--config=config.yaml \
+		--output-path=./docs/types.md \
+		--renderer=markdown
+
