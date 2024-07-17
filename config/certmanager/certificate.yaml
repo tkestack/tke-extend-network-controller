@@ -7,7 +7,7 @@ metadata:
   labels:
     app.kubernetes.io/name: tke-extend-network-controller
     app.kubernetes.io/managed-by: kustomize
-  name: selfsigned-issuer
+  name: tke-extend-network-controller-selfsigned-issuer
   namespace: kube-system
 spec:
   selfSigned: {}
@@ -22,14 +22,14 @@ metadata:
     app.kubernetes.io/created-by: tke-extend-network-controller
     app.kubernetes.io/part-of: tke-extend-network-controller
     app.kubernetes.io/managed-by: kustomize
-  name: serving-cert  # this name should match the one appeared in kustomizeconfig.yaml
+  name: tke-extend-network-controller-serving-cert # this name should match the one appeared in kustomizeconfig.yaml
   namespace: kube-system
 spec:
   # SERVICE_NAME and SERVICE_NAMESPACE will be substituted by kustomize
   dnsNames:
-  - SERVICE_NAME.SERVICE_NAMESPACE.svc
-  - SERVICE_NAME.SERVICE_NAMESPACE.svc.cluster.local
+    - SERVICE_NAME.SERVICE_NAMESPACE.svc
+    - SERVICE_NAME.SERVICE_NAMESPACE.svc.cluster.local
   issuerRef:
     kind: Issuer
-    name: selfsigned-issuer
-  secretName: webhook-server-cert # this secret will not be prefixed, since it's not managed by kustomize
+    name: tke-extend-network-controller-selfsigned-issuer
+  secretName: tke-extend-network-controller-webhook-server-cert # this secret will not be prefixed, since it's not managed by kustomize
