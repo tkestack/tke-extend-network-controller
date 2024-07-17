@@ -3,11 +3,11 @@ apiVersion: monitoring.coreos.com/v1
 kind: ServiceMonitor
 metadata:
   labels:
-    control-plane: tke-extend-network-controller
+    control-plane: controller-manager
     app.kubernetes.io/name: tke-extend-network-controller
     app.kubernetes.io/managed-by: kustomize
-  namespace: kube-system
-  name: tke-extend-network-controller
+  name: controller-manager-metrics-monitor
+  namespace: system
 spec:
   endpoints:
     - path: /metrics
@@ -27,4 +27,4 @@ spec:
         insecureSkipVerify: true
   selector:
     matchLabels:
-      control-plane: tke-extend-network-controller
+      control-plane: controller-manager

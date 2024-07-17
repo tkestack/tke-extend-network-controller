@@ -39,39 +39,13 @@ spec:
           spec:
             description: CLBPodBindingSpec defines the desired state of CLBPodBinding
             properties:
-              bindings:
-                items:
-                  properties:
-                    lbId:
-                      type: string
-                    port:
-                      format: int32
-                      type: integer
-                    protocol:
-                      type: string
-                    targetPort:
-                      format: int32
-                      type: integer
-                  required:
-                  - lbId
-                  - port
-                  - protocol
-                  - targetPort
-                  type: object
-                type: array
-            required:
-            - bindings
+              foo:
+                description: Foo is an example field of CLBPodBinding. Edit clbpodbinding_types.go
+                  to remove/update
+                type: string
             type: object
           status:
             description: CLBPodBindingStatus defines the observed state of CLBPodBinding
-            properties:
-              state:
-                description: |-
-                  INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
-                  Important: Run "make" to regenerate code after modifying this file
-                type: string
-            required:
-            - state
             type: object
         type: object
     served: true

@@ -40,25 +40,10 @@ spec:
           spec:
             description: DedicatedCLBServiceSpec defines the desired state of DedicatedCLBService
             properties:
-              existedLbIds:
-                items:
-                  type: string
-                type: array
-              extensiveParameters:
+              foo:
+                description: Foo is an example field of DedicatedCLBService. Edit
+                  dedicatedclbservice_types.go to remove/update
                 type: string
-              maxPort:
-                format: int32
-                type: integer
-              minPort:
-                format: int32
-                type: integer
-              serviceName:
-                format: int32
-                type: integer
-            required:
-            - maxPort
-            - minPort
-            - serviceName
             type: object
           status:
             description: DedicatedCLBServiceStatus defines the observed state of DedicatedCLBService

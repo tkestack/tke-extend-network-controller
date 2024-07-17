@@ -10,6 +10,6 @@ roleRef:
   kind: Role
   name: leader-election-role
 subjects:
-  - kind: ServiceAccount
-    namespace: kube-system
-    name: tke-extend-network-controller
+- kind: ServiceAccount
+  name: controller-manager
+  namespace: system

@@ -4,12 +4,12 @@ metadata:
   labels:
     app.kubernetes.io/name: tke-extend-network-controller
     app.kubernetes.io/managed-by: kustomize
-  name: tke-extend-network-controller-rolebinding
+  name: manager-rolebinding
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
-  name: tke-extend-network-controller-role
+  name: manager-role
 subjects:
-  - kind: ServiceAccount
-    namespace: kube-system
-    name: tke-extend-network-controller
+- kind: ServiceAccount
+  name: controller-manager
+  namespace: system

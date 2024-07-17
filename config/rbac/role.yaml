@@ -2,7 +2,7 @@
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  name: tke-extend-network-controller-role
+  name: manager-role
 rules:
 - apiGroups:
   - networking.cloud.tencent.com
