@@ -209,6 +209,6 @@ generate-docs:
 	crd-ref-docs \
 		--source-path=api \
 		--config=config.yaml \
-		--output-path=./docs/types.md \
+		--output-path=./docs/api.md \
 		--renderer=markdown
 
