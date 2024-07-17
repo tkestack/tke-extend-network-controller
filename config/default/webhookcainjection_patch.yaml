@@ -1,5 +1,3 @@
-# This patch add annotation to admission webhook config and
-# CERTIFICATE_NAMESPACE and CERTIFICATE_NAME will be substituted by kustomize
 apiVersion: admissionregistration.k8s.io/v1
 kind: MutatingWebhookConfiguration
 metadata:
@@ -8,7 +6,7 @@ metadata:
     app.kubernetes.io/managed-by: kustomize
   name: mutating-webhook-configuration
   annotations:
-    cert-manager.io/inject-ca-from: CERTIFICATE_NAMESPACE/CERTIFICATE_NAME
+    cert-manager.io/inject-ca-from: kube-system/tke-extend-network-controller-serving-cert
 ---
 apiVersion: admissionregistration.k8s.io/v1
 kind: ValidatingWebhookConfiguration
@@ -22,4 +20,4 @@ metadata:
     app.kubernetes.io/managed-by: kustomize
   name: validating-webhook-configuration
   annotations:
-    cert-manager.io/inject-ca-from: CERTIFICATE_NAMESPACE/CERTIFICATE_NAME
+    cert-manager.io/inject-ca-from: kube-system/tke-extend-network-controller-serving-cert

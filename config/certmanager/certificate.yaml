@@ -22,13 +22,15 @@ metadata:
     app.kubernetes.io/created-by: tke-extend-network-controller
     app.kubernetes.io/part-of: tke-extend-network-controller
     app.kubernetes.io/managed-by: kustomize
-  name: serving-cert  # this name should match the one appeared in kustomizeconfig.yaml
+  name: serving-cert # this name should match the one appeared in kustomizeconfig.yaml
   namespace: system
 spec:
   # SERVICE_NAME and SERVICE_NAMESPACE will be substituted by kustomize
   dnsNames:
-  - SERVICE_NAME.SERVICE_NAMESPACE.svc
-  - SERVICE_NAME.SERVICE_NAMESPACE.svc.cluster.local
+    - tke-extend-network-controller-webhook-service.kube-system.svc
+    - tke-extend-network-controller-metrics-service.kube-system.svc
+    - tke-extend-network-controller-webhook-service.kube-system.svc.cluster.local
+    - tke-extend-network-controller-metrics-service.kube-system.svc.cluster.local
   issuerRef:
     kind: Issuer
     name: selfsigned-issuer
