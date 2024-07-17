@@ -6,7 +6,7 @@ metadata:
   labels:
     app.kubernetes.io/name: tke-extend-network-controller
     app.kubernetes.io/managed-by: kustomize
-  name: mutating-webhook-configuration
+  name: tke-extend-network-controller-mutating-webhook-configuration
   annotations:
     cert-manager.io/inject-ca-from: CERTIFICATE_NAMESPACE/CERTIFICATE_NAME
 ---
@@ -20,6 +20,6 @@ metadata:
     app.kubernetes.io/created-by: tke-extend-network-controller
     app.kubernetes.io/part-of: tke-extend-network-controller
     app.kubernetes.io/managed-by: kustomize
-  name: validating-webhook-configuration
+  name: tke-extend-network-controller-validating-webhook-configuration
   annotations:
     cert-manager.io/inject-ca-from: CERTIFICATE_NAMESPACE/CERTIFICATE_NAME
