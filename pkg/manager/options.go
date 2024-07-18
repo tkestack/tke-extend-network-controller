@@ -2,9 +2,6 @@ package manager
 
 import (
 	"crypto/tls"
-	"crypto/x509"
-	"os"
-	"path/filepath"
 
 	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -19,30 +16,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 )
 
-const certPath = "/tmp/k8s-webhook-server/serving-certs"
-
-func setCert(cfg *tls.Config) {
-	cert, err := tls.LoadX509KeyPair(filepath.Join(certPath, "tls.crt"), filepath.Join(certPath, "tls.key"))
-	if err != nil {
-		panic(err)
-	}
-	cfg.Certificates = append(cfg.Certificates, cert)
-	caCert, err := os.ReadFile(filepath.Join(certPath, "ca.crt"))
-	if err != nil {
-		panic(err)
-	}
-	// 创建一个新的CA证书池
-	caCertPool := x509.NewCertPool()
-	ok := caCertPool.AppendCertsFromPEM(caCert)
-	if !ok {
-		panic("无法解析CA证书")
-	}
-	cfg.RootCAs = caCertPool
-}
-
 func GetOptions(scheme *runtime.Scheme, metricsAddr, probeAddr string, enableLeaderElection bool) manager.Options {
 	tlsOpts := []func(*tls.Config){}
-	tlsOpts = append(tlsOpts, setCert)
 
 	webhookServer := webhook.NewServer(webhook.Options{
 		TLSOpts: tlsOpts,
