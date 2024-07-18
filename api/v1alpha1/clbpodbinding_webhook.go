@@ -72,7 +72,7 @@ func (r *CLBPodBinding) validateCLBBinding(path *field.Path, b *Binding) field.E
 	if b.TargetPort == 0 {
 		allErrs = append(allErrs, field.Required(path.Child("targetPort"), "targetPort is required"))
 	}
-	return nil
+	return allErrs
 }
 
 func (r *CLBPodBinding) validateCLBBindings() (admission.Warnings, error) {
