@@ -1,31 +1,5 @@
 ---
 apiVersion: admissionregistration.k8s.io/v1
-kind: MutatingWebhookConfiguration
-metadata:
-  name: tke-extend-network-controller-mutating-webhook-configuration
-webhooks:
-  - admissionReviewVersions:
-      - v1
-    clientConfig:
-      service:
-        name: tke-extend-network-controller-webhook-service
-        namespace: kube-system
-        path: /mutate-networking-cloud-tencent-com-v1alpha1-clbpodbinding
-    failurePolicy: Fail
-    name: mclbpodbinding.kb.io
-    rules:
-      - apiGroups:
-          - networking.cloud.tencent.com
-        apiVersions:
-          - v1alpha1
-        operations:
-          - CREATE
-          - UPDATE
-        resources:
-          - clbpodbindings
-    sideEffects: None
----
-apiVersion: admissionregistration.k8s.io/v1
 kind: ValidatingWebhookConfiguration
 metadata:
   name: tke-extend-network-controller-validating-webhook-configuration

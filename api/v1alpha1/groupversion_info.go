@@ -15,8 +15,10 @@ limitations under the License.
 */
 
 // Package v1alpha1 contains API Schema definitions for the networking v1alpha1 API group
+// +kubebuilder:validation:Required
 // +kubebuilder:object:generate=true
 // +groupName=networking.cloud.tencent.com
+
 package v1alpha1
 
 import (
