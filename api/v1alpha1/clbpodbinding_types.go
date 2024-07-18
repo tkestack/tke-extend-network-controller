@@ -21,6 +21,7 @@ import (
 )
 
 type Binding struct {
+	// +kubebuilder:example=lb-xxx
 	LbId       string `json:"lbId"`
 	Port       int32  `json:"port"`
 	Protocol   string `json:"protocol"`
