@@ -5,6 +5,20 @@ metadata:
   name: tke-extend-network-controller-role
 rules:
 - apiGroups:
+  - ""
+  resources:
+  - pods
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - ""
+  resources:
+  - pods/status
+  verbs:
+  - get
+- apiGroups:
   - networking.cloud.tencent.com
   resources:
   - clbpodbindings
