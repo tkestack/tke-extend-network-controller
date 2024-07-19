@@ -8,11 +8,14 @@ import (
 
 var credential *common.Credential
 
-func Init(secretId, secretKey string) {
+var defaultRegion string
+
+func Init(secretId, secretKey, region string) {
 	credential = common.NewCredential(
 		secretId,
 		secretKey,
 	)
+	defaultRegion = region
 }
 
 var clients = make(map[string]*clb.Client)

@@ -14,7 +14,7 @@ var RootCommand = cobra.Command{
 	Use:   "tke-extend-network-controller",
 	Short: "A network controller for TKE",
 	Run: func(cmd *cobra.Command, args []string) {
-		clb.Init(viper.GetString(secretId), viper.GetString(secretKey))
+		clb.Init(viper.GetString(secretId), viper.GetString(secretKey), viper.GetString(region))
 		runManager()
 	},
 }
@@ -25,6 +25,7 @@ const (
 	healthProbeBindAddress = "health-probe-bind-address"
 	secretId               = "secret-id"
 	secretKey              = "secret-key"
+	region                 = "region"
 )
 
 var envReplacer = strings.NewReplacer("-", "_")
@@ -39,6 +40,7 @@ func init() {
 	addBoolFlag(flags, leaderElect, false, "Enable leader election for controller manager. Enabling this will ensure there is only one active controller manager.")
 	addStringFlag(flags, secretId, "", "Secret ID")
 	addStringFlag(flags, secretKey, "", "Secret Key")
+	addStringFlag(flags, region, "", "The region of TKE cluster")
 }
 
 func addStringFlag(flags *pflag.FlagSet, name, value, usage string) {

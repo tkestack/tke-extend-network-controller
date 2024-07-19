@@ -1,2 +1,8 @@
 resources:
-- manager.yaml
+  - manager.yaml
+
+secretGenerator:
+  - name: tke-extend-network-controller-env
+    namespace: kube-system
+    envs:
+      - secret.env

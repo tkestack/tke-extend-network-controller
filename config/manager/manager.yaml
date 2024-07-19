@@ -57,6 +57,9 @@ spec:
             - --health-probe-bind-address=:8081
           image: imroc/tke-extend-network-controller:latest
           name: controller
+          envFrom:
+            - secretRef:
+                name: tke-extend-network-controller-env
           securityContext:
             allowPrivilegeEscalation: false
             capabilities:
