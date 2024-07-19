@@ -25,7 +25,9 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/log"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
+	"github.com/imroc/tke-extend-network-controller/api/v1alpha1"
 	networkingv1alpha1 "github.com/imroc/tke-extend-network-controller/api/v1alpha1"
 )
 
@@ -64,6 +66,15 @@ func (r *CLBPodBindingReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 func (r *CLBPodBindingReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&networkingv1alpha1.CLBPodBinding{}).
-		Watches(&corev1.Pod{}, &handler.EnqueueRequestForObject{}).
+		Watches(&corev1.Pod{}, handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, pod client.Object) []reconcile.Request {
+			err := r.Get(context.Background(), client.ObjectKeyFromObject(pod), &v1alpha1.CLBPodBinding{})
+			if err != nil {
+				return []reconcile.Request{}
+			}
+			var req reconcile.Request
+			req.Namespace = pod.GetNamespace()
+			req.Name = pod.GetName()
+			return []reconcile.Request{req}
+		})).
 		Complete(r)
 }
