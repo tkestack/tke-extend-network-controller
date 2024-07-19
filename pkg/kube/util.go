@@ -43,6 +43,7 @@ func StripPodUnusedFields(obj any) (any, error) {
 		var newMeta metav1.ObjectMeta
 		newMeta.Namespace = pod.Namespace
 		newMeta.Name = pod.Name
+		newMeta.DeletionTimestamp = pod.DeletionTimestamp
 		pod.ObjectMeta = newMeta
 	}
 
