@@ -40,6 +40,10 @@ func StripPodUnusedFields(obj any) (any, error) {
 			Message:    pod.Status.Message,
 			PodIPs:     pod.Status.PodIPs,
 		}
+		var newMeta metav1.ObjectMeta
+		newMeta.Namespace = pod.Namespace
+		newMeta.Name = pod.Name
+		pod.ObjectMeta = newMeta
 	}
 
 	return obj, nil
