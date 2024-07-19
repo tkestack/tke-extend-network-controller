@@ -127,7 +127,7 @@ type podEventHandler struct {
 // Create implements EventHandler.
 func (e *podEventHandler) Create(ctx context.Context, evt event.TypedCreateEvent[client.Object], q workqueue.RateLimitingInterface) {
 	obj := evt.Object
-	logger := log.FromContext(context.TODO())
+	logger := log.FromContext(ctx)
 	err := e.Get(ctx, client.ObjectKeyFromObject(obj), &networkingv1alpha1.CLBPodBinding{})
 	if err != nil {
 		return
@@ -152,7 +152,7 @@ func (e *podEventHandler) Update(ctx context.Context, evt event.TypedUpdateEvent
 	if reflect.DeepEqual(oldObj, newObj) {
 		return
 	}
-	logger := log.FromContext(context.TODO())
+	logger := log.FromContext(ctx)
 	logger.Info("update event", "name", evt.ObjectNew.GetName(), "namespace", evt.ObjectNew.GetNamespace())
 	q.Add(reconcile.Request{
 		NamespacedName: client.ObjectKey{
@@ -169,7 +169,7 @@ func (e *podEventHandler) Delete(ctx context.Context, evt event.TypedDeleteEvent
 	if err != nil {
 		return
 	}
-	logger := log.FromContext(context.TODO())
+	logger := log.FromContext(ctx)
 	logger.Info("delete event", "name", obj.GetName(), "namespace", obj.GetNamespace())
 	q.Add(reconcile.Request{
 		NamespacedName: client.ObjectKey{
@@ -182,6 +182,6 @@ func (e *podEventHandler) Delete(ctx context.Context, evt event.TypedDeleteEvent
 // Generic implements EventHandler.
 func (e *podEventHandler) Generic(ctx context.Context, evt event.TypedGenericEvent[client.Object], q workqueue.RateLimitingInterface) {
 	obj := evt.Object
-	logger := log.FromContext(context.TODO())
+	logger := log.FromContext(ctx)
 	logger.Info("generic event", "name", obj.GetName(), "namespace", obj.GetNamespace())
 }
