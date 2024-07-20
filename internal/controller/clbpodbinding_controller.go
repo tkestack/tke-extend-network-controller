@@ -30,6 +30,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	networkingv1alpha1 "github.com/imroc/tke-extend-network-controller/api/v1alpha1"
+	"github.com/imroc/tke-extend-network-controller/pkg/clb"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
@@ -75,10 +76,8 @@ func (r *CLBPodBindingReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 				return ctrl.Result{}, err
 			}
 		}
-		if clbPodBinding.Status.State != "Success" {
-			if err = r.syncCreate(ctx, clbPodBinding); err != nil {
-				return ctrl.Result{}, nil
-			}
+		if err = r.sync(ctx, clbPodBinding); err != nil {
+			return ctrl.Result{}, nil
 		}
 	} else {
 		if controllerutil.ContainsFinalizer(clbPodBinding, finalizerName) {
@@ -95,20 +94,35 @@ func (r *CLBPodBindingReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 	return ctrl.Result{}, nil
 }
 
-func (r *CLBPodBindingReconciler) syncCreate(ctx context.Context, clbPodBinding *networkingv1alpha1.CLBPodBinding) error {
+// TODO: diff 双向
+
+func (r *CLBPodBindingReconciler) getPodIpByClbPodBinding(ctx context.Context, clbPodBinding *networkingv1alpha1.CLBPodBinding) (ip string, err error) {
+	return
+}
+
+func (r *CLBPodBindingReconciler) sync(ctx context.Context, clbPodBinding *networkingv1alpha1.CLBPodBinding) error {
 	logger := log.FromContext(ctx)
 	logger.Info("sync create CLBPodBinding", "name", clbPodBinding.Name, "namespace", clbPodBinding.Namespace)
-	clbPodBinding.Status.State = "Success"
-	return r.Status().Update(ctx, clbPodBinding)
+	bindings := clbPodBinding.Spec.Bindings
+	podIP, err := r.getPodIpByClbPodBinding(ctx, clbPodBinding)
+	if err != nil {
+		return err
+	}
+	for _, binding := range bindings {
+		contains, err := clb.ContainsRs(ctx, binding.LbRegion, binding.LbId, int64(binding.Port), binding.Protocol, podIP, int64(binding.TargetPort))
+		if err != nil {
+			return err
+		}
+		if contains { // 已绑定
+			return nil
+		}
+	}
+	return nil
 }
 
 func (r *CLBPodBindingReconciler) syncDelete(ctx context.Context, clbPodBinding *networkingv1alpha1.CLBPodBinding) error {
 	logger := log.FromContext(ctx)
 	logger.Info("sync delete CLBPodBinding", "name", clbPodBinding.Name, "namespace", clbPodBinding.Namespace)
-	// bindings := clbPodBinding.Spec.Bindings
-	// for _, binding := range bindings {
-	// lbId := binding.LbId
-	// }
 	return nil
 }
 

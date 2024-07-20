@@ -21,6 +21,9 @@ func Init(secretId, secretKey, region string) {
 var clients = make(map[string]*clb.Client)
 
 func GetClient(region string) *clb.Client {
+	if region == "" {
+		region = defaultRegion
+	}
 	if client, ok := clients[region]; ok {
 		return client
 	}

@@ -22,7 +22,10 @@ import (
 
 type Binding struct {
 	// +kubebuilder:example=lb-xxx
-	LbId       string `json:"lbId"`
+	LbId string `json:"lbId"`
+	// +kubebuilder:example=ap-chengdu
+	// +optional
+	LbRegion   string `json:"lbRegion"`
 	Port       int32  `json:"port"`
 	Protocol   string `json:"protocol"`
 	TargetPort int32  `json:"targetPort"`
