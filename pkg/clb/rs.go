@@ -10,14 +10,14 @@ import (
 	"github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common"
 )
 
-func ContainsRs(ctx context.Context, region, lbId string, port int64, protocol, rsIp string, rsPort int64) (bool, error) {
+func ContainsTarget(ctx context.Context, region, lbId string, port int64, protocol string, target Target) (bool, error) {
 	req := clb.NewDescribeTargetsRequest()
-	req.Protocol = common.StringPtr(protocol)
-	req.Port = common.Int64Ptr(port)
+	req.Protocol = &protocol
+	req.Port = &port
 	req.Filters = []*clb.Filter{
 		{
 			Name:   common.StringPtr("private-ip-address"),
-			Values: []*string{common.StringPtr(rsIp)},
+			Values: []*string{&target.TargetIP},
 		},
 	}
 	client := GetClient(region)
@@ -28,9 +28,9 @@ func ContainsRs(ctx context.Context, region, lbId string, port int64, protocol, 
 	for _, listener := range resp.Response.Listeners {
 		if *listener.Protocol == protocol && *listener.Port == port {
 			for _, rs := range listener.Targets {
-				if *rs.Port == rsPort {
+				if *rs.Port == int64(target.TargetPort) {
 					for _, ip := range rs.PrivateIpAddresses {
-						if *ip == rsIp {
+						if *ip == target.TargetIP {
 							return true, nil
 						}
 					}
@@ -47,7 +47,7 @@ type BatchTarget struct {
 	Target
 }
 
-func BatchDeregisterTargets(ctx context.Context, region, lbId string, targets []BatchTarget) (err error) {
+func BatchDeregisterTargets(ctx context.Context, region, lbId string, targets ...BatchTarget) (err error) {
 	type listenerKey struct {
 		protocol string
 		port     int32
@@ -99,24 +99,50 @@ type Target struct {
 	TargetPort int32
 }
 
-func DeregisterTargets(ctx context.Context, region, lbId string, port int32, protocol string, targets []Target) error {
+func (t Target) String() string {
+	return fmt.Sprintf("%s:%d", t.TargetIP, t.TargetPort)
+}
+
+func DeregisterTargets(ctx context.Context, region, lbId string, port int32, protocol string, targets ...Target) error {
 	id, err := GetListenerId(ctx, region, lbId, port, protocol)
 	if err != nil {
 		return err
 	}
-	var clbTargets []*clb.Target
-	for _, target := range targets {
-		clbTargets = append(clbTargets, &clb.Target{
-			Port:  common.Int64Ptr(int64(target.TargetPort)),
-			EniIp: &target.TargetIP,
-		})
-	}
+	clbTargets := getClbTargets(targets)
 	req := clb.NewDeregisterTargetsRequest()
 	req.LoadBalancerId = &lbId
 	req.ListenerId = &id
 	req.Targets = clbTargets
 	client := GetClient(region)
 	_, err = client.DeregisterTargetsWithContext(ctx, req)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func getClbTargets(targets []Target) (clbTargets []*clb.Target) {
+	for _, target := range targets {
+		clbTargets = append(clbTargets, &clb.Target{
+			Port:  common.Int64Ptr(int64(target.TargetPort)),
+			EniIp: &target.TargetIP,
+		})
+	}
+	return
+}
+
+func RegisterTargets(ctx context.Context, region, lbId string, port int32, protocol string, targets ...Target) error {
+	listenerId, err := GetListenerId(ctx, region, lbId, port, protocol)
+	if err != nil {
+		return err
+	}
+	clbTargets := getClbTargets(targets)
+	req := clb.NewRegisterTargetsRequest()
+	req.LoadBalancerId = &lbId
+	req.ListenerId = &listenerId
+	req.Targets = clbTargets
+	client := GetClient(region)
+	_, err = client.RegisterTargetsWithContext(ctx, req)
 	if err != nil {
 		return err
 	}

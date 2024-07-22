@@ -61,8 +61,8 @@ func (r *CLBPodBindingReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 	logger.Info("reconcile CLBPodBinding start", "namespace", req.Namespace, "name", req.Name)
 	defer logger.Info("reconcile CLBPodBinding end", "namespace", req.Namespace, "name", req.Name)
 
-	clbPodBinding := &networkingv1alpha1.CLBPodBinding{}
-	err := r.Get(ctx, req.NamespacedName, clbPodBinding)
+	b := &networkingv1alpha1.CLBPodBinding{}
+	err := r.Get(ctx, req.NamespacedName, b)
 	if err != nil {
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
@@ -70,32 +70,30 @@ func (r *CLBPodBindingReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 	finalizerName := "clbpodbinding.networking.cloud.tencent.com/finalizer"
 
 	// handle finalizer and deletion
-	if clbPodBinding.DeletionTimestamp.IsZero() {
-		if !controllerutil.ContainsFinalizer(clbPodBinding, finalizerName) {
-			controllerutil.AddFinalizer(clbPodBinding, finalizerName)
-			if err = r.Update(ctx, clbPodBinding); err != nil {
-				return ctrl.Result{}, err
+	if b.DeletionTimestamp.IsZero() { // 没有在删除状态
+		if !controllerutil.ContainsFinalizer(b, finalizerName) { // 如果没有 finalizer 就自动加上
+			controllerutil.AddFinalizer(b, finalizerName)
+			if err = r.Update(ctx, b); err != nil {
+				logger.Error(err, "failed to add finalizer to CLBPodBinding", "name", b.Name, "namespace", b.Namespace)
 			}
 		}
-		if err = r.sync(ctx, clbPodBinding); err != nil {
+		if err = r.sync(ctx, b); err != nil {
 			return ctrl.Result{}, nil
 		}
-	} else {
-		if controllerutil.ContainsFinalizer(clbPodBinding, finalizerName) {
-			err = r.syncDelete(ctx, clbPodBinding)
+	} else { // 正在删除状态
+		if controllerutil.ContainsFinalizer(b, finalizerName) { // 只处理自己关注的 finalizer
+			err = r.syncDelete(ctx, b)
 			if err != nil {
 				return ctrl.Result{}, err
 			}
-			controllerutil.RemoveFinalizer(clbPodBinding, finalizerName)
-			if err = r.Update(ctx, clbPodBinding); err != nil {
-				return ctrl.Result{}, err
+			controllerutil.RemoveFinalizer(b, finalizerName) // 清理rs后清理 finalizer
+			if err = r.Update(ctx, b); err != nil {
+				logger.Error(err, "failed to remove finalizer to CLBPodBinding", "name", b.Name, "namespace", b.Namespace)
 			}
 		}
 	}
 	return ctrl.Result{}, nil
 }
-
-// TODO: diff 双向
 
 func (r *CLBPodBindingReconciler) getPodIpByClbPodBinding(ctx context.Context, b *networkingv1alpha1.CLBPodBinding) (ip string, err error) {
 	pod := &corev1.Pod{}
@@ -116,24 +114,31 @@ func (r *CLBPodBindingReconciler) getPodIpByClbPodBinding(ctx context.Context, b
 
 func (r *CLBPodBindingReconciler) sync(ctx context.Context, b *networkingv1alpha1.CLBPodBinding) error {
 	logger := log.FromContext(ctx)
-	logger.Info("sync create CLBPodBinding", "name", b.Name, "namespace", b.Namespace)
+	logger.Info("sync CLBPodBinding", "name", b.Name, "namespace", b.Namespace)
 	podIP, err := r.getPodIpByClbPodBinding(ctx, b)
 	if err != nil {
 		return err
 	}
-	// clbResource, err := clbresource.GetClbResource(ctx, r.Client, b.Spec.LbId, b.Spec.LbRegion)
-	// if err != nil {
-	// 	return err
-	// }
-	contains, err := clb.ContainsRs(ctx, b.Spec.LbRegion, b.Spec.LbId, int64(b.Spec.LbPort), b.Spec.Protocol, podIP, int64(b.Spec.TargetPort))
+	target := clb.Target{
+		TargetIP:   podIP,
+		TargetPort: b.Spec.TargetPort,
+	}
+	contains, err := clb.ContainsTarget(
+		ctx,
+		b.Spec.LbRegion,
+		b.Spec.LbId,
+		int64(b.Spec.LbPort),
+		b.Spec.Protocol,
+		target,
+	)
 	if err != nil {
 		return err
 	}
 	if contains { // 已绑定
+		logger.Info("target already registered", "lbId", b.Spec.LbId, "lbPort", b.Spec.LbPort, "target", target.String())
 		return nil
 	}
-	// TODO: 绑定rs
-	return nil
+	return clb.RegisterTargets(ctx, b.Spec.LbRegion, b.Spec.LbId, b.Spec.LbPort, b.Spec.Protocol, target)
 }
 
 func (r *CLBPodBindingReconciler) syncDelete(ctx context.Context, b *networkingv1alpha1.CLBPodBinding) error {
@@ -144,12 +149,17 @@ func (r *CLBPodBindingReconciler) syncDelete(ctx context.Context, b *networkingv
 		return err
 	}
 
-	return clb.DeregisterTargets(ctx, b.Spec.LbRegion, b.Spec.LbId, b.Spec.LbPort, b.Spec.Protocol, []clb.Target{
-		{
+	return clb.DeregisterTargets(
+		ctx,
+		b.Spec.LbRegion,
+		b.Spec.LbId,
+		b.Spec.LbPort,
+		b.Spec.Protocol,
+		clb.Target{
 			TargetIP:   podIP,
 			TargetPort: b.Spec.TargetPort,
 		},
-	})
+	)
 }
 
 // SetupWithManager sets up the controller with the Manager.
