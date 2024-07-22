@@ -1,7 +1,7 @@
 ## Append samples of your project ##
 resources:
   - networking_v1alpha1_dedicatedclbservice.yaml
-- networking_v1alpha1_dedicatednatgwservice.yaml
-- networking_v1alpha1_clbpodbinding.yaml
-- networking_v1alpha1_clb.yaml
-# +kubebuilder:scaffold:manifestskustomizesamples
+  - networking_v1alpha1_dedicatednatgwservice.yaml
+  - networking_v1alpha1_clbpodbinding.yaml
+  - networking_v1alpha1_clb.yaml
+  # +kubebuilder:scaffold:manifestskustomizesamples
