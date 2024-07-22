@@ -21,6 +21,7 @@ import (
 	"reflect"
 
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/util/workqueue"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -154,21 +155,32 @@ type podEventHandler struct {
 	client.Client
 }
 
+func (e *podEventHandler) triggerUpdate(ctx context.Context, obj client.Object, q workqueue.RateLimitingInterface) {
+	logger := log.FromContext(ctx)
+	logger.Info("pod update", "name", obj.GetName(), "namespace", obj.GetNamespace())
+	list := &networkingv1alpha1.CLBPodBindingList{}
+	selector := fields.OneTermEqualSelector("spec.podName", obj.GetName())
+	opts := &client.ListOptions{
+		Namespace:     obj.GetNamespace(),
+		FieldSelector: selector,
+	}
+	err := e.List(ctx, list, opts)
+	if err != nil {
+		logger.Error(err, "failed to get CLBPodBinding")
+		return
+	}
+	for _, b := range list.Items {
+		logger.Info("trigger CLBPodBinding update", "name", obj.GetName(), "namespace", obj.GetNamespace())
+		q.Add(reconcile.Request{
+			NamespacedName: client.ObjectKeyFromObject(&b),
+		})
+	}
+}
+
 // Create implements EventHandler.
 func (e *podEventHandler) Create(ctx context.Context, evt event.TypedCreateEvent[client.Object], q workqueue.RateLimitingInterface) {
 	obj := evt.Object
-	logger := log.FromContext(ctx)
-	err := e.Get(ctx, client.ObjectKeyFromObject(obj), &networkingv1alpha1.CLBPodBinding{})
-	if err != nil {
-		return
-	}
-	logger.Info("create event", "name", obj.GetName(), "namespace", obj.GetNamespace())
-	q.Add(reconcile.Request{
-		NamespacedName: client.ObjectKey{
-			Namespace: obj.GetNamespace(),
-			Name:      obj.GetName(),
-		},
-	})
+	e.triggerUpdate(ctx, obj, q)
 }
 
 // Update implements EventHandler.
@@ -182,14 +194,7 @@ func (e *podEventHandler) Update(ctx context.Context, evt event.TypedUpdateEvent
 	if reflect.DeepEqual(oldObj, newObj) {
 		return
 	}
-	logger := log.FromContext(ctx)
-	logger.Info("update event", "name", evt.ObjectNew.GetName(), "namespace", evt.ObjectNew.GetNamespace())
-	q.Add(reconcile.Request{
-		NamespacedName: client.ObjectKey{
-			Namespace: newObj.GetNamespace(),
-			Name:      newObj.GetName(),
-		},
-	})
+	e.triggerUpdate(ctx, newObj, q)
 }
 
 // Delete implements EventHandler.
@@ -201,12 +206,7 @@ func (e *podEventHandler) Delete(ctx context.Context, evt event.TypedDeleteEvent
 	}
 	logger := log.FromContext(ctx)
 	logger.Info("delete event", "name", obj.GetName(), "namespace", obj.GetNamespace())
-	q.Add(reconcile.Request{
-		NamespacedName: client.ObjectKey{
-			Namespace: obj.GetNamespace(),
-			Name:      obj.GetName(),
-		},
-	})
+	e.triggerUpdate(ctx, obj, q)
 }
 
 // Generic implements EventHandler.
@@ -214,4 +214,5 @@ func (e *podEventHandler) Generic(ctx context.Context, evt event.TypedGenericEve
 	obj := evt.Object
 	logger := log.FromContext(ctx)
 	logger.Info("generic event", "name", obj.GetName(), "namespace", obj.GetNamespace())
+	e.triggerUpdate(ctx, obj, q)
 }
