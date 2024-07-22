@@ -67,17 +67,13 @@ apiVersion: networking.cloud.tencent.com/v1apha1
 kind: CLBPodBinding
 metadata:
   namespace: demo
-  name: gameserver-xxx # 与 Pod 同名
+  name: gameserver-xxx
 spec:
-  bindings:
-    - lbId: lb-xxx # 为 Pod 分配的 CLB 实例 ID
-      port: 576 # 自动分配的 CLB 监听器的端口号
-      protocol: TCP # CLB 监听器协议（TCP/UDP）
-      targetPort: 9000 # 容器监听的端口
-    - lbId: lb-xxx
-      port: 577
-      protocol: TCP
-      targetPort: 8000
+  podName: gameserver-yyy
+  lbId: lb-xxx # 为 Pod 分配的 CLB 实例 ID
+  lbPort: 576 # 自动分配的 CLB 监听器的端口号
+  protocol: TCP # CLB 监听器协议（TCP/UDP）
+  targetPort: 9000 # 容器监听的端口
 status:
   state: Success
 ```
