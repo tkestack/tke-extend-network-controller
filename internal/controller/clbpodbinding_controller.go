@@ -77,7 +77,7 @@ func (r *CLBPodBindingReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 			}
 		}
 		if err = r.sync(ctx, b); err != nil {
-			return ctrl.Result{}, nil
+			return ctrl.Result{}, err
 		}
 	} else { // 正在删除状态
 		if controllerutil.ContainsFinalizer(b, finalizerName) { // 只处理自己关注的 finalizer
@@ -137,6 +137,7 @@ func (r *CLBPodBindingReconciler) sync(ctx context.Context, b *networkingv1alpha
 		logger.Info("target already registered", "lbId", b.Spec.LbId, "lbPort", b.Spec.LbPort, "target", target.String())
 		return nil
 	}
+	logger.Info("register target", "lbId", b.Spec.LbId, "lbPort", b.Spec.LbPort, "target", target.String())
 	return clb.RegisterTargets(ctx, b.Spec.LbRegion, b.Spec.LbId, b.Spec.LbPort, b.Spec.Protocol, target)
 }
 
