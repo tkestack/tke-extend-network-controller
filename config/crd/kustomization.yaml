@@ -5,6 +5,7 @@ resources:
   - bases/networking.cloud.tencent.com_dedicatedclbservices.yaml
   - bases/networking.cloud.tencent.com_dedicatednatgwservices.yaml
   - bases/networking.cloud.tencent.com_clbpodbindings.yaml
+- bases/networking.cloud.tencent.com_clbs.yaml
 # +kubebuilder:scaffold:crdkustomizeresource
 
 patches:
@@ -18,6 +19,7 @@ patches:
   #- path: patches/cainjection_in_dedicatedclbservices.yaml
   #- path: patches/cainjection_in_dedicatednatgwservices.yaml
   - path: patches/cainjection_in_clbpodbindings.yaml
+#- path: patches/cainjection_in_clbs.yaml
 # +kubebuilder:scaffold:crdkustomizecainjectionpatch
 
 # [WEBHOOK] To enable webhook, uncomment the following section
