@@ -21,7 +21,6 @@ import (
 	"reflect"
 
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/util/workqueue"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -164,6 +163,14 @@ func (r *CLBPodBindingReconciler) syncDelete(ctx context.Context, b *networkingv
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *CLBPodBindingReconciler) SetupWithManager(mgr ctrl.Manager) error {
+	indexer := mgr.GetFieldIndexer()
+	indexer.IndexField(context.TODO(), &networkingv1alpha1.CLBPodBinding{}, "spec.podName", func(o client.Object) []string {
+		podName := o.(*networkingv1alpha1.CLBPodBinding).Spec.PodName
+		if podName != "" {
+			return []string{podName}
+		}
+		return nil
+	})
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&networkingv1alpha1.CLBPodBinding{}).
 		Watches(&corev1.Pod{}, &podEventHandler{mgr.GetClient()}).
@@ -178,12 +185,9 @@ func (e *podEventHandler) triggerUpdate(ctx context.Context, obj client.Object, 
 	logger := log.FromContext(ctx)
 	logger.Info("pod update", "name", obj.GetName(), "namespace", obj.GetNamespace())
 	list := &networkingv1alpha1.CLBPodBindingList{}
-	selector := fields.OneTermEqualSelector("spec.podName", obj.GetName())
-	opts := &client.ListOptions{
-		Namespace:     obj.GetNamespace(),
-		FieldSelector: selector,
-	}
-	err := e.List(ctx, list, opts)
+	err := e.List(ctx, list, client.MatchingFields{
+		"spec.podName": obj.GetName(),
+	})
 	if err != nil {
 		logger.Error(err, "failed to get CLBPodBinding")
 		return
