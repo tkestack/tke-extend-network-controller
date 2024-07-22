@@ -131,6 +131,7 @@ func (r *CLBPodBindingReconciler) sync(ctx context.Context, b *networkingv1alpha
 		target,
 	)
 	if err != nil {
+		logger.Error(err, "failed to check target if exists", "lbId", b.Spec.LbId, "lbPort", b.Spec.LbPort, "target", target.String())
 		return err
 	}
 	if contains { // 已绑定
