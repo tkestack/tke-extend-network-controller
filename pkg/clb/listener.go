@@ -8,11 +8,11 @@ import (
 	"github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common"
 )
 
-func GetListenerId(ctx context.Context, region, lbId string, port int64, protocol string) (id string, err error) {
+func GetListenerId(ctx context.Context, region, lbId string, port int32, protocol string) (id string, err error) {
 	req := clb.NewDescribeListenersRequest()
-	req.Protocol = common.StringPtr(protocol)
-	req.Port = common.Int64Ptr(port)
-	req.LoadBalancerId = common.StringPtr(lbId)
+	req.Protocol = &protocol
+	req.Port = common.Int64Ptr(int64(port))
+	req.LoadBalancerId = &lbId
 	client := GetClient(region)
 	resp, err := client.DescribeListenersWithContext(ctx, req)
 	if err != nil {

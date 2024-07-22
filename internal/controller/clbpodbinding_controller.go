@@ -136,11 +136,20 @@ func (r *CLBPodBindingReconciler) sync(ctx context.Context, b *networkingv1alpha
 	return nil
 }
 
-func (r *CLBPodBindingReconciler) syncDelete(ctx context.Context, clbPodBinding *networkingv1alpha1.CLBPodBinding) error {
+func (r *CLBPodBindingReconciler) syncDelete(ctx context.Context, b *networkingv1alpha1.CLBPodBinding) error {
 	logger := log.FromContext(ctx)
-	logger.Info("sync delete CLBPodBinding", "name", clbPodBinding.Name, "namespace", clbPodBinding.Namespace)
-	// TODO: 解绑rs
-	return nil
+	logger.Info("sync delete CLBPodBinding", "name", b.Name, "namespace", b.Namespace)
+	podIP, err := r.getPodIpByClbPodBinding(ctx, b)
+	if err != nil {
+		return err
+	}
+
+	return clb.DeregisterTargets(ctx, b.Spec.LbRegion, b.Spec.LbId, b.Spec.LbPort, b.Spec.Protocol, []clb.Target{
+		{
+			TargetIP:   podIP,
+			TargetPort: b.Spec.TargetPort,
+		},
+	})
 }
 
 // SetupWithManager sets up the controller with the Manager.
