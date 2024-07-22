@@ -96,26 +96,36 @@ func (r *CLBPodBindingReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 
 // TODO: diff 双向
 
-func (r *CLBPodBindingReconciler) getPodIpByClbPodBinding(ctx context.Context, clbPodBinding *networkingv1alpha1.CLBPodBinding) (ip string, err error) {
+func (r *CLBPodBindingReconciler) getPodIpByClbPodBinding(ctx context.Context, b *networkingv1alpha1.CLBPodBinding) (ip string, err error) {
+	pod := &corev1.Pod{}
+	err = r.Get(
+		ctx,
+		client.ObjectKey{
+			Namespace: b.Namespace,
+			Name:      b.Spec.PodName,
+		},
+		pod,
+	)
+	if err != nil {
+		return
+	}
+	ip = pod.Status.PodIP
 	return
 }
 
-func (r *CLBPodBindingReconciler) sync(ctx context.Context, clbPodBinding *networkingv1alpha1.CLBPodBinding) error {
+func (r *CLBPodBindingReconciler) sync(ctx context.Context, b *networkingv1alpha1.CLBPodBinding) error {
 	logger := log.FromContext(ctx)
-	logger.Info("sync create CLBPodBinding", "name", clbPodBinding.Name, "namespace", clbPodBinding.Namespace)
-	bindings := clbPodBinding.Spec.Bindings
-	podIP, err := r.getPodIpByClbPodBinding(ctx, clbPodBinding)
+	logger.Info("sync create CLBPodBinding", "name", b.Name, "namespace", b.Namespace)
+	podIP, err := r.getPodIpByClbPodBinding(ctx, b)
 	if err != nil {
 		return err
 	}
-	for _, binding := range bindings {
-		contains, err := clb.ContainsRs(ctx, binding.LbRegion, binding.LbId, int64(binding.Port), binding.Protocol, podIP, int64(binding.TargetPort))
-		if err != nil {
-			return err
-		}
-		if contains { // 已绑定
-			return nil
-		}
+	contains, err := clb.ContainsRs(ctx, "", b.Spec.LbId, int64(b.Spec.LbPort), b.Spec.Protocol, podIP, int64(b.Spec.TargetPort))
+	if err != nil {
+		return err
+	}
+	if contains { // 已绑定
+		return nil
 	}
 	return nil
 }

@@ -17,11 +17,8 @@ limitations under the License.
 package v1alpha1
 
 import (
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
-
+	"github.com/imroc/tke-extend-network-controller/pkg/clb"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/apimachinery/pkg/util/validation/field"
 	ctrl "sigs.k8s.io/controller-runtime"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
@@ -43,42 +40,18 @@ func (r *CLBPodBinding) SetupWebhookWithManager(mgr ctrl.Manager) error {
 // Modifying the path for an invalid path can cause API server errors; failing to locate the webhook.
 // +kubebuilder:webhook:path=/validate-networking-cloud-tencent-com-v1alpha1-clbpodbinding,mutating=false,failurePolicy=fail,sideEffects=None,groups=networking.cloud.tencent.com,resources=clbpodbindings,verbs=create;update,versions=v1alpha1,name=vclbpodbinding.kb.io,admissionReviewVersions=v1
 
-var _ webhook.Validator = &CLBPodBinding{}
+var (
+	_ webhook.Validator = &CLBPodBinding{}
+	_ webhook.Defaulter = &CLBPodBinding{}
+)
 
-func (r *CLBPodBinding) validateCLBBinding(path *field.Path, b *Binding) field.ErrorList {
-	var allErrs field.ErrorList
-	if b.LbId == "" {
-		allErrs = append(allErrs, field.Required(path.Child("lbId"), "lbId is required"))
-	}
-	if b.Port == 0 {
-		allErrs = append(allErrs, field.Required(path.Child("port"), "port is required"))
-	}
-	if b.Protocol == "" {
-		allErrs = append(allErrs, field.Required(path.Child("protocol"), "protocol is required"))
-	}
-	if b.TargetPort == 0 {
-		allErrs = append(allErrs, field.Required(path.Child("targetPort"), "targetPort is required"))
-	}
-	return allErrs
+// Default implements admission.Defaulter.
+func (r *CLBPodBinding) Default() {
+	r.Spec.LbRegion = clb.DefaultRegion()
 }
 
-func (r *CLBPodBinding) validateCLBBindings() (admission.Warnings, error) {
-	var allErrs field.ErrorList
-	bindingsPath := field.NewPath("spec").Child("bindings")
-	for i, b := range r.Spec.Bindings {
-		if errs := r.validateCLBBinding(bindingsPath.Index(i), &b); errs != nil {
-			allErrs = append(allErrs, errs...)
-		}
-	}
-	if len(allErrs) == 0 {
-		return nil, nil
-	}
-	return nil, apierrors.NewInvalid(
-		schema.GroupKind{Group: "networking.cloud.tencent.com", Kind: "CLBPodBinding"},
-		r.Name,
-		allErrs,
-	)
-}
+// func (r *CLBPodBinding) validateCLBBindings() (admission.Warnings, error) {
+// }
 
 // ValidateCreate implements webhook.Validator so a webhook will be registered for the type
 func (r *CLBPodBinding) ValidateCreate() (admission.Warnings, error) {

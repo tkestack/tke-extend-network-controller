@@ -39,29 +39,24 @@ spec:
           spec:
             description: CLBPodBindingSpec defines the desired state of CLBPodBinding
             properties:
-              bindings:
-                items:
-                  properties:
-                    lbId:
-                      example: lb-xxx
-                      type: string
-                    port:
-                      format: int32
-                      type: integer
-                    protocol:
-                      type: string
-                    targetPort:
-                      format: int32
-                      type: integer
-                  required:
-                  - lbId
-                  - port
-                  - protocol
-                  - targetPort
-                  type: object
-                type: array
+              lbId:
+                type: string
+              lbPort:
+                format: int32
+                type: integer
+              podName:
+                type: string
+              protocol:
+                type: string
+              targetPort:
+                format: int32
+                type: integer
             required:
-            - bindings
+            - lbId
+            - lbPort
+            - podName
+            - protocol
+            - targetPort
             type: object
           status:
             description: CLBPodBindingStatus defines the observed state of CLBPodBinding

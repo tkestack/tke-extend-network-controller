@@ -20,23 +20,15 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-type Binding struct {
-	// +kubebuilder:example=lb-xxx
-	LbId string `json:"lbId"`
-	// +kubebuilder:example=ap-chengdu
-	// +optional
-	LbRegion   string `json:"lbRegion"`
-	Port       int32  `json:"port"`
-	Protocol   string `json:"protocol"`
-	TargetPort int32  `json:"targetPort"`
-}
-
 // CLBPodBindingSpec defines the desired state of CLBPodBinding
 type CLBPodBindingSpec struct {
-	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
-	// Important: Run "make" to regenerate code after modifying this file
-
-	Bindings []Binding `json:"bindings"`
+	PodName string `json:"podName"`
+	// +kubebuilder:example=lb-xxx
+	LbId       string `json:"lbId"`
+	LbRegion   string `json:"lbRegion"`
+	LbPort     int32  `json:"lbPort"`
+	Protocol   string `json:"protocol"`
+	TargetPort int32  `json:"targetPort"`
 }
 
 // CLBPodBindingStatus defines the observed state of CLBPodBinding
