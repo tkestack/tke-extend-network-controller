@@ -120,19 +120,25 @@ func (r *CLBPodBindingReconciler) sync(ctx context.Context, b *networkingv1alpha
 	if err != nil {
 		return err
 	}
-	contains, err := clb.ContainsRs(ctx, "", b.Spec.LbId, int64(b.Spec.LbPort), b.Spec.Protocol, podIP, int64(b.Spec.TargetPort))
+	// clbResource, err := clbresource.GetClbResource(ctx, r.Client, b.Spec.LbId, b.Spec.LbRegion)
+	// if err != nil {
+	// 	return err
+	// }
+	contains, err := clb.ContainsRs(ctx, b.Spec.LbRegion, b.Spec.LbId, int64(b.Spec.LbPort), b.Spec.Protocol, podIP, int64(b.Spec.TargetPort))
 	if err != nil {
 		return err
 	}
 	if contains { // 已绑定
 		return nil
 	}
+	// TODO: 绑定rs
 	return nil
 }
 
 func (r *CLBPodBindingReconciler) syncDelete(ctx context.Context, clbPodBinding *networkingv1alpha1.CLBPodBinding) error {
 	logger := log.FromContext(ctx)
 	logger.Info("sync delete CLBPodBinding", "name", clbPodBinding.Name, "namespace", clbPodBinding.Namespace)
+	// TODO: 解绑rs
 	return nil
 }
 
