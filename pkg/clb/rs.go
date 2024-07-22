@@ -12,6 +12,7 @@ import (
 
 func ContainsTarget(ctx context.Context, region, lbId string, port int64, protocol string, target Target) (bool, error) {
 	req := clb.NewDescribeTargetsRequest()
+	req.LoadBalancerId = &lbId
 	req.Protocol = &protocol
 	req.Port = &port
 	req.Filters = []*clb.Filter{
