@@ -19,7 +19,6 @@ package controller
 import (
 	"context"
 	"fmt"
-	"reflect"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 
@@ -243,9 +242,13 @@ type podEventHandler struct {
 func (e *podEventHandler) triggerUpdate(ctx context.Context, obj client.Object, q workqueue.RateLimitingInterface) {
 	logger := log.FromContext(ctx)
 	list := &networkingv1alpha1.CLBPodBindingList{}
-	err := e.List(ctx, list, client.MatchingFields{
-		podNameField: obj.GetName(),
-	})
+	err := e.List(
+		ctx, list,
+		client.MatchingFields{
+			podNameField: obj.GetName(),
+		},
+		client.InNamespace(obj.GetNamespace()),
+	)
 	if err != nil {
 		logger.Error(err, "failed to get CLBPodBinding")
 		return
@@ -266,18 +269,29 @@ func (e *podEventHandler) Create(ctx context.Context, evt event.TypedCreateEvent
 
 // Update implements EventHandler.
 func (e *podEventHandler) Update(ctx context.Context, evt event.TypedUpdateEvent[client.Object], q workqueue.RateLimitingInterface) {
-	newObj := evt.ObjectNew
-	err := e.Get(ctx, client.ObjectKeyFromObject(newObj), &corev1.Pod{})
-	if err != nil {
+	newPod, ok := evt.ObjectNew.(*corev1.Pod)
+	if !ok {
 		return
 	}
-	newObj.SetResourceVersion("")
-	oldObj := evt.ObjectOld
-	oldObj.SetResourceVersion("")
-	if reflect.DeepEqual(oldObj, newObj) {
+	oldPod, ok := evt.ObjectOld.(*corev1.Pod)
+	if !ok {
 		return
 	}
-	e.triggerUpdate(ctx, newObj, q)
+	// 只在删除状态、Pod IP、Ready 状态发生变化时触发更新
+	if !newPod.DeletionTimestamp.Equal(oldPod.DeletionTimestamp) ||
+		newPod.Status.PodIP != oldPod.Status.PodIP ||
+		isPodReady(oldPod) != isPodReady(newPod) {
+		e.triggerUpdate(ctx, newPod, q)
+	}
+}
+
+func isPodReady(pod *corev1.Pod) bool {
+	for _, c := range pod.Status.Conditions {
+		if c.Type == corev1.PodReady && c.Status == corev1.ConditionTrue {
+			return true
+		}
+	}
+	return false
 }
 
 // Delete implements EventHandler.

@@ -53,6 +53,7 @@ spec:
     targetPort: 9000 # 容器监听的端口
   - protocol: UDP
     targetPort: 8000
+  lbRegion: ap-chengdu # 可选，CLB 所在地域，默认为集群所在地域
   extensiveParameters: '{"VipIsp":"CTCC"}' # 如果自动创建CLB，指定购买CLB接口的参数: https://cloud.tencent.com/document/product/214/30692
   existedLbIds: # 如果复用已有的 CLB 实例，指定 CLB 实例 ID 的列表
     - lb-xxx
@@ -71,6 +72,7 @@ metadata:
 spec:
   podName: gameserver-yyy
   lbId: lb-xxx # 为 Pod 分配的 CLB 实例 ID
+  lbRegion: ap-chengdu # CLB 所在地域
   lbPort: 576 # 自动分配的 CLB 监听器的端口号
   protocol: TCP # CLB 监听器协议（TCP/UDP）
   targetPort: 9000 # 容器监听的端口
