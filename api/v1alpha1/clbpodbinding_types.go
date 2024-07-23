@@ -24,7 +24,8 @@ import (
 type CLBPodBindingSpec struct {
 	PodName string `json:"podName"`
 	// +kubebuilder:example=lb-xxx
-	LbId       string `json:"lbId"`
+	LbId string `json:"lbId"`
+	// +optional
 	LbRegion   string `json:"lbRegion"`
 	LbPort     int32  `json:"lbPort"`
 	Protocol   string `json:"protocol"`
