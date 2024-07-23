@@ -77,6 +77,7 @@ func (r *CLBPodBindingReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 	shouldDeregister := false
 	if pod.DeletionTimestamp.IsZero() { // Pod 没有在删除
 		if !controllerutil.ContainsFinalizer(pod, podFinalizerName) { // 如果没有 finalizer 就自动加上
+			logger.Info("try to add pod finalzer", "name", pod.Name, "namespace", pod.Namespace)
 			controllerutil.AddFinalizer(pod, podFinalizerName)
 			if err = r.Patch(ctx, pod, client.MergeFrom(pod)); err != nil {
 				logger.Error(err, "failed to add pod finalizer for CLBPodBinding", "name", pod.Name, "namespace", pod.Namespace)
