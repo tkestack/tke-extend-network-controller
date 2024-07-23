@@ -44,7 +44,7 @@ type CLBPodBindingReconciler struct {
 // +kubebuilder:rbac:groups=networking.cloud.tencent.com,resources=clbpodbindings,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=networking.cloud.tencent.com,resources=clbpodbindings/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups=networking.cloud.tencent.com,resources=clbpodbindings/finalizers,verbs=update
-// +kubebuilder:rbac:groups="",resources=pods,verbs=get;list;watch
+// +kubebuilder:rbac:groups="",resources=pods,verbs=get;list;watch;patch
 // +kubebuilder:rbac:groups="",resources=pods/status,verbs=get
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
@@ -69,7 +69,7 @@ func (r *CLBPodBindingReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 
 	pod, err := r.getPodByClbPodBinding(ctx, b)
 	if err != nil {
-		logger.Error(err, "failed to get pod when reconcile the CLBPodBinding %s", "name", b.Name, "namespace", b.Namespace)
+		logger.Error(err, "failed to get pod when reconcile the CLBPodBinding", "name", b.Name, "namespace", b.Namespace)
 		return ctrl.Result{}, err
 	}
 
