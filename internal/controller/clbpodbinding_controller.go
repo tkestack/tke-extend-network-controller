@@ -21,6 +21,8 @@ import (
 	"fmt"
 	"reflect"
 
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
+
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/util/workqueue"
@@ -38,7 +40,8 @@ import (
 // CLBPodBindingReconciler reconciles a CLBPodBinding object
 type CLBPodBindingReconciler struct {
 	client.Client
-	Scheme *runtime.Scheme
+	Scheme    *runtime.Scheme
+	APIReader client.Reader
 }
 
 // +kubebuilder:rbac:groups=networking.cloud.tencent.com,resources=clbpodbindings,verbs=get;list;watch;create;update;patch;delete
@@ -66,19 +69,29 @@ func (r *CLBPodBindingReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 	if err != nil {
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
+	if b.Spec.PodName == "" {
+		return ctrl.Result{}, nil
+	}
 
 	pod, err := r.getPodByClbPodBinding(ctx, b)
 	if err != nil {
+		if apierrors.IsNotFound(err) {
+			logger.Info("pod not found, remove the podName from CLBPodBinding", "name", b.Name, "namespace", b.Namespace, "podName", b.Spec.PodName)
+			b.Spec.PodName = ""
+			if err := r.Update(ctx, b); err != nil {
+				return ctrl.Result{}, err
+			}
+			return ctrl.Result{}, nil
+		}
 		logger.Error(err, "failed to get pod when reconcile the CLBPodBinding", "name", b.Name, "namespace", b.Namespace)
 		return ctrl.Result{}, err
 	}
 
-	podFinalizerName := "clbpodbinding.networking.cloud.tencent.com/pod-finalizer-" + b.Name
+	podFinalizerName := "finializer.clbpodbinding.networking.cloud.tencent.com/" + b.Name
 	shouldDeregister := false
 	if pod.DeletionTimestamp.IsZero() { // Pod 没有在删除
-		if !controllerutil.ContainsFinalizer(pod, podFinalizerName) && controllerutil.AddFinalizer(pod, podFinalizerName) { // 如果没有 finalizer 就自动加上
-			logger.Info("try to add pod finalzer", "name", pod.Name, "namespace", pod.Namespace, "resourceVersion", pod.ResourceVersion, "pod", *pod)
-			if err = r.Update(ctx, pod); err != nil {
+		if !controllerutil.ContainsFinalizer(pod, podFinalizerName) { // 如果没有 finalizer 就自动加上
+			if err = r.updatePodFinalizer(ctx, pod, podFinalizerName, true); err != nil {
 				logger.Error(err, "failed to add pod finalizer for CLBPodBinding", "name", pod.Name, "namespace", pod.Namespace)
 			}
 		}
@@ -98,10 +111,8 @@ func (r *CLBPodBindingReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 			return ctrl.Result{}, err
 		}
 	} else { // 正在删除状态
-		if controllerutil.ContainsFinalizer(b, finalizerName) { // 只处理自己关注的 finalizer
-			shouldDeregister = true
-			isClbPodBindingDeleting = true
-		}
+		isClbPodBindingDeleting = true
+		shouldDeregister = true
 	}
 
 	if shouldDeregister {
@@ -110,7 +121,7 @@ func (r *CLBPodBindingReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 			return ctrl.Result{}, err
 		}
 		if controllerutil.RemoveFinalizer(pod, podFinalizerName) {
-			if err = r.Patch(ctx, pod, client.MergeFrom(pod)); err != nil {
+			if err = r.updatePodFinalizer(ctx, pod, podFinalizerName, false); err != nil {
 				logger.Error(
 					err, "failed to remove pod finalizer for CLBPodBinding",
 					"Pod", fmt.Sprintf("%s/%s", pod.Namespace, pod.Name),
@@ -118,18 +129,36 @@ func (r *CLBPodBindingReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 				)
 			}
 		}
-		if isClbPodBindingDeleting && controllerutil.RemoveFinalizer(b, finalizerName) {
-			// 清理rs后清理 finalizer
-			if err = r.Update(ctx, b); err != nil {
-				logger.Error(
-					err, "failed to remove finalizer to CLBPodBinding",
-					"name", b.Name,
-					"namespace", b.Namespace,
-				)
-			}
+		b.Spec.PodName = ""
+		if isClbPodBindingDeleting {
+			controllerutil.RemoveFinalizer(b, finalizerName)
+		}
+		if err = r.Update(ctx, b); err != nil {
+			return ctrl.Result{}, err
 		}
 	}
 	return ctrl.Result{}, nil
+}
+
+func (r *CLBPodBindingReconciler) updatePodFinalizer(ctx context.Context, obj client.Object, finalizerName string, add bool) error {
+	pod := &corev1.Pod{}
+	if err := r.APIReader.Get(ctx, client.ObjectKeyFromObject(obj), pod); err != nil {
+		return err
+	}
+	if add { // 添加 finalizer
+		if controllerutil.AddFinalizer(pod, finalizerName) {
+			if err := r.Update(ctx, pod); err != nil {
+				return err
+			}
+		}
+	} else { // 删除 finalizer
+		if controllerutil.RemoveFinalizer(pod, finalizerName) {
+			if err := r.Update(ctx, pod); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
 }
 
 func (r *CLBPodBindingReconciler) getPodByClbPodBinding(ctx context.Context, b *networkingv1alpha1.CLBPodBinding) (pod *corev1.Pod, err error) {
