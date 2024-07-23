@@ -1,8 +1,6 @@
 package clb
 
 import (
-	"fmt"
-
 	clb "github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/clb/v20180317"
 	"github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common"
 	"github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common/profile"
@@ -36,7 +34,6 @@ func GetClient(region string) *clb.Client {
 	if region == "" {
 		region = defaultRegion
 	}
-	fmt.Println("get clb client for region", region)
 	if client, ok := clients[region]; ok {
 		return client
 	}

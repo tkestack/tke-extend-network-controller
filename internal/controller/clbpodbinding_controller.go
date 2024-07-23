@@ -18,6 +18,7 @@ package controller
 
 import (
 	"context"
+	"fmt"
 	"reflect"
 
 	corev1 "k8s.io/api/core/v1"
@@ -66,9 +67,27 @@ func (r *CLBPodBindingReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
 
-	finalizerName := "clbpodbinding.networking.cloud.tencent.com/finalizer"
+	pod, err := r.getPodByClbPodBinding(ctx, b)
+	if err != nil {
+		logger.Error(err, "failed to get pod when reconcile the CLBPodBinding %s", "name", b.Name, "namespace", b.Namespace)
+		return ctrl.Result{}, err
+	}
 
-	// handle finalizer and deletion
+	podFinalizerName := "clbpodbinding.networking.cloud.tencent.com/pod-finalizer-" + b.Name
+	shouldDeregister := false
+	if pod.DeletionTimestamp.IsZero() { // Pod 没有在删除
+		if !controllerutil.ContainsFinalizer(pod, podFinalizerName) { // 如果没有 finalizer 就自动加上
+			controllerutil.AddFinalizer(pod, podFinalizerName)
+			if err = r.Patch(ctx, pod, client.MergeFrom(pod)); err != nil {
+				logger.Error(err, "failed to add pod finalizer for CLBPodBinding", "name", pod.Name, "namespace", pod.Namespace)
+			}
+		}
+	} else { // Pod正在删除
+		shouldDeregister = true
+	}
+
+	isClbPodBindingDeleting := false
+	finalizerName := "clbpodbinding.networking.cloud.tencent.com/finalizer"
 	if b.DeletionTimestamp.IsZero() { // 没有在删除状态
 		if !controllerutil.ContainsFinalizer(b, finalizerName) { // 如果没有 finalizer 就自动加上
 			controllerutil.AddFinalizer(b, finalizerName)
@@ -76,26 +95,46 @@ func (r *CLBPodBindingReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 				logger.Error(err, "failed to add finalizer to CLBPodBinding", "name", b.Name, "namespace", b.Namespace)
 			}
 		}
-		if err = r.sync(ctx, b); err != nil {
+		if err = r.syncRegister(ctx, b, pod); err != nil {
 			return ctrl.Result{}, err
 		}
 	} else { // 正在删除状态
 		if controllerutil.ContainsFinalizer(b, finalizerName) { // 只处理自己关注的 finalizer
-			err = r.syncDelete(ctx, b)
-			if err != nil {
-				return ctrl.Result{}, err
+			shouldDeregister = true
+			isClbPodBindingDeleting = true
+		}
+	}
+
+	if shouldDeregister {
+		if err := r.syncDeregister(ctx, b, pod); err != nil {
+			logger.Error(err, "failed to deregister target", "lbId", b.Spec.LbId, "lbPort", b.Spec.LbPort, "podName", b.Spec.PodName, "port", b.Spec.TargetPort)
+			return ctrl.Result{}, err
+		}
+		if controllerutil.RemoveFinalizer(pod, podFinalizerName) {
+			if err = r.Patch(ctx, pod, client.MergeFrom(pod)); err != nil {
+				logger.Error(
+					err, "failed to remove pod finalizer for CLBPodBinding",
+					"Pod", fmt.Sprintf("%s/%s", pod.Namespace, pod.Name),
+					"CLBPodBinding", fmt.Sprintf("%s/%s", b.Namespace, b.Name),
+				)
 			}
-			controllerutil.RemoveFinalizer(b, finalizerName) // 清理rs后清理 finalizer
+		}
+		if isClbPodBindingDeleting && controllerutil.RemoveFinalizer(b, finalizerName) {
+			// 清理rs后清理 finalizer
 			if err = r.Update(ctx, b); err != nil {
-				logger.Error(err, "failed to remove finalizer to CLBPodBinding", "name", b.Name, "namespace", b.Namespace)
+				logger.Error(
+					err, "failed to remove finalizer to CLBPodBinding",
+					"name", b.Name,
+					"namespace", b.Namespace,
+				)
 			}
 		}
 	}
 	return ctrl.Result{}, nil
 }
 
-func (r *CLBPodBindingReconciler) getPodIpByClbPodBinding(ctx context.Context, b *networkingv1alpha1.CLBPodBinding) (ip string, err error) {
-	pod := &corev1.Pod{}
+func (r *CLBPodBindingReconciler) getPodByClbPodBinding(ctx context.Context, b *networkingv1alpha1.CLBPodBinding) (pod *corev1.Pod, err error) {
+	pod = &corev1.Pod{}
 	err = r.Get(
 		ctx,
 		client.ObjectKey{
@@ -104,22 +143,14 @@ func (r *CLBPodBindingReconciler) getPodIpByClbPodBinding(ctx context.Context, b
 		},
 		pod,
 	)
-	if err != nil {
-		return
-	}
-	ip = pod.Status.PodIP
 	return
 }
 
-func (r *CLBPodBindingReconciler) sync(ctx context.Context, b *networkingv1alpha1.CLBPodBinding) error {
+func (r *CLBPodBindingReconciler) syncRegister(ctx context.Context, b *networkingv1alpha1.CLBPodBinding, pod *corev1.Pod) error {
 	logger := log.FromContext(ctx)
 	logger.Info("sync CLBPodBinding", "name", b.Name, "namespace", b.Namespace)
-	podIP, err := r.getPodIpByClbPodBinding(ctx, b)
-	if err != nil {
-		return err
-	}
 	target := clb.Target{
-		TargetIP:   podIP,
+		TargetIP:   pod.Status.PodIP,
 		TargetPort: b.Spec.TargetPort,
 	}
 	contains, err := clb.ContainsTarget(
@@ -142,13 +173,9 @@ func (r *CLBPodBindingReconciler) sync(ctx context.Context, b *networkingv1alpha
 	return clb.RegisterTargets(ctx, b.Spec.LbRegion, b.Spec.LbId, b.Spec.LbPort, b.Spec.Protocol, target)
 }
 
-func (r *CLBPodBindingReconciler) syncDelete(ctx context.Context, b *networkingv1alpha1.CLBPodBinding) error {
+func (r *CLBPodBindingReconciler) syncDeregister(ctx context.Context, b *networkingv1alpha1.CLBPodBinding, pod *corev1.Pod) error {
 	logger := log.FromContext(ctx)
 	logger.Info("sync delete CLBPodBinding", "name", b.Name, "namespace", b.Namespace)
-	podIP, err := r.getPodIpByClbPodBinding(ctx, b)
-	if err != nil {
-		return err
-	}
 
 	return clb.DeregisterTargets(
 		ctx,
@@ -157,16 +184,18 @@ func (r *CLBPodBindingReconciler) syncDelete(ctx context.Context, b *networkingv
 		b.Spec.LbPort,
 		b.Spec.Protocol,
 		clb.Target{
-			TargetIP:   podIP,
+			TargetIP:   pod.Status.PodIP,
 			TargetPort: b.Spec.TargetPort,
 		},
 	)
 }
 
+const podNameField = "spec.podName"
+
 // SetupWithManager sets up the controller with the Manager.
 func (r *CLBPodBindingReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	indexer := mgr.GetFieldIndexer()
-	indexer.IndexField(context.TODO(), &networkingv1alpha1.CLBPodBinding{}, "spec.podName", func(o client.Object) []string {
+	indexer.IndexField(context.TODO(), &networkingv1alpha1.CLBPodBinding{}, podNameField, func(o client.Object) []string {
 		podName := o.(*networkingv1alpha1.CLBPodBinding).Spec.PodName
 		if podName != "" {
 			return []string{podName}
@@ -188,14 +217,14 @@ func (e *podEventHandler) triggerUpdate(ctx context.Context, obj client.Object, 
 	logger.Info("pod update", "name", obj.GetName(), "namespace", obj.GetNamespace())
 	list := &networkingv1alpha1.CLBPodBindingList{}
 	err := e.List(ctx, list, client.MatchingFields{
-		"spec.podName": obj.GetName(),
+		podNameField: obj.GetName(),
 	})
 	if err != nil {
 		logger.Error(err, "failed to get CLBPodBinding")
 		return
 	}
+
 	for _, b := range list.Items {
-		logger.Info("trigger CLBPodBinding update", "name", obj.GetName(), "namespace", obj.GetNamespace())
 		q.Add(reconcile.Request{
 			NamespacedName: client.ObjectKeyFromObject(&b),
 		})
@@ -211,11 +240,13 @@ func (e *podEventHandler) Create(ctx context.Context, evt event.TypedCreateEvent
 // Update implements EventHandler.
 func (e *podEventHandler) Update(ctx context.Context, evt event.TypedUpdateEvent[client.Object], q workqueue.RateLimitingInterface) {
 	newObj := evt.ObjectNew
-	err := e.Get(ctx, client.ObjectKeyFromObject(newObj), &networkingv1alpha1.CLBPodBinding{})
+	err := e.Get(ctx, client.ObjectKeyFromObject(newObj), &corev1.Pod{})
 	if err != nil {
 		return
 	}
+	newObj.SetResourceVersion("")
 	oldObj := evt.ObjectOld
+	oldObj.SetResourceVersion("")
 	if reflect.DeepEqual(oldObj, newObj) {
 		return
 	}
@@ -225,10 +256,6 @@ func (e *podEventHandler) Update(ctx context.Context, evt event.TypedUpdateEvent
 // Delete implements EventHandler.
 func (e *podEventHandler) Delete(ctx context.Context, evt event.TypedDeleteEvent[client.Object], q workqueue.RateLimitingInterface) {
 	obj := evt.Object
-	err := e.Get(ctx, client.ObjectKeyFromObject(obj), &networkingv1alpha1.CLBPodBinding{})
-	if err != nil {
-		return
-	}
 	logger := log.FromContext(ctx)
 	logger.Info("delete event", "name", obj.GetName(), "namespace", obj.GetNamespace())
 	e.triggerUpdate(ctx, obj, q)
