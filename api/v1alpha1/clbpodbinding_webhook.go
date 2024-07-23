@@ -48,9 +48,6 @@ func (r *CLBPodBinding) Default() {
 	r.Spec.LbRegion = clb.DefaultRegion()
 }
 
-// func (r *CLBPodBinding) validateCLBBindings() (admission.Warnings, error) {
-// }
-
 // ValidateCreate implements webhook.Validator so a webhook will be registered for the type
 func (r *CLBPodBinding) ValidateCreate() (admission.Warnings, error) {
 	clbpodbindinglog.Info("validate create", "name", r.Name)
