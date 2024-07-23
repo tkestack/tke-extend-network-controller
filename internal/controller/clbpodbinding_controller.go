@@ -44,7 +44,7 @@ type CLBPodBindingReconciler struct {
 // +kubebuilder:rbac:groups=networking.cloud.tencent.com,resources=clbpodbindings,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=networking.cloud.tencent.com,resources=clbpodbindings/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups=networking.cloud.tencent.com,resources=clbpodbindings/finalizers,verbs=update
-// +kubebuilder:rbac:groups="",resources=pods,verbs=get;list;watch;patch
+// +kubebuilder:rbac:groups="",resources=pods,verbs=get;list;watch;patch;update
 // +kubebuilder:rbac:groups="",resources=pods/status,verbs=get
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
@@ -76,10 +76,9 @@ func (r *CLBPodBindingReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 	podFinalizerName := "clbpodbinding.networking.cloud.tencent.com/pod-finalizer-" + b.Name
 	shouldDeregister := false
 	if pod.DeletionTimestamp.IsZero() { // Pod 没有在删除
-		if !controllerutil.ContainsFinalizer(pod, podFinalizerName) { // 如果没有 finalizer 就自动加上
-			logger.Info("try to add pod finalzer", "name", pod.Name, "namespace", pod.Namespace)
-			controllerutil.AddFinalizer(pod, podFinalizerName)
-			if err = r.Patch(ctx, pod, client.MergeFrom(pod)); err != nil {
+		if !controllerutil.ContainsFinalizer(pod, podFinalizerName) && controllerutil.AddFinalizer(pod, podFinalizerName) { // 如果没有 finalizer 就自动加上
+			logger.Info("try to add pod finalzer", "name", pod.Name, "namespace", pod.Namespace, "resourceVersion", pod.ResourceVersion, "pod", *pod)
+			if err = r.Update(ctx, pod); err != nil {
 				logger.Error(err, "failed to add pod finalizer for CLBPodBinding", "name", pod.Name, "namespace", pod.Namespace)
 			}
 		}
@@ -90,8 +89,7 @@ func (r *CLBPodBindingReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 	isClbPodBindingDeleting := false
 	finalizerName := "clbpodbinding.networking.cloud.tencent.com/finalizer"
 	if b.DeletionTimestamp.IsZero() { // 没有在删除状态
-		if !controllerutil.ContainsFinalizer(b, finalizerName) { // 如果没有 finalizer 就自动加上
-			controllerutil.AddFinalizer(b, finalizerName)
+		if !controllerutil.ContainsFinalizer(b, finalizerName) && controllerutil.AddFinalizer(b, finalizerName) { // 如果没有 finalizer 就自动加上
 			if err = r.Update(ctx, b); err != nil {
 				logger.Error(err, "failed to add finalizer to CLBPodBinding", "name", b.Name, "namespace", b.Namespace)
 			}
@@ -215,7 +213,6 @@ type podEventHandler struct {
 
 func (e *podEventHandler) triggerUpdate(ctx context.Context, obj client.Object, q workqueue.RateLimitingInterface) {
 	logger := log.FromContext(ctx)
-	logger.Info("pod update", "name", obj.GetName(), "namespace", obj.GetNamespace())
 	list := &networkingv1alpha1.CLBPodBindingList{}
 	err := e.List(ctx, list, client.MatchingFields{
 		podNameField: obj.GetName(),
