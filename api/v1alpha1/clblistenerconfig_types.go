@@ -25,11 +25,103 @@ import (
 
 // CLBListenerConfigSpec defines the desired state of CLBListenerConfig
 type CLBListenerConfigSpec struct {
-	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
-	// Important: Run "make" to regenerate code after modifying this file
+	// clb listener protocol, TCP | UDP | HTTP | HTTPS | TCP_SSL | QUIC
+	Protocol string `json:"protocol"`
+	// +optional
+	Healthcheck *CLBHealthcheck `json:"healthcheck,omitempty"`
+	// +optional
+	Certificate *Certificate `json:"certificate,omitempty"`
+	// +optional
+	SessionExpireTime int32 `json:"sessionExpireTime,omitempty"`
+	// +optional
+	Scheduler string `json:"scheduler,omitempty"`
+	// +optional
+	SniSwitch int32 `json:"sniSwitch,omitempty"`
+	// +optional
+	TargetType string `json:"targetType,omitempty"`
+	// +optional
+	SessionType string `json:"sessionType,omitempty"`
+	// +optional
+	KeepaliveEnable int32 `json:"keepaliveEnable,omitempty"`
+	// +optional
+	EndPort int32 `json:"endPort,omitempty"`
+	// +optional
+	DeregisterTargetRst bool `json:"deregisterTargetRst,omitempty"`
+	// +optional
+	MultiCertInfo *MultiCertInfo `json:"multiCertInfo,omitempty"`
+	// +optional
+	MaxConn int32 `json:"maxConn,omitempty"`
+	// +optional
+	MaxCps int32 `json:"maxCps,omitempty"`
+	// +optional
+	IdleConnectTimeout int32 `json:"idleConnectTimeout,omitempty"`
+	// +optional
+	SnatEnable bool `json:"snatEnable,omitempty"`
+}
 
-	// Foo is an example field of CLBListenerConfig. Edit clblistenerconfig_types.go to remove/update
-	Foo string `json:"foo,omitempty"`
+type CLBHealthcheck struct {
+	// whether to enable the health check, 1(enable), 0(disable)
+	// +optional
+	HealthSwitch int32 `json:"healthSwitch,omitempty"`
+	// health check timeout, unit: second, range 2~60, default 2
+	// +optional
+	TimeOut int32 `json:"timeOut,omitempty"`
+	// health check interval, unit: second
+	// +optional
+	IntervalTime int32 `json:"intervalTime,omitempty"`
+	// health check threshold, range 2~10, default 3
+	// +optional
+	HealthNum int32 `json:"healthNum,omitempty"`
+	// unhealthy threshold, range 2~10, default 3
+	// +optional
+	UnHealthNum int32 `json:"unHealthNum,omitempty"`
+	// health check http code, range 1~31, default 31
+	// +optional
+	HttpCode int32 `json:"httpCode,omitempty"`
+	// health check http path
+	// +optional
+	HttpCheckPath string `json:"httpCheckPath,omitempty"`
+	// http check domain
+	// +optional
+	HttpCheckDomain string `json:"httpCheckDomain,omitempty"`
+	// http check method
+	// +optional
+	HttpCheckMethod string `json:"httpCheckMethod,omitempty"`
+	// customized check port
+	// +optional
+	CheckPort int32 `json:"checkPort,omitempty"`
+	// +optional
+	ContextType string `json:"contextType,omitempty"`
+	// +optional
+	SendContext string `json:"sendContext,omitempty"`
+	// +optional
+	RecvContext string `json:"recvContext,omitempty"`
+	// +optional
+	CheckType string `json:"checkType,omitempty"`
+	// +optional
+	HttpVersion string `json:"httpVersion,omitempty"`
+	// +optional
+	SourceIpType int32 `json:"sourceIpType,omitempty"`
+	// +optional
+	ExtendedCode int32 `json:"extendedCode,omitempty"`
+}
+
+type Certificate struct {
+	// +optional
+	SslMode string `json:"sslMode,omitempty"`
+	// +optional
+	CertId string `json:"certId,omitempty"`
+	// +optional
+	CertCaId string `json:"certCaId,omitempty"`
+}
+
+type MultiCertInfo struct {
+	SslMode  string     `json:"sslMode,omitempty"`
+	CertList []CertInfo `json:"certList,omitempty"`
+}
+
+type CertInfo struct {
+	CertId string `json:"certId,omitempty"`
 }
 
 // CLBListenerConfigStatus defines the observed state of CLBListenerConfig
