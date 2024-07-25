@@ -93,8 +93,10 @@ func (r *CLBListenerReconciler) syncDelete(ctx context.Context, lis *networkingv
 }
 
 func (r *CLBListenerReconciler) syncAdd(ctx context.Context, log logr.Logger, lis *networkingv1alpha1.CLBListener) error {
+	log.Info("syncAdd")
 	id, err := getListenerId(ctx, lis)
 	if err != nil {
+		log.Error(err, "faild to get listener id")
 		return err
 	}
 	if id != "" { // 监听器已创建
@@ -118,8 +120,10 @@ func (r *CLBListenerReconciler) syncAdd(ctx context.Context, log logr.Logger, li
 			}
 		}
 	}
+	log.Info("try to create listener", "lb", lis.Spec.LbId, "port", lis.Spec.LbPort, "protocol", lis.Spec.Protocol)
 	id, err = clb.CreateListener(ctx, lis.Spec.LbRegion, lis.Spec.LbId, config.Spec.CreateListenerRequest(lis.Spec.LbPort, lis.Spec.Protocol))
 	if err != nil {
+		log.Error(err, "failed to create listener")
 		return err
 	}
 	lis.Status.ListenerId = id
