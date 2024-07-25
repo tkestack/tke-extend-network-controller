@@ -48,10 +48,12 @@ spec:
                 type: string
               listenerConfig:
                 type: string
+              protocol:
+                type: string
             required:
             - lbId
             - lbPort
-            - listenerConfig
+            - protocol
             type: object
           status:
             description: CLBListenerStatus defines the observed state of CLBListener
