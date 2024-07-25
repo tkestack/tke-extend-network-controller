@@ -100,7 +100,7 @@ func (r *CLBListenerReconciler) syncAdd(ctx context.Context, log logr.Logger, li
 	if id != "" { // 监听器已创建
 		if id != lis.Status.ListenerId { // 更新监听器ID
 			lis.Status.ListenerId = id
-			if err := r.Update(ctx, lis); err != nil {
+			if err := r.Status().Update(ctx, lis); err != nil {
 				return err
 			}
 		}
@@ -123,7 +123,7 @@ func (r *CLBListenerReconciler) syncAdd(ctx context.Context, log logr.Logger, li
 		return err
 	}
 	lis.Status.ListenerId = id
-	return r.Update(ctx, lis)
+	return r.Status().Update(ctx, lis)
 }
 
 func getListenerId(ctx context.Context, lis *networkingv1alpha1.CLBListener) (string, error) {
