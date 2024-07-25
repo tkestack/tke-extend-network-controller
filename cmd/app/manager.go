@@ -76,6 +76,13 @@ func runManager() {
 		setupLog.Error(err, "unable to create controller", "controller", "CLBPodBindingReconciler")
 		os.Exit(1)
 	}
+	if err = (&controller.CLBListenerReconciler{
+		Client: mgr.GetClient(),
+		Scheme: mgr.GetScheme(),
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "CLBListenerReconciler")
+		os.Exit(1)
+	}
 	// +kubebuilder:scaffold:builder
 
 	if err = (&networkingv1alpha1.CLBPodBinding{}).SetupWebhookWithManager(mgr); err != nil {

@@ -2,6 +2,7 @@ package clb
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	clb "github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/clb/v20180317"
@@ -30,9 +31,30 @@ func GetListenerId(ctx context.Context, region, lbId string, port int32, protoco
 	return
 }
 
-func CreateListener(ctx context.Context, region, lbId string, req *clb.CreateListenerRequest) error {
+func CreateListener(ctx context.Context, region, lbId string, req *clb.CreateListenerRequest) (id string, err error) {
 	req.LoadBalancerId = &lbId
 	client := GetClient(region)
-	_, err := client.CreateListenerWithContext(ctx, req)
+	resp, err := client.CreateListenerWithContext(ctx, req)
+	if err != nil {
+		return
+	}
+	if len(resp.Response.ListenerIds) == 0 {
+		err = errors.New("no listener created")
+		return
+	}
+	if len(resp.Response.ListenerIds) > 1 {
+		err = fmt.Errorf("found %d listeners created", len(resp.Response.ListenerIds))
+		return
+	}
+	id = *resp.Response.ListenerIds[0]
+	return
+}
+
+func DeleteListener(ctx context.Context, region, lbId, listenerId string) error {
+	req := clb.NewDeleteListenerRequest()
+	req.LoadBalancerId = &lbId
+	req.ListenerId = &listenerId
+	client := GetClient(region)
+	_, err := client.DeleteListenerWithContext(ctx, req)
 	return err
 }
