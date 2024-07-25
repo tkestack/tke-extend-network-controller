@@ -29,3 +29,10 @@ func GetListenerId(ctx context.Context, region, lbId string, port int32, protoco
 	id = *listener.ListenerId
 	return
 }
+
+func CreateListener(ctx context.Context, region, lbId string, req *clb.CreateListenerRequest) error {
+	req.LoadBalancerId = &lbId
+	client := GetClient(region)
+	_, err := client.CreateListenerWithContext(ctx, req)
+	return err
+}

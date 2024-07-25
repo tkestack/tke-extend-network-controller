@@ -6,7 +6,8 @@ metadata:
     app.kubernetes.io/managed-by: kustomize
   name: clblistener-sample
 spec:
-  lbId: lb-xxx
-  lbRegion: ap-chengdu
-  lbPort: 8088
-  listenerConfig: clblistenerconfig-sample
+  lbId: lb-xxx # 必选，clb的id
+  lbRegion: ap-chengdu # 可选，clb所在地域，默认为集群所在地域
+  lbPort: 8088 # 必选，监听器端口
+  protocol: TCP # 必选，监听器协议。TCP | UDP | HTTP | HTTPS | TCP_SSL | QUIC
+  listenerConfig: clblistenerconfig-sample # 可选，创建监听器的配置

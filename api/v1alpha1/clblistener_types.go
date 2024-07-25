@@ -27,9 +27,11 @@ import (
 type CLBListenerSpec struct {
 	LbId string `json:"lbId"`
 	// +optional
-	LbRegion       string `json:"lbRegion,omitempty"`
-	LbPort         int32  `json:"lbPort"`
-	ListenerConfig string `json:"listenerConfig"`
+	LbRegion string `json:"lbRegion,omitempty"`
+	LbPort   int32  `json:"lbPort"`
+	Protocol string `json:"protocol"`
+	// +optional
+	ListenerConfig string `json:"listenerConfig,omitempty"`
 }
 
 // CLBListenerStatus defines the observed state of CLBListener

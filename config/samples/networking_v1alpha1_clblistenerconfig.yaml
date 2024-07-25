@@ -6,7 +6,6 @@ metadata:
     app.kubernetes.io/managed-by: kustomize
   name: clblistenerconfig-sample
 spec:
-  protocol: TCP # 必选，监听器协议。TCP | UDP | HTTP | HTTPS | TCP_SSL | QUIC
   healthcheck: # 可选，健康检查配置。 CLB API 文档: https://cloud.tencent.com/document/api/214/30694#HealthCheck
     healthSwitch: 0 # 可选，是否开启健康检查：1（开启）、0（关闭）。
     timeOut: 2 # 可选，健康检查的响应超时时间，可选值：2~60，默认值：2，单位：秒。响应超时时间要小于检查间隔时间。
