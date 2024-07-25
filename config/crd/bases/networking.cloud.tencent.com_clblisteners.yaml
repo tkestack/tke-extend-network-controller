@@ -39,10 +39,19 @@ spec:
           spec:
             description: CLBListenerSpec defines the desired state of CLBListener
             properties:
-              foo:
-                description: Foo is an example field of CLBListener. Edit clblistener_types.go
-                  to remove/update
+              lbId:
                 type: string
+              lbPort:
+                format: int32
+                type: integer
+              lbRegion:
+                type: string
+              listenerConfig:
+                type: string
+            required:
+            - lbId
+            - lbPort
+            - listenerConfig
             type: object
           status:
             description: CLBListenerStatus defines the observed state of CLBListener
