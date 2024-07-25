@@ -107,17 +107,15 @@ func (r *CLBListenerReconciler) syncAdd(ctx context.Context, log logr.Logger, li
 		return nil
 	}
 	// 创建监听器
-	configName := lis.Spec.ListenerConfig
-	if configName == "" {
-		log.Info("ignore empty listenerConfig")
-		return nil
-	}
 	config := &networkingv1alpha1.CLBListenerConfig{}
-	if err := r.Get(ctx, client.ObjectKey{Name: configName}, config); err != nil {
-		if apierrors.IsNotFound(err) {
-			config = nil
-		} else {
-			return err
+	configName := lis.Spec.ListenerConfig
+	if configName != "" {
+		if err := r.Get(ctx, client.ObjectKey{Name: configName}, config); err != nil {
+			if apierrors.IsNotFound(err) {
+				config = nil
+			} else {
+				return err
+			}
 		}
 	}
 	id, err = clb.CreateListener(ctx, lis.Spec.LbRegion, lis.Spec.LbId, config.Spec.CreateListenerRequest(lis.Spec.LbPort, lis.Spec.Protocol))
