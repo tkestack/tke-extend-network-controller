@@ -1,9 +1,17 @@
-apiVersion: networking.cloud.tencent.com/v1alpha1
+apiVersion: networking.cloud.tencent.com/v1apha1
 kind: CLBPodBinding
 metadata:
+  namespace: demo
+  name: clbpodbinding-sample-xxx
   labels:
     app.kubernetes.io/name: tke-extend-network-controller
     app.kubernetes.io/managed-by: kustomize
-  name: clbpodbinding-sample
 spec:
-  # TODO(user): Add fields here
+  podName: gameserver-yyy
+  lbId: lb-xxx # 为 Pod 分配的 CLB 实例 ID
+  lbRegion: ap-chengdu # CLB 所在地域
+  lbPort: 576 # 自动分配的 CLB 监听器的端口号
+  protocol: TCP # CLB 监听器协议（TCP/UDP）
+  targetPort: 9000 # 容器监听的端口
+status:
+  state: Success

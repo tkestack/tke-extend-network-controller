@@ -1,0 +1,12 @@
+apiVersion: networking.cloud.tencent.com/v1alpha1
+kind: CLBListener
+metadata:
+  labels:
+    app.kubernetes.io/name: tke-extend-network-controller
+    app.kubernetes.io/managed-by: kustomize
+  name: clblistener-sample
+spec:
+  lbId: lb-xxx
+  lbRegion: ap-chengdu
+  port: 8088
+  listenerConfig: clblistenerconfig-sample

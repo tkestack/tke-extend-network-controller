@@ -1,0 +1,23 @@
+# permissions for end users to view clblisteners.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  labels:
+    app.kubernetes.io/name: tke-extend-network-controller
+    app.kubernetes.io/managed-by: kustomize
+  name: clblistener-viewer-role
+rules:
+- apiGroups:
+  - networking.cloud.tencent.com
+  resources:
+  - clblisteners
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - networking.cloud.tencent.com
+  resources:
+  - clblisteners/status
+  verbs:
+  - get
