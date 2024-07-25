@@ -57,6 +57,9 @@ spec:
             type: object
           status:
             description: CLBListenerStatus defines the observed state of CLBListener
+            properties:
+              listenerId:
+                type: string
             type: object
         type: object
     served: true
