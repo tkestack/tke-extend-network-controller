@@ -25,11 +25,11 @@ import (
 
 // CLBListenerSpec defines the desired state of CLBListener
 type CLBListenerSpec struct {
-	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
-	// Important: Run "make" to regenerate code after modifying this file
-
-	// Foo is an example field of CLBListener. Edit clblistener_types.go to remove/update
-	Foo string `json:"foo,omitempty"`
+	LbId string `json:"lbId"`
+	// +optional
+	LbRegion       string `json:"lbRegion,omitempty"`
+	LbPort         int32  `json:"lbPort"`
+	ListenerConfig string `json:"listenerConfig"`
 }
 
 // CLBListenerStatus defines the observed state of CLBListener

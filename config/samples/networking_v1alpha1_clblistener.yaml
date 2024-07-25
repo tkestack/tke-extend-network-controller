@@ -8,5 +8,5 @@ metadata:
 spec:
   lbId: lb-xxx
   lbRegion: ap-chengdu
-  port: 8088
+  lbPort: 8088
   listenerConfig: clblistenerconfig-sample
