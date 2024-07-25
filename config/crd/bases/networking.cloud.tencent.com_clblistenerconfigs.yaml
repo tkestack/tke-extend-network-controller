@@ -51,28 +51,27 @@ spec:
                 deregisterTargetRst:
                   type: boolean
                 endPort:
-                  format: int32
+                  format: int64
                   type: integer
                 healthcheck:
                   properties:
                     checkPort:
                       description: customized check port
-                      format: int32
+                      format: int64
                       type: integer
                     checkType:
                       type: string
                     contextType:
                       type: string
                     extendedCode:
-                      format: int32
-                      type: integer
+                      type: string
                     healthNum:
                       description: health check threshold, range 2~10, default 3
-                      format: int32
+                      format: int64
                       type: integer
                     healthSwitch:
                       description: whether to enable the health check, 1(enable), 0(disable)
-                      format: int32
+                      format: int64
                       type: integer
                     httpCheckDomain:
                       description: http check domain
@@ -85,43 +84,43 @@ spec:
                       type: string
                     httpCode:
                       description: health check http code, range 1~31, default 31
-                      format: int32
+                      format: int64
                       type: integer
                     httpVersion:
                       type: string
                     intervalTime:
                       description: "health check interval, unit: second"
-                      format: int32
+                      format: int64
                       type: integer
                     recvContext:
                       type: string
                     sendContext:
                       type: string
                     sourceIpType:
-                      format: int32
+                      format: int64
                       type: integer
                     timeOut:
                       description:
                         "health check timeout, unit: second, range 2~60,
                         default 2"
-                      format: int32
+                      format: int64
                       type: integer
                     unHealthNum:
                       description: unhealthy threshold, range 2~10, default 3
-                      format: int32
+                      format: int64
                       type: integer
                   type: object
                 idleConnectTimeout:
-                  format: int32
+                  format: int64
                   type: integer
                 keepaliveEnable:
-                  format: int32
+                  format: int64
                   type: integer
                 maxConn:
-                  format: int32
+                  format: int64
                   type: integer
                 maxCps:
-                  format: int32
+                  format: int64
                   type: integer
                 multiCertInfo:
                   properties:
@@ -135,27 +134,20 @@ spec:
                     sslMode:
                       type: string
                   type: object
-                protocol:
-                  description:
-                    clb listener protocol, TCP | UDP | HTTP | HTTPS | TCP_SSL
-                    | QUIC
-                  type: string
                 scheduler:
                   type: string
                 sessionExpireTime:
-                  format: int32
+                  format: int64
                   type: integer
                 sessionType:
                   type: string
                 snatEnable:
                   type: boolean
                 sniSwitch:
-                  format: int32
+                  format: int64
                   type: integer
                 targetType:
                   type: string
-              required:
-                - protocol
               type: object
             status:
               description: CLBListenerConfigStatus defines the observed state of CLBListenerConfig
