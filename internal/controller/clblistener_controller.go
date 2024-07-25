@@ -54,7 +54,7 @@ func (r *CLBListenerReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 	log := log.FromContext(ctx)
 	lis := &networkingv1alpha1.CLBListener{}
 	if err := r.Get(ctx, req.NamespacedName, lis); err != nil {
-		return ctrl.Result{}, err
+		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
 	finalizerName := "clblistener.networking.cloud.tencent.com/finalizer"
 	// TODO: 一次reconcile可能多次update，合并成一次
