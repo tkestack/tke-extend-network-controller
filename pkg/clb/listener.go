@@ -6,6 +6,7 @@ import (
 	"fmt"
 
 	clb "github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/clb/v20180317"
+	"github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common"
 )
 
 func GetListenerId(ctx context.Context, region, lbId string, port int64, protocol string) (id string, err error) {
@@ -31,6 +32,7 @@ func GetListenerId(ctx context.Context, region, lbId string, port int64, protoco
 }
 
 func CreateListener(ctx context.Context, region string, req *clb.CreateListenerRequest) (id string, err error) {
+	req.ListenerNames = []*string{common.StringPtr("TKE-DEDICATED-LISTENER")}
 	client := GetClient(region)
 	resp, err := client.CreateListenerWithContext(ctx, req)
 	if err != nil {

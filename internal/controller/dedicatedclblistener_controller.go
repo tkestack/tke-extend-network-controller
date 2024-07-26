@@ -153,23 +153,31 @@ func (r *DedicatedCLBListenerReconciler) ensureDedicatedTarget(ctx context.Conte
 
 func (r *DedicatedCLBListenerReconciler) ensureListener(ctx context.Context, log logr.Logger, lis *networkingv1alpha1.DedicatedCLBListener) error {
 	state := lis.Status.State
-	if !(state == "" || state == networkingv1alpha1.DedicatedCLBListenerStatePending) {
+	if state == networkingv1alpha1.DedicatedCLBListenerStateAvailable || state == networkingv1alpha1.DedicatedCLBListenerStateOccupied {
 		id, err := clb.GetListenerId(ctx, lis.Spec.LbRegion, lis.Spec.LbId, lis.Spec.LbPort, lis.Spec.Protocol)
 		if err != nil {
 			return err
 		}
+		log.Info("find listener", "region", lis.Spec.LbRegion, "lbId", lis.Spec.LbId, "port", lis.Spec.LbPort, "protocol", lis.Spec.Protocol, "id", id, "statusID", lis.Status.ListenerId)
 		if id != "" {
-			if id == lis.Status.ListenerId { // 监听器ID变化，需要重新创建
-				lis.Status.State = networkingv1alpha1.DedicatedCLBListenerStatePending
-				if err := r.Status().Update(ctx, lis); err != nil {
-					return err
-				}
+			log.Info("found listener exsits", "port", lis.Spec.LbPort, "id", id)
+			if id != lis.Status.ListenerId { // 监听器ID变化，需要重新创建
+				log.Info("listener id changed, try to recreate")
+				log.Info("delete old listener", "id", id)
 				if err := clb.DeleteListener(ctx, lis.Spec.LbRegion, lis.Spec.LbId, id); err != nil {
 					return err
 				}
+				lis.Status.State = networkingv1alpha1.DedicatedCLBListenerStatePending
+				lis.Status.ListenerId = ""
+				if err := r.Status().Update(ctx, lis); err != nil {
+					return err
+				}
 			} else { // 监听器ID符合预期，不需要重新创建，直接返回
+				log.Info("listener id is expected, no need to recreate")
 				return nil
 			}
+		} else {
+			log.Info("listener not found, try to create")
 		}
 	}
 	config := &networkingv1alpha1.CLBListenerConfig{}
@@ -190,7 +198,7 @@ func (r *DedicatedCLBListenerReconciler) ensureListener(ctx context.Context, log
 	if err != nil {
 		return err
 	}
-	log.Info("listener successfully created")
+	log.Info("listener successfully created", "id", id)
 	lis.Status.State = networkingv1alpha1.DedicatedCLBListenerStateAvailable
 	lis.Status.ListenerId = id
 	return r.Status().Update(ctx, lis)
