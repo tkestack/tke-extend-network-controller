@@ -19,6 +19,7 @@ package controller
 import (
 	"context"
 	"errors"
+	"fmt"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -156,6 +157,7 @@ func (r *DedicatedCLBListenerReconciler) ensureDedicatedTarget(ctx context.Conte
 func (r *DedicatedCLBListenerReconciler) ensureListener(ctx context.Context, log logr.Logger, lis *networkingv1alpha1.DedicatedCLBListener) error {
 	switch lis.Status.State {
 	case networkingv1alpha1.DedicatedCLBListenerStatePending:
+		log.Info("listener is pending, try to create")
 		return r.createListener(ctx, log, lis)
 	case networkingv1alpha1.DedicatedCLBListenerStateAvailable, networkingv1alpha1.DedicatedCLBListenerStateOccupied:
 		listenerId := lis.Status.ListenerId
@@ -164,6 +166,7 @@ func (r *DedicatedCLBListenerReconciler) ensureListener(ctx context.Context, log
 			if err := r.Status().Update(ctx, lis); err != nil {
 				return err
 			}
+			log.Info("listener id not found, try to recreate")
 			return r.createListener(ctx, log, lis)
 		}
 		listener, err := clb.GetListener(ctx, lis.Spec.LbRegion, lis.Spec.LbId, listenerId)
@@ -171,10 +174,11 @@ func (r *DedicatedCLBListenerReconciler) ensureListener(ctx context.Context, log
 			return err
 		}
 		if listener == nil { // 监听器不存在，重建监听器
+			log.Info("listener not found, try to recreate", "listenerId", listenerId)
 			return r.createListener(ctx, log, lis)
 		}
 		if listener.Port != lis.Spec.LbPort || listener.Protocol != lis.Spec.Protocol { // 监听器端口和协议不符预期，清理重建
-			log.Info("unexpected listener, try to recreate")
+			log.Info("unexpected listener, invalid port or protocol, try to recreate", "want", fmt.Sprintf("%d/%s", lis.Spec.LbPort, lis.Spec.Protocol), "got", fmt.Sprintf("%d/%s", listener.Port, listener.Protocol))
 			lis.Status.State = networkingv1alpha1.DedicatedCLBListenerStatePending
 			lis.Status.ListenerId = ""
 			if err := r.Status().Update(ctx, lis); err != nil {
