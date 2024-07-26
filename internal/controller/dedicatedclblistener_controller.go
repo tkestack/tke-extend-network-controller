@@ -27,6 +27,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/log"
+	"sigs.k8s.io/controller-runtime/pkg/predicate"
 
 	"github.com/go-logr/logr"
 	networkingv1alpha1 "github.com/imroc/tke-extend-network-controller/api/v1alpha1"
@@ -103,7 +104,7 @@ func (r *DedicatedCLBListenerReconciler) syncDelete(ctx context.Context, log log
 	// 	return err
 	// }
 	if lis.Status.ListenerId != "" {
-		log.Info("delete listener", "listenerId", lis.Status.ListenerId)
+		log.V(5).Info("delete listener", "listenerId", lis.Status.ListenerId)
 		return clb.DeleteListener(ctx, lis.Spec.LbRegion, lis.Spec.LbId, lis.Status.ListenerId)
 	}
 	return nil
@@ -157,7 +158,7 @@ func (r *DedicatedCLBListenerReconciler) ensureDedicatedTarget(ctx context.Conte
 func (r *DedicatedCLBListenerReconciler) ensureListener(ctx context.Context, log logr.Logger, lis *networkingv1alpha1.DedicatedCLBListener) error {
 	switch lis.Status.State {
 	case networkingv1alpha1.DedicatedCLBListenerStatePending:
-		log.Info("listener is pending, try to create")
+		log.V(5).Info("listener is pending, try to create")
 		return r.createListener(ctx, log, lis)
 	case networkingv1alpha1.DedicatedCLBListenerStateAvailable, networkingv1alpha1.DedicatedCLBListenerStateOccupied:
 		listenerId := lis.Status.ListenerId
@@ -211,12 +212,13 @@ func (r *DedicatedCLBListenerReconciler) createListener(ctx context.Context, log
 		}
 	}
 	// 创建监听器 TODO: 如果端口冲突，考虑强制删除重建监听器
-	log.Info("try to create listener")
+	log.V(5).Info("try to create listener")
 	id, err := clb.CreateListener(ctx, lis.Spec.LbRegion, config.Spec.CreateListenerRequest(lis.Spec.LbId, lis.Spec.LbPort, lis.Spec.Protocol))
 	if err != nil {
 		return err
 	}
-	log.Info("listener successfully created", "id", id)
+
+	log.V(5).Info("listener successfully created", "id", id)
 	lis.Status.State = networkingv1alpha1.DedicatedCLBListenerStateAvailable
 	lis.Status.ListenerId = id
 	return r.Status().Update(ctx, lis)
@@ -226,5 +228,6 @@ func (r *DedicatedCLBListenerReconciler) createListener(ctx context.Context, log
 func (r *DedicatedCLBListenerReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&networkingv1alpha1.DedicatedCLBListener{}).
+		WithEventFilter(predicate.GenerationChangedPredicate{}).
 		Complete(r)
 }
