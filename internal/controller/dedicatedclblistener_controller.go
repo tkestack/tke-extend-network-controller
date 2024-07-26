@@ -105,7 +105,7 @@ func (r *DedicatedCLBListenerReconciler) ensureDedicatedTarget(ctx context.Conte
 	if lis.Status.State != networkingv1alpha1.DedicatedCLBListenerStateAvailable { // 如果已绑定，忽略
 		return nil
 	}
-	target := lis.Spec.DedicatedTarget
+	// target := lis.Spec.DedicatedTarget
 	return nil
 }
 

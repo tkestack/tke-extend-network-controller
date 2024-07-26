@@ -76,7 +76,7 @@ func runManager() {
 		setupLog.Error(err, "unable to create controller", "controller", "CLBPodBindingReconciler")
 		os.Exit(1)
 	}
-	if err = (&controller.CLBListenerReconciler{
+	if err = (&controller.DedicatedCLBListenerReconciler{
 		Client: mgr.GetClient(),
 		Scheme: mgr.GetScheme(),
 	}).SetupWithManager(mgr); err != nil {

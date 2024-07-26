@@ -44,14 +44,14 @@ func ContainsTarget(ctx context.Context, region, lbId string, port int64, protoc
 
 type BatchTarget struct {
 	ListenerProtocol string
-	ListenerPort     int32
+	ListenerPort     int64
 	Target
 }
 
 func BatchDeregisterTargets(ctx context.Context, region, lbId string, targets ...BatchTarget) (err error) {
 	type listenerKey struct {
 		protocol string
-		port     int32
+		port     int64
 	}
 	var allError []error
 	listenerIds := make(map[listenerKey]string)
@@ -72,7 +72,7 @@ func BatchDeregisterTargets(ctx context.Context, region, lbId string, targets ..
 		}
 		batchTargets = append(batchTargets, &clb.BatchTarget{
 			ListenerId: &id,
-			Port:       common.Int64Ptr(int64(target.TargetPort)),
+			Port:       &target.ListenerPort,
 			EniIp:      &target.TargetIP,
 		})
 	}

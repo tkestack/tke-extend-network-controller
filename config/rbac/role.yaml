@@ -23,32 +23,6 @@ rules:
 - apiGroups:
   - networking.cloud.tencent.com
   resources:
-  - clblisteners
-  verbs:
-  - create
-  - delete
-  - get
-  - list
-  - patch
-  - update
-  - watch
-- apiGroups:
-  - networking.cloud.tencent.com
-  resources:
-  - clblisteners/finalizers
-  verbs:
-  - update
-- apiGroups:
-  - networking.cloud.tencent.com
-  resources:
-  - clblisteners/status
-  verbs:
-  - get
-  - patch
-  - update
-- apiGroups:
-  - networking.cloud.tencent.com
-  resources:
   - clbpodbindings
   verbs:
   - create
@@ -68,6 +42,32 @@ rules:
   - networking.cloud.tencent.com
   resources:
   - clbpodbindings/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - networking.cloud.tencent.com
+  resources:
+  - dedicatedclblisteners
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - networking.cloud.tencent.com
+  resources:
+  - dedicatedclblisteners/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - networking.cloud.tencent.com
+  resources:
+  - dedicatedclblisteners/status
   verbs:
   - get
   - patch
