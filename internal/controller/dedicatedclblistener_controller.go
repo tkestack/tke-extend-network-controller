@@ -77,6 +77,9 @@ func (r *DedicatedCLBListenerReconciler) Reconcile(ctx context.Context, req ctrl
 			return ctrl.Result{}, err
 		}
 	} else { // 删除状态
+		if err := r.syncDelete(ctx, log, lis); err != nil {
+			return ctrl.Result{}, err
+		}
 		// 监听器删除成功后再删除 finalizer
 		if controllerutil.RemoveFinalizer(lis, finalizerName) {
 			if err := r.Update(ctx, lis); err != nil {
@@ -86,6 +89,21 @@ func (r *DedicatedCLBListenerReconciler) Reconcile(ctx context.Context, req ctrl
 	}
 
 	return ctrl.Result{}, nil
+}
+
+func (r *DedicatedCLBListenerReconciler) syncDelete(ctx context.Context, log logr.Logger, lis *networkingv1alpha1.DedicatedCLBListener) error {
+	if lis.Status.State != networkingv1alpha1.DedicatedCLBListenerStateOccupied {
+		return nil
+	}
+	// 解绑所有后端
+	// if err := clb.DeregisterAllTargets(ctx, lis.Spec.LbRegion, lis.Spec.LbId, lis.Spec.LbPort, lis.Spec.Protocol); err != nil {
+	// 	return err
+	// }
+	if lis.Status.ListenerId != "" {
+		return clb.DeleteListener(ctx, lis.Spec.LbRegion, lis.Spec.LbId, lis.Status.ListenerId)
+	} else {
+		return clb.DeleteListenerByPort(ctx, lis.Spec.LbRegion, lis.Spec.LbId, lis.Spec.LbPort, lis.Spec.Protocol)
+	}
 }
 
 func (r *DedicatedCLBListenerReconciler) sync(ctx context.Context, log logr.Logger, lis *networkingv1alpha1.DedicatedCLBListener) error {
@@ -99,13 +117,37 @@ func (r *DedicatedCLBListenerReconciler) sync(ctx context.Context, log logr.Logg
 }
 
 func (r *DedicatedCLBListenerReconciler) ensureDedicatedTarget(ctx context.Context, log logr.Logger, lis *networkingv1alpha1.DedicatedCLBListener) error {
-	if lis.Spec.DedicatedTarget == nil { // 没配置DedicatedTarget，无需绑定，忽略
+	// TODO: 从label取与pod的关联，如果有且pod正在删除，解绑rs并更新状态
+	if lis.Spec.DedicatedTarget == nil { // 没配置DedicatedTarget或已删除，确保后端没绑定rs
+		if lis.Status.State == networkingv1alpha1.DedicatedCLBListenerStateOccupied { // 但监听器状态是已占用，需要解绑
+			// 解绑所有后端
+			if err := clb.DeregisterAllTargets(ctx, lis.Spec.LbRegion, lis.Spec.LbId, lis.Spec.LbPort, lis.Spec.Protocol); err != nil {
+				return err
+			}
+			// 更新监听器状态
+			lis.Status.State = networkingv1alpha1.DedicatedCLBListenerStateAvailable
+			if err := r.Status().Update(ctx, lis); err != nil {
+				return err
+			}
+		}
 		return nil
 	}
 	if lis.Status.State != networkingv1alpha1.DedicatedCLBListenerStateAvailable { // 如果已绑定，忽略
 		return nil
 	}
-	// target := lis.Spec.DedicatedTarget
+	// 绑定rs
+	target := lis.Spec.DedicatedTarget
+	if err := clb.RegisterTargets(
+		ctx, lis.Spec.LbRegion, lis.Spec.LbId, lis.Spec.LbPort, lis.Spec.Protocol,
+		clb.Target{TargetIP: target.IP, TargetPort: target.Port},
+	); err != nil {
+		return err
+	}
+	// 更新监听器状态
+	lis.Status.State = networkingv1alpha1.DedicatedCLBListenerStateOccupied
+	if err := r.Status().Update(ctx, lis); err != nil {
+		return err
+	}
 	return nil
 }
 

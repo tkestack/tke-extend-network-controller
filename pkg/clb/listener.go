@@ -48,6 +48,17 @@ func CreateListener(ctx context.Context, region string, req *clb.CreateListenerR
 	return
 }
 
+func DeleteListenerByPort(ctx context.Context, region, lbId string, port int64, protocol string) error {
+	id, err := GetListenerId(ctx, region, lbId, port, protocol)
+	if err != nil {
+		return err
+	}
+	if id == "" { // 监听器不存在，忽略
+		return nil
+	}
+	return DeleteListener(ctx, region, lbId, id)
+}
+
 func DeleteListener(ctx context.Context, region, lbId, listenerId string) error {
 	req := clb.NewDeleteListenerRequest()
 	req.LoadBalancerId = &lbId

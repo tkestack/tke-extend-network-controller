@@ -104,22 +104,57 @@ func (t Target) String() string {
 	return fmt.Sprintf("%s:%d", t.TargetIP, t.TargetPort)
 }
 
+func DeregisterAllTargets(ctx context.Context, region, lbId string, port int64, protocol string) error {
+	queryReq := clb.NewDescribeTargetsRequest()
+	queryReq.LoadBalancerId = &lbId
+	queryReq.Port = &port
+	queryReq.Protocol = &protocol
+	client := GetClient(region)
+	resp, err := client.DescribeTargetsWithContext(ctx, queryReq)
+	if err != nil {
+		return err
+	}
+	var listenerId string
+	var targets []Target
+	for _, lis := range resp.Response.Listeners {
+		if listenerId == "" {
+			listenerId = *lis.ListenerId
+		}
+		if listenerId != *lis.ListenerId {
+			return errors.New("found multiple listeners targets when deregister")
+		}
+		for _, target := range lis.Targets {
+			for _, ip := range target.PrivateIpAddresses {
+				targets = append(targets, Target{TargetIP: *ip, TargetPort: int64(*target.Port)})
+			}
+		}
+	}
+	if listenerId != "" {
+		return DeregisterTargetsForListener(ctx, region, lbId, listenerId, targets...)
+	}
+	return nil
+}
+
+func DeregisterTargetsForListener(ctx context.Context, region, lbId, listenerId string, targets ...Target) error {
+	clbTargets := getClbTargets(targets)
+	req := clb.NewDeregisterTargetsRequest()
+	req.LoadBalancerId = &lbId
+	req.ListenerId = &listenerId
+	req.Targets = clbTargets
+	client := GetClient(region)
+	_, err := client.DeregisterTargetsWithContext(ctx, req)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
 func DeregisterTargets(ctx context.Context, region, lbId string, port int64, protocol string, targets ...Target) error {
 	id, err := GetListenerId(ctx, region, lbId, port, protocol)
 	if err != nil {
 		return err
 	}
-	clbTargets := getClbTargets(targets)
-	req := clb.NewDeregisterTargetsRequest()
-	req.LoadBalancerId = &lbId
-	req.ListenerId = &id
-	req.Targets = clbTargets
-	client := GetClient(region)
-	_, err = client.DeregisterTargetsWithContext(ctx, req)
-	if err != nil {
-		return err
-	}
-	return nil
+	return DeregisterTargetsForListener(ctx, region, lbId, id, targets...)
 }
 
 func getClbTargets(targets []Target) (clbTargets []*clb.Target) {
