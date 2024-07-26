@@ -37,6 +37,7 @@ type CLBStatus struct {
 
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
+// +kubebuilder:resource:scope=Cluster
 
 // CLB is the Schema for the clbs API
 type CLB struct {

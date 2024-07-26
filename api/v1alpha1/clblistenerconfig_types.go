@@ -192,6 +192,7 @@ type CLBListenerConfigStatus struct {
 
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
+// +kubebuilder:resource:scope=Cluster
 
 // CLBListenerConfig is the Schema for the clblistenerconfigs API
 type CLBListenerConfig struct {
