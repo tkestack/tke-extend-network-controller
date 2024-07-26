@@ -174,3 +174,22 @@ func RegisterTargets(ctx context.Context, region, lbId, listenerId string, targe
 	}
 	return nil
 }
+
+func DescribeTargets(ctx context.Context, region, lbId, listenerId string) (targets []Target, err error) {
+	req := clb.NewDescribeTargetsRequest()
+	req.LoadBalancerId = &lbId
+	req.ListenerIds = []*string{&listenerId}
+	client := GetClient(region)
+	resp, err := client.DescribeTargetsWithContext(ctx, req)
+	if err != nil {
+		return
+	}
+	for _, lis := range resp.Response.Listeners {
+		for _, backend := range lis.Targets {
+			for _, ip := range backend.PrivateIpAddresses {
+				targets = append(targets, Target{TargetIP: *ip, TargetPort: *backend.Port})
+			}
+		}
+	}
+	return
+}

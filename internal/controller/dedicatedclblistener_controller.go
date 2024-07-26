@@ -136,14 +136,36 @@ func (r *DedicatedCLBListenerReconciler) ensureDedicatedTarget(ctx context.Conte
 		}
 		return nil
 	}
-	if lis.Status.State != networkingv1alpha1.DedicatedCLBListenerStateAvailable { // 如果已绑定，忽略
+	// if lis.Status.State == networkingv1alpha1.DedicatedCLBListenerStateOccupied { // 已绑定，确保rs符合预期
+	// }
+	// if lis.Status.State == networkingv1alpha1.DedicatedCLBListenerStateAvailable { // 如果已绑定，忽略
+	// 	return nil
+	// }
+	// 绑定rs
+	targets, err := clb.DescribeTargets(ctx, lis.Spec.LbRegion, lis.Spec.LbId, lis.Status.ListenerId)
+	if err != nil {
+		return err
+	}
+	toDel := []clb.Target{}
+	needAdd := false
+	for _, target := range targets {
+		if target.TargetIP == lis.Spec.DedicatedTarget.IP && target.TargetPort == lis.Spec.DedicatedTarget.Port {
+			needAdd = true
+		} else {
+			toDel = append(toDel, target)
+		}
+	}
+	if len(toDel) > 0 {
+		if err := clb.DeregisterTargetsForListener(ctx, lis.Spec.LbRegion, lis.Spec.LbId, lis.Status.ListenerId, toDel...); err != nil {
+			return err
+		}
+	}
+	if !needAdd {
 		return nil
 	}
-	// 绑定rs
-	target := lis.Spec.DedicatedTarget
 	if err := clb.RegisterTargets(
 		ctx, lis.Spec.LbRegion, lis.Spec.LbId, lis.Status.ListenerId,
-		clb.Target{TargetIP: target.IP, TargetPort: target.Port},
+		clb.Target{TargetIP: lis.Spec.DedicatedTarget.IP, TargetPort: lis.Spec.DedicatedTarget.Port},
 	); err != nil {
 		return err
 	}
