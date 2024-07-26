@@ -16,50 +16,50 @@ limitations under the License.
 
 package v1alpha1
 
-import (
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-)
-
-// CLBPodBindingSpec defines the desired state of CLBPodBinding
-type CLBPodBindingSpec struct {
-	PodName string `json:"podName"`
-	// +kubebuilder:example=lb-xxx
-	LbId string `json:"lbId"`
-	// +optional
-	LbRegion   string `json:"lbRegion"`
-	LbPort     int64  `json:"lbPort"`
-	Protocol   string `json:"protocol"`
-	TargetPort int64  `json:"targetPort"`
-}
-
-// CLBPodBindingStatus defines the observed state of CLBPodBinding
-type CLBPodBindingStatus struct {
-	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
-	// Important: Run "make" to regenerate code after modifying this file
-	State string `json:"state"`
-}
-
-// +kubebuilder:object:root=true
-// +kubebuilder:subresource:status
-
-// CLBPodBinding is the Schema for the clbpodbindings API
-type CLBPodBinding struct {
-	metav1.TypeMeta   `json:",inline"`
-	metav1.ObjectMeta `json:"metadata,omitempty"`
-
-	Spec   CLBPodBindingSpec   `json:"spec,omitempty"`
-	Status CLBPodBindingStatus `json:"status,omitempty"`
-}
-
-// +kubebuilder:object:root=true
-
-// CLBPodBindingList contains a list of CLBPodBinding
-type CLBPodBindingList struct {
-	metav1.TypeMeta `json:",inline"`
-	metav1.ListMeta `json:"metadata,omitempty"`
-	Items           []CLBPodBinding `json:"items"`
-}
-
-func init() {
-	SchemeBuilder.Register(&CLBPodBinding{}, &CLBPodBindingList{})
-}
+// import (
+// 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+// )
+//
+// // CLBPodBindingSpec defines the desired state of CLBPodBinding
+// type CLBPodBindingSpec struct {
+// 	PodName string `json:"podName"`
+// 	// +kubebuilder:example=lb-xxx
+// 	LbId string `json:"lbId"`
+// 	// +optional
+// 	LbRegion   string `json:"lbRegion"`
+// 	LbPort     int64  `json:"lbPort"`
+// 	Protocol   string `json:"protocol"`
+// 	TargetPort int64  `json:"targetPort"`
+// }
+//
+// // CLBPodBindingStatus defines the observed state of CLBPodBinding
+// type CLBPodBindingStatus struct {
+// 	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
+// 	// Important: Run "make" to regenerate code after modifying this file
+// 	State string `json:"state"`
+// }
+//
+// // +kubebuilder:object:root=true
+// // +kubebuilder:subresource:status
+//
+// // CLBPodBinding is the Schema for the clbpodbindings API
+// type CLBPodBinding struct {
+// 	metav1.TypeMeta   `json:",inline"`
+// 	metav1.ObjectMeta `json:"metadata,omitempty"`
+//
+// 	Spec   CLBPodBindingSpec   `json:"spec,omitempty"`
+// 	Status CLBPodBindingStatus `json:"status,omitempty"`
+// }
+//
+// // +kubebuilder:object:root=true
+//
+// // CLBPodBindingList contains a list of CLBPodBinding
+// type CLBPodBindingList struct {
+// 	metav1.TypeMeta `json:",inline"`
+// 	metav1.ListMeta `json:"metadata,omitempty"`
+// 	Items           []CLBPodBinding `json:"items"`
+// }
+//
+// func init() {
+// 	SchemeBuilder.Register(&CLBPodBinding{}, &CLBPodBindingList{})
+// }

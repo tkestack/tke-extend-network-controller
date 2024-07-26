@@ -9,11 +9,16 @@ import (
 	"github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common"
 )
 
-func GetListenerId(ctx context.Context, region, lbId string, port int64, protocol string) (id string, err error) {
+type Listener struct {
+	Port       int64
+	Protocol   string
+	ListenerId string
+}
+
+func GetListener(ctx context.Context, region, lbId, listenerId string) (lis *Listener, err error) {
 	req := clb.NewDescribeListenersRequest()
-	req.Protocol = &protocol
-	req.Port = &port
 	req.LoadBalancerId = &lbId
+	req.ListenerIds = []*string{&listenerId}
 	client := GetClient(region)
 	resp, err := client.DescribeListenersWithContext(ctx, req)
 	if err != nil {
@@ -23,11 +28,34 @@ func GetListenerId(ctx context.Context, region, lbId string, port int64, protoco
 		return
 	}
 	if len(resp.Response.Listeners) > 1 {
-		err = fmt.Errorf("found %d listeners for %d/%s", len(resp.Response.Listeners), port, protocol)
+		err = fmt.Errorf("found %d listeners for %s", len(resp.Response.Listeners), listenerId)
 		return
 	}
 	listener := resp.Response.Listeners[0]
-	id = *listener.ListenerId
+	lis = &Listener{
+		ListenerId: *listener.ListenerId,
+		Protocol:   *listener.Protocol,
+		Port:       *listener.Port,
+	}
+	return
+}
+
+func GetListenersByPort(ctx context.Context, region, lbId string, port int64) (listeners []*Listener, err error) {
+	req := clb.NewDescribeListenersRequest()
+	req.Port = &port
+	req.LoadBalancerId = &lbId
+	client := GetClient(region)
+	resp, err := client.DescribeListenersWithContext(ctx, req)
+	if err != nil {
+		return
+	}
+	for _, lis := range resp.Response.Listeners {
+		listeners = append(listeners, &Listener{
+			ListenerId: *lis.ListenerId,
+			Protocol:   *lis.Protocol,
+			Port:       *lis.Port,
+		})
+	}
 	return
 }
 
@@ -51,10 +79,21 @@ func CreateListener(ctx context.Context, region string, req *clb.CreateListenerR
 }
 
 func DeleteListenerByPort(ctx context.Context, region, lbId string, port int64, protocol string) error {
-	id, err := GetListenerId(ctx, region, lbId, port, protocol)
+	lis, err := GetListenersByPort(ctx, region, lbId, port)
 	if err != nil {
 		return err
 	}
+	id := ""
+	for _, l := range lis {
+		if l.Protocol == protocol && port == l.Port {
+			id = l.ListenerId
+			break
+		}
+	}
+	// id, err := GetListenerId(ctx, region, lbId, port, protocol)
+	// if err != nil {
+	// 	return err
+	// }
 	if id == "" { // 监听器不存在，忽略
 		return nil
 	}

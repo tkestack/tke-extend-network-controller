@@ -18,6 +18,7 @@ package controller
 
 import (
 	"context"
+	"errors"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -101,10 +102,10 @@ func (r *DedicatedCLBListenerReconciler) syncDelete(ctx context.Context, log log
 	// 	return err
 	// }
 	if lis.Status.ListenerId != "" {
+		log.Info("delete listener", "listenerId", lis.Status.ListenerId)
 		return clb.DeleteListener(ctx, lis.Spec.LbRegion, lis.Spec.LbId, lis.Status.ListenerId)
-	} else {
-		return clb.DeleteListenerByPort(ctx, lis.Spec.LbRegion, lis.Spec.LbId, lis.Spec.LbPort, lis.Spec.Protocol)
 	}
+	return nil
 }
 
 func (r *DedicatedCLBListenerReconciler) sync(ctx context.Context, log logr.Logger, lis *networkingv1alpha1.DedicatedCLBListener) error {
@@ -122,7 +123,7 @@ func (r *DedicatedCLBListenerReconciler) ensureDedicatedTarget(ctx context.Conte
 	if lis.Spec.DedicatedTarget == nil { // 没配置DedicatedTarget或已删除，确保后端没绑定rs
 		if lis.Status.State == networkingv1alpha1.DedicatedCLBListenerStateOccupied { // 但监听器状态是已占用，需要解绑
 			// 解绑所有后端
-			if err := clb.DeregisterAllTargets(ctx, lis.Spec.LbRegion, lis.Spec.LbId, lis.Spec.LbPort, lis.Spec.Protocol); err != nil {
+			if err := clb.DeregisterAllTargets(ctx, lis.Spec.LbRegion, lis.Spec.LbId, lis.Status.ListenerId); err != nil {
 				return err
 			}
 			// 更新监听器状态
@@ -139,7 +140,7 @@ func (r *DedicatedCLBListenerReconciler) ensureDedicatedTarget(ctx context.Conte
 	// 绑定rs
 	target := lis.Spec.DedicatedTarget
 	if err := clb.RegisterTargets(
-		ctx, lis.Spec.LbRegion, lis.Spec.LbId, lis.Spec.LbPort, lis.Spec.Protocol,
+		ctx, lis.Spec.LbRegion, lis.Spec.LbId, lis.Status.ListenerId,
 		clb.Target{TargetIP: target.IP, TargetPort: target.Port},
 	); err != nil {
 		return err
@@ -153,34 +154,47 @@ func (r *DedicatedCLBListenerReconciler) ensureDedicatedTarget(ctx context.Conte
 }
 
 func (r *DedicatedCLBListenerReconciler) ensureListener(ctx context.Context, log logr.Logger, lis *networkingv1alpha1.DedicatedCLBListener) error {
-	state := lis.Status.State
-	if state == networkingv1alpha1.DedicatedCLBListenerStateAvailable || state == networkingv1alpha1.DedicatedCLBListenerStateOccupied {
-		id, err := clb.GetListenerId(ctx, lis.Spec.LbRegion, lis.Spec.LbId, lis.Spec.LbPort, lis.Spec.Protocol)
+	switch lis.Status.State {
+	case networkingv1alpha1.DedicatedCLBListenerStatePending:
+		return r.createListener(ctx, log, lis)
+	case networkingv1alpha1.DedicatedCLBListenerStateAvailable, networkingv1alpha1.DedicatedCLBListenerStateOccupied:
+		listenerId := lis.Status.ListenerId
+		if listenerId == "" { // 不应该没有监听器ID，重建监听器
+			lis.Status.State = networkingv1alpha1.DedicatedCLBListenerStatePending
+			if err := r.Status().Update(ctx, lis); err != nil {
+				return err
+			}
+			return r.createListener(ctx, log, lis)
+		}
+		listener, err := clb.GetListener(ctx, lis.Spec.LbRegion, lis.Spec.LbId, listenerId)
 		if err != nil {
 			return err
 		}
-		log.Info("find listener", "region", lis.Spec.LbRegion, "lbId", lis.Spec.LbId, "port", lis.Spec.LbPort, "protocol", lis.Spec.Protocol, "id", id, "statusID", lis.Status.ListenerId)
-		if id != "" {
-			log.Info("found listener exsits", "port", lis.Spec.LbPort, "id", id)
-			if id != lis.Status.ListenerId { // 监听器ID变化，需要重新创建
-				log.Info("listener id changed, try to recreate")
-				log.Info("delete old listener", "id", id)
-				if err := clb.DeleteListener(ctx, lis.Spec.LbRegion, lis.Spec.LbId, id); err != nil {
-					return err
-				}
-				lis.Status.State = networkingv1alpha1.DedicatedCLBListenerStatePending
-				lis.Status.ListenerId = ""
-				if err := r.Status().Update(ctx, lis); err != nil {
-					return err
-				}
-			} else { // 监听器ID符合预期，不需要重新创建，直接返回
-				log.Info("listener id is expected, no need to recreate")
-				return nil
+		if listener == nil { // 监听器不存在，重建监听器
+			return r.createListener(ctx, log, lis)
+		}
+		if listener.Port != lis.Spec.LbPort || listener.Protocol != lis.Spec.Protocol { // 监听器端口和协议不符预期，清理重建
+			log.Info("unexpected listener, try to recreate")
+			lis.Status.State = networkingv1alpha1.DedicatedCLBListenerStatePending
+			lis.Status.ListenerId = ""
+			if err := r.Status().Update(ctx, lis); err != nil {
+				return err
 			}
-		} else {
-			log.Info("listener not found, try to create")
+			// 清理不需要的监听器
+			if err := clb.DeleteListener(ctx, lis.Spec.LbRegion, lis.Spec.LbId, listener.ListenerId); err != nil {
+				return err
+			}
+			// 重建监听器
+			return r.createListener(ctx, log, lis)
 		}
 	}
+	if lis.Status.ListenerId == "" {
+		return errors.New("listener id is empty")
+	}
+	return nil
+}
+
+func (r *DedicatedCLBListenerReconciler) createListener(ctx context.Context, log logr.Logger, lis *networkingv1alpha1.DedicatedCLBListener) error {
 	config := &networkingv1alpha1.CLBListenerConfig{}
 	configName := lis.Spec.ListenerConfig
 	if configName != "" {
@@ -192,8 +206,7 @@ func (r *DedicatedCLBListenerReconciler) ensureListener(ctx context.Context, log
 			}
 		}
 	}
-
-	// 监听器不存在或ID不符预期，创建监听器
+	// 创建监听器 TODO: 如果端口冲突，考虑强制删除重建监听器
 	log.Info("try to create listener")
 	id, err := clb.CreateListener(ctx, lis.Spec.LbRegion, config.Spec.CreateListenerRequest(lis.Spec.LbId, lis.Spec.LbPort, lis.Spec.Protocol))
 	if err != nil {

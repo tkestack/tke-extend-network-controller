@@ -16,58 +16,59 @@ limitations under the License.
 
 package v1alpha1
 
-import (
-	"github.com/imroc/tke-extend-network-controller/pkg/clb"
-	"k8s.io/apimachinery/pkg/runtime"
-	ctrl "sigs.k8s.io/controller-runtime"
-	logf "sigs.k8s.io/controller-runtime/pkg/log"
-	"sigs.k8s.io/controller-runtime/pkg/webhook"
-	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
-)
-
-// log is for logging in this package.
-var clbpodbindinglog = logf.Log.WithName("clbpodbinding-resource")
-
-// SetupWebhookWithManager will setup the manager to manage the webhooks
-func (r *CLBPodBinding) SetupWebhookWithManager(mgr ctrl.Manager) error {
-	return ctrl.NewWebhookManagedBy(mgr).
-		For(r).
-		Complete()
-}
-
-var (
-	// +kubebuilder:webhook:path=/validate-networking-cloud-tencent-com-v1alpha1-clbpodbinding,mutating=false,failurePolicy=fail,sideEffects=None,groups=networking.cloud.tencent.com,resources=clbpodbindings,verbs=create;update,versions=v1alpha1,name=vclbpodbinding.kb.io,admissionReviewVersions=v1
-	_ webhook.Validator = &CLBPodBinding{}
-
-	// +kubebuilder:webhook:path=/mutate-networking-cloud-tencent-com-v1alpha1-clbpodbinding,mutating=true,failurePolicy=fail,sideEffects=None,groups=networking.cloud.tencent.com,resources=clbpodbindings,verbs=create;update,versions=v1alpha1,name=mclbpodbinding.kb.io,admissionReviewVersions=v1
-	_ webhook.Defaulter = &CLBPodBinding{}
-)
-
-// Default implements admission.Defaulter.
-func (r *CLBPodBinding) Default() {
-	r.Spec.LbRegion = clb.DefaultRegion()
-}
-
-// ValidateCreate implements webhook.Validator so a webhook will be registered for the type
-func (r *CLBPodBinding) ValidateCreate() (admission.Warnings, error) {
-	clbpodbindinglog.Info("validate create", "name", r.Name)
-
-	return nil, nil
-	// return r.validateCLBBindings()
-}
-
-// ValidateUpdate implements webhook.Validator so a webhook will be registered for the type
-func (r *CLBPodBinding) ValidateUpdate(old runtime.Object) (admission.Warnings, error) {
-	clbpodbindinglog.Info("validate update", "name", r.Name)
-
-	return nil, nil
-	// return r.validateCLBBindings()
-}
-
-// ValidateDelete implements webhook.Validator so a webhook will be registered for the type
-func (r *CLBPodBinding) ValidateDelete() (admission.Warnings, error) {
-	clbpodbindinglog.Info("validate delete", "name", r.Name)
-
-	// TODO(user): fill in your validation logic upon object deletion.
-	return nil, nil
-}
+//
+// import (
+// 	"github.com/imroc/tke-extend-network-controller/pkg/clb"
+// 	"k8s.io/apimachinery/pkg/runtime"
+// 	ctrl "sigs.k8s.io/controller-runtime"
+// 	logf "sigs.k8s.io/controller-runtime/pkg/log"
+// 	"sigs.k8s.io/controller-runtime/pkg/webhook"
+// 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
+// )
+//
+// // log is for logging in this package.
+// var clbpodbindinglog = logf.Log.WithName("clbpodbinding-resource")
+//
+// // SetupWebhookWithManager will setup the manager to manage the webhooks
+// func (r *CLBPodBinding) SetupWebhookWithManager(mgr ctrl.Manager) error {
+// 	return ctrl.NewWebhookManagedBy(mgr).
+// 		For(r).
+// 		Complete()
+// }
+//
+// var (
+// 	// +kubebuilder:webhook:path=/validate-networking-cloud-tencent-com-v1alpha1-clbpodbinding,mutating=false,failurePolicy=fail,sideEffects=None,groups=networking.cloud.tencent.com,resources=clbpodbindings,verbs=create;update,versions=v1alpha1,name=vclbpodbinding.kb.io,admissionReviewVersions=v1
+// 	_ webhook.Validator = &CLBPodBinding{}
+//
+// 	// +kubebuilder:webhook:path=/mutate-networking-cloud-tencent-com-v1alpha1-clbpodbinding,mutating=true,failurePolicy=fail,sideEffects=None,groups=networking.cloud.tencent.com,resources=clbpodbindings,verbs=create;update,versions=v1alpha1,name=mclbpodbinding.kb.io,admissionReviewVersions=v1
+// 	_ webhook.Defaulter = &CLBPodBinding{}
+// )
+//
+// // Default implements admission.Defaulter.
+// func (r *CLBPodBinding) Default() {
+// 	r.Spec.LbRegion = clb.DefaultRegion()
+// }
+//
+// // ValidateCreate implements webhook.Validator so a webhook will be registered for the type
+// func (r *CLBPodBinding) ValidateCreate() (admission.Warnings, error) {
+// 	clbpodbindinglog.Info("validate create", "name", r.Name)
+//
+// 	return nil, nil
+// 	// return r.validateCLBBindings()
+// }
+//
+// // ValidateUpdate implements webhook.Validator so a webhook will be registered for the type
+// func (r *CLBPodBinding) ValidateUpdate(old runtime.Object) (admission.Warnings, error) {
+// 	clbpodbindinglog.Info("validate update", "name", r.Name)
+//
+// 	return nil, nil
+// 	// return r.validateCLBBindings()
+// }
+//
+// // ValidateDelete implements webhook.Validator so a webhook will be registered for the type
+// func (r *CLBPodBinding) ValidateDelete() (admission.Warnings, error) {
+// 	clbpodbindinglog.Info("validate delete", "name", r.Name)
+//
+// 	// TODO(user): fill in your validation logic upon object deletion.
+// 	return nil, nil
+// }
