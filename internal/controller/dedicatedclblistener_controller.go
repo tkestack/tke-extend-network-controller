@@ -92,7 +92,8 @@ func (r *DedicatedCLBListenerReconciler) Reconcile(ctx context.Context, req ctrl
 }
 
 func (r *DedicatedCLBListenerReconciler) syncDelete(ctx context.Context, log logr.Logger, lis *networkingv1alpha1.DedicatedCLBListener) error {
-	if lis.Status.State != networkingv1alpha1.DedicatedCLBListenerStateOccupied {
+	state := lis.Status.State
+	if state != networkingv1alpha1.DedicatedCLBListenerStateOccupied && state != networkingv1alpha1.DedicatedCLBListenerStateAvailable {
 		return nil
 	}
 	// 解绑所有后端
