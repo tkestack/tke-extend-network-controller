@@ -46,3 +46,9 @@ resources:
   # - clblistener_viewer_role.yaml
   # - clblistenerconfig_editor_role.yaml
   # - clblistenerconfig_viewer_role.yaml
+  # For each CRD, "Editor" and "Viewer" roles are scaffolded by
+  # default, aiding admins in cluster management. Those roles are
+  # not used by the Project itself. You can comment the following lines
+  # if you do not want those helpers be installed with your Project.
+  #- dedicatedclblistener_editor_role.yaml
+  #- dedicatedclblistener_viewer_role.yaml

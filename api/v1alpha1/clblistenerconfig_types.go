@@ -17,8 +17,6 @@ limitations under the License.
 package v1alpha1
 
 import (
-	"github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common"
-
 	clb "github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/clb/v20180317"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -26,10 +24,11 @@ import (
 // EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
 // NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
 
-func (s *CLBListenerConfigSpec) CreateListenerRequest(port int32, protocol string) *clb.CreateListenerRequest {
+func (s *CLBListenerConfigSpec) CreateListenerRequest(lbId string, port int64, protocol string) *clb.CreateListenerRequest {
 	req := clb.NewCreateListenerRequest()
-	req.Ports = []*int64{common.Int64Ptr(int64(port))}
+	req.Ports = []*int64{&port}
 	req.Protocol = &protocol
+	req.LoadBalancerId = &lbId
 	if s == nil {
 		return req
 	}

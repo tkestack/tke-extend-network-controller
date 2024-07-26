@@ -6,13 +6,12 @@ import (
 	"fmt"
 
 	clb "github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/clb/v20180317"
-	"github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common"
 )
 
-func GetListenerId(ctx context.Context, region, lbId string, port int32, protocol string) (id string, err error) {
+func GetListenerId(ctx context.Context, region, lbId string, port int64, protocol string) (id string, err error) {
 	req := clb.NewDescribeListenersRequest()
 	req.Protocol = &protocol
-	req.Port = common.Int64Ptr(int64(port))
+	req.Port = &port
 	req.LoadBalancerId = &lbId
 	client := GetClient(region)
 	resp, err := client.DescribeListenersWithContext(ctx, req)
@@ -31,8 +30,7 @@ func GetListenerId(ctx context.Context, region, lbId string, port int32, protoco
 	return
 }
 
-func CreateListener(ctx context.Context, region, lbId string, req *clb.CreateListenerRequest) (id string, err error) {
-	req.LoadBalancerId = &lbId
+func CreateListener(ctx context.Context, region string, req *clb.CreateListenerRequest) (id string, err error) {
 	client := GetClient(region)
 	resp, err := client.CreateListenerWithContext(ctx, req)
 	if err != nil {

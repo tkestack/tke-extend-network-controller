@@ -30,7 +30,7 @@ import (
 	networkingv1alpha1 "github.com/imroc/tke-extend-network-controller/api/v1alpha1"
 )
 
-var _ = Describe("CLBListener Controller", func() {
+var _ = Describe("DedicatedCLBListener Controller", func() {
 	Context("When reconciling a resource", func() {
 		const resourceName = "test-resource"
 
@@ -40,13 +40,13 @@ var _ = Describe("CLBListener Controller", func() {
 			Name:      resourceName,
 			Namespace: "default", // TODO(user):Modify as needed
 		}
-		clblistener := &networkingv1alpha1.CLBListener{}
+		dedicatedclblistener := &networkingv1alpha1.DedicatedCLBListener{}
 
 		BeforeEach(func() {
-			By("creating the custom resource for the Kind CLBListener")
-			err := k8sClient.Get(ctx, typeNamespacedName, clblistener)
+			By("creating the custom resource for the Kind DedicatedCLBListener")
+			err := k8sClient.Get(ctx, typeNamespacedName, dedicatedclblistener)
 			if err != nil && errors.IsNotFound(err) {
-				resource := &networkingv1alpha1.CLBListener{
+				resource := &networkingv1alpha1.DedicatedCLBListener{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      resourceName,
 						Namespace: "default",
@@ -59,16 +59,16 @@ var _ = Describe("CLBListener Controller", func() {
 
 		AfterEach(func() {
 			// TODO(user): Cleanup logic after each test, like removing the resource instance.
-			resource := &networkingv1alpha1.CLBListener{}
+			resource := &networkingv1alpha1.DedicatedCLBListener{}
 			err := k8sClient.Get(ctx, typeNamespacedName, resource)
 			Expect(err).NotTo(HaveOccurred())
 
-			By("Cleanup the specific resource instance CLBListener")
+			By("Cleanup the specific resource instance DedicatedCLBListener")
 			Expect(k8sClient.Delete(ctx, resource)).To(Succeed())
 		})
 		It("should successfully reconcile the resource", func() {
 			By("Reconciling the created resource")
-			controllerReconciler := &CLBListenerReconciler{
+			controllerReconciler := &DedicatedCLBListenerReconciler{
 				Client: k8sClient,
 				Scheme: k8sClient.Scheme(),
 			}

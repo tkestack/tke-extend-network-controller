@@ -97,14 +97,14 @@ func BatchDeregisterTargets(ctx context.Context, region, lbId string, targets ..
 
 type Target struct {
 	TargetIP   string
-	TargetPort int32
+	TargetPort int64
 }
 
 func (t Target) String() string {
 	return fmt.Sprintf("%s:%d", t.TargetIP, t.TargetPort)
 }
 
-func DeregisterTargets(ctx context.Context, region, lbId string, port int32, protocol string, targets ...Target) error {
+func DeregisterTargets(ctx context.Context, region, lbId string, port int64, protocol string, targets ...Target) error {
 	id, err := GetListenerId(ctx, region, lbId, port, protocol)
 	if err != nil {
 		return err
@@ -132,7 +132,7 @@ func getClbTargets(targets []Target) (clbTargets []*clb.Target) {
 	return
 }
 
-func RegisterTargets(ctx context.Context, region, lbId string, port int32, protocol string, targets ...Target) error {
+func RegisterTargets(ctx context.Context, region, lbId string, port int64, protocol string, targets ...Target) error {
 	listenerId, err := GetListenerId(ctx, region, lbId, port, protocol)
 	if err != nil {
 		return err

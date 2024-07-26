@@ -50,7 +50,6 @@ resources:
   - api:
       crdVersion: v1
       namespaced: false
-    controller: false
     domain: cloud.tencent.com
     group: networking
     kind: CLBListenerConfig
@@ -62,7 +61,7 @@ resources:
     controller: true
     domain: cloud.tencent.com
     group: networking
-    kind: CLBListener
+    kind: DedicatedCLBListener
     path: github.com/imroc/tke-extend-network-controller/api/v1alpha1
     version: v1alpha1
 version: "3"

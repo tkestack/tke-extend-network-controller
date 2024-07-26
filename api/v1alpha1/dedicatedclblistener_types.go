@@ -23,43 +23,58 @@ import (
 // EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
 // NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
 
-// CLBListenerSpec defines the desired state of CLBListener
-type CLBListenerSpec struct {
+// DedicatedCLBListenerSpec defines the desired state of DedicatedCLBListener
+type DedicatedCLBListenerSpec struct {
 	LbId string `json:"lbId"`
 	// +optional
 	LbRegion string `json:"lbRegion,omitempty"`
-	LbPort   int32  `json:"lbPort"`
+	LbPort   int64  `json:"lbPort"`
 	Protocol string `json:"protocol"`
 	// +optional
 	ListenerConfig string `json:"listenerConfig,omitempty"`
+	// +optional
+	DedicatedTarget *DedicatedTarget `json:"dedicatedTarget,omitempty"`
 }
 
-// CLBListenerStatus defines the observed state of CLBListener
-type CLBListenerStatus struct {
-	ListenerId string `json:"listenerId,omitempty"`
+type DedicatedTarget struct {
+	IP   string `json:"ip"`
+	Port int64  `json:"port"`
 }
+
+// DedicatedCLBListenerStatus defines the observed state of DedicatedCLBListener
+type DedicatedCLBListenerStatus struct {
+	ListenerId string `json:"listenerId,omitempty"`
+	State      string `json:"state,omitempty"`
+}
+
+const (
+	DedicatedCLBListenerStateOccupied  = "Occupied"
+	DedicatedCLBListenerStateAvailable = "Available"
+	DedicatedCLBListenerStatePending   = "Pending"
+)
 
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
+// +kubebuilder:resource:scope=Cluster
 
-// CLBListener is the Schema for the clblisteners API
-type CLBListener struct {
+// DedicatedCLBListener is the Schema for the dedicatedclblisteners API
+type DedicatedCLBListener struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	Spec   CLBListenerSpec   `json:"spec,omitempty"`
-	Status CLBListenerStatus `json:"status,omitempty"`
+	Spec   DedicatedCLBListenerSpec   `json:"spec,omitempty"`
+	Status DedicatedCLBListenerStatus `json:"status,omitempty"`
 }
 
 // +kubebuilder:object:root=true
 
-// CLBListenerList contains a list of CLBListener
-type CLBListenerList struct {
+// DedicatedCLBListenerList contains a list of DedicatedCLBListener
+type DedicatedCLBListenerList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
-	Items           []CLBListener `json:"items"`
+	Items           []DedicatedCLBListener `json:"items"`
 }
 
 func init() {
-	SchemeBuilder.Register(&CLBListener{}, &CLBListenerList{})
+	SchemeBuilder.Register(&DedicatedCLBListener{}, &DedicatedCLBListenerList{})
 }

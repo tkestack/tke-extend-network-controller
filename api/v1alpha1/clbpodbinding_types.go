@@ -27,9 +27,9 @@ type CLBPodBindingSpec struct {
 	LbId string `json:"lbId"`
 	// +optional
 	LbRegion   string `json:"lbRegion"`
-	LbPort     int32  `json:"lbPort"`
+	LbPort     int64  `json:"lbPort"`
 	Protocol   string `json:"protocol"`
-	TargetPort int32  `json:"targetPort"`
+	TargetPort int64  `json:"targetPort"`
 }
 
 // CLBPodBindingStatus defines the observed state of CLBPodBinding
