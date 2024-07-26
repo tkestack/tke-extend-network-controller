@@ -142,15 +142,6 @@ func DeregisterTargetsForListener(ctx context.Context, region, lbId, listenerId 
 	return nil
 }
 
-func DeregisterTargets(ctx context.Context, region, lbId string, port int64, protocol string, targets ...Target) error {
-	// id, err := GetListenerId(ctx, region, lbId, port, protocol)
-	// if err != nil {
-	// 	return err
-	// }
-	// return DeregisterTargetsForListener(ctx, region, lbId, id, targets...)
-	return nil
-}
-
 func getClbTargets(targets []Target) (clbTargets []*clb.Target) {
 	for _, target := range targets {
 		clbTargets = append(clbTargets, &clb.Target{
