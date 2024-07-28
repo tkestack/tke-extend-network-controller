@@ -211,6 +211,11 @@ func (r *DedicatedCLBListenerReconciler) ensureDedicatedTarget(ctx context.Conte
 				return err
 			}
 		}
+		// 更新 DedicatedCLBListener
+		lis.Spec.TargetPod = nil
+		if err := r.Update(ctx, lis); err != nil {
+			return err
+		}
 	}
 	return nil
 }
