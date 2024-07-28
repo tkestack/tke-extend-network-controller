@@ -77,8 +77,9 @@ func runManager() {
 	// 	os.Exit(1)
 	// }
 	if err = (&controller.DedicatedCLBListenerReconciler{
-		Client: mgr.GetClient(),
-		Scheme: mgr.GetScheme(),
+		Client:    mgr.GetClient(),
+		Scheme:    mgr.GetScheme(),
+		APIReader: mgr.GetAPIReader(),
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "CLBListenerReconciler")
 		os.Exit(1)

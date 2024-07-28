@@ -33,12 +33,12 @@ type DedicatedCLBListenerSpec struct {
 	// +optional
 	ListenerConfig string `json:"listenerConfig,omitempty"`
 	// +optional
-	DedicatedTarget *DedicatedTarget `json:"dedicatedTarget,omitempty"`
+	TargetPod *TargetPod `json:"targetPod,omitempty"`
 }
 
-type DedicatedTarget struct {
-	IP   string `json:"ip"`
-	Port int64  `json:"port"`
+type TargetPod struct {
+	PodName string `json:"podName"`
+	Port    int64  `json:"port"`
 }
 
 // DedicatedCLBListenerStatus defines the observed state of DedicatedCLBListener

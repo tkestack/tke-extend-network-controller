@@ -21,6 +21,8 @@ import (
 	"errors"
 	"fmt"
 
+	corev1 "k8s.io/api/core/v1"
+
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -32,12 +34,14 @@ import (
 	"github.com/go-logr/logr"
 	networkingv1alpha1 "github.com/imroc/tke-extend-network-controller/api/v1alpha1"
 	"github.com/imroc/tke-extend-network-controller/pkg/clb"
+	"github.com/imroc/tke-extend-network-controller/pkg/util"
 )
 
 // DedicatedCLBListenerReconciler reconciles a DedicatedCLBListener object
 type DedicatedCLBListenerReconciler struct {
 	client.Client
-	Scheme *runtime.Scheme
+	Scheme    *runtime.Scheme
+	APIReader client.Reader
 }
 
 // +kubebuilder:rbac:groups=networking.cloud.tencent.com,resources=dedicatedclblisteners,verbs=get;list;watch;create;update;patch;delete
@@ -121,8 +125,8 @@ func (r *DedicatedCLBListenerReconciler) sync(ctx context.Context, log logr.Logg
 }
 
 func (r *DedicatedCLBListenerReconciler) ensureDedicatedTarget(ctx context.Context, log logr.Logger, lis *networkingv1alpha1.DedicatedCLBListener) error {
-	// TODO: 从label取与pod的关联，如果有且pod正在删除，解绑rs并更新状态
-	if lis.Spec.DedicatedTarget == nil { // 没配置DedicatedTarget或已删除，确保后端没绑定rs
+	targetPod := lis.Spec.TargetPod
+	if targetPod == nil { // 没配置后端 pod
 		if lis.Status.State == networkingv1alpha1.DedicatedCLBListenerStateOccupied { // 但监听器状态是已占用，需要解绑
 			// 解绑所有后端
 			if err := clb.DeregisterAllTargets(ctx, lis.Spec.LbRegion, lis.Spec.LbId, lis.Status.ListenerId); err != nil {
@@ -136,43 +140,77 @@ func (r *DedicatedCLBListenerReconciler) ensureDedicatedTarget(ctx context.Conte
 		}
 		return nil
 	}
-	// if lis.Status.State == networkingv1alpha1.DedicatedCLBListenerStateOccupied { // 已绑定，确保rs符合预期
-	// }
-	// if lis.Status.State == networkingv1alpha1.DedicatedCLBListenerStateAvailable { // 如果已绑定，忽略
-	// 	return nil
-	// }
-	// 绑定rs
-	targets, err := clb.DescribeTargets(ctx, lis.Spec.LbRegion, lis.Spec.LbId, lis.Status.ListenerId)
+	pod := &corev1.Pod{}
+	err := r.Get(
+		ctx,
+		client.ObjectKey{
+			Namespace: lis.Namespace,
+			Name:      targetPod.PodName,
+		},
+		pod,
+	)
 	if err != nil {
 		return err
 	}
-	toDel := []clb.Target{}
-	needAdd := false
-	for _, target := range targets {
-		if target.TargetIP == lis.Spec.DedicatedTarget.IP && target.TargetPort == lis.Spec.DedicatedTarget.Port {
-			needAdd = true
-		} else {
-			toDel = append(toDel, target)
+	podFinalizerName := "dedicatedclblistener.networking.cloud.tencent.com/" + lis.Name
+	if pod.DeletionTimestamp.IsZero() { // pod 没有在删除
+		// 确保 pod finalizer 存在
+		if controllerutil.ContainsFinalizer(pod, podFinalizerName) {
+			if err := util.UpdatePodFinalizer(
+				ctx, pod, podFinalizerName, r.APIReader, r.Client, true,
+			); err != nil {
+				return err
+			}
 		}
-	}
-	if len(toDel) > 0 {
-		if err := clb.DeregisterTargetsForListener(ctx, lis.Spec.LbRegion, lis.Spec.LbId, lis.Status.ListenerId, toDel...); err != nil {
+		if pod.Status.PodIP == "" {
+			return fmt.Errorf("no IP found for pod %s", pod.Name)
+		}
+		// 绑定rs
+		targets, err := clb.DescribeTargets(ctx, lis.Spec.LbRegion, lis.Spec.LbId, lis.Status.ListenerId)
+		if err != nil {
 			return err
 		}
-	}
-	if !needAdd {
-		return nil
-	}
-	if err := clb.RegisterTargets(
-		ctx, lis.Spec.LbRegion, lis.Spec.LbId, lis.Status.ListenerId,
-		clb.Target{TargetIP: lis.Spec.DedicatedTarget.IP, TargetPort: lis.Spec.DedicatedTarget.Port},
-	); err != nil {
-		return err
-	}
-	// 更新监听器状态
-	lis.Status.State = networkingv1alpha1.DedicatedCLBListenerStateOccupied
-	if err := r.Status().Update(ctx, lis); err != nil {
-		return err
+		toDel := []clb.Target{}
+		needAdd := false
+		for _, target := range targets {
+			if target.TargetIP == pod.Status.PodIP && target.TargetPort == targetPod.Port {
+				needAdd = true
+			} else {
+				toDel = append(toDel, target)
+			}
+		}
+		if len(toDel) > 0 {
+			if err := clb.DeregisterTargetsForListener(ctx, lis.Spec.LbRegion, lis.Spec.LbId, lis.Status.ListenerId, toDel...); err != nil {
+				return err
+			}
+		}
+		if !needAdd {
+			return nil
+		}
+		if err := clb.RegisterTargets(
+			ctx, lis.Spec.LbRegion, lis.Spec.LbId, lis.Status.ListenerId,
+			clb.Target{TargetIP: pod.Status.PodIP, TargetPort: targetPod.Port},
+		); err != nil {
+			return err
+		}
+		// 更新监听器状态
+		lis.Status.State = networkingv1alpha1.DedicatedCLBListenerStateOccupied
+		if err := r.Status().Update(ctx, lis); err != nil {
+			return err
+		}
+	} else { // pod 正在删除
+		// 清理rs
+		if err := clb.DeregisterAllTargets(ctx, lis.Spec.LbRegion, lis.Spec.LbId, lis.Status.ListenerId); err != nil {
+			return err
+		}
+		// 清理成功，删除 pod finalizer
+		if controllerutil.ContainsFinalizer(pod, podFinalizerName) {
+			if err := util.UpdatePodFinalizer(
+				ctx, pod, podFinalizerName, r.APIReader, r.Client, false,
+			); err != nil {
+				return err
+			}
+		}
 	}
 	return nil
 }
