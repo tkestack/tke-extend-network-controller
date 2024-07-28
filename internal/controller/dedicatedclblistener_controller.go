@@ -125,8 +125,8 @@ func (r *DedicatedCLBListenerReconciler) sync(ctx context.Context, log logr.Logg
 }
 
 func (r *DedicatedCLBListenerReconciler) ensureDedicatedTarget(ctx context.Context, log logr.Logger, lis *networkingv1alpha1.DedicatedCLBListener) error {
-	targetPod := lis.Spec.TargetPod
-	if targetPod == nil { // 没配置后端 pod
+	backendkPod := lis.Spec.BackendPod
+	if backendkPod == nil { // 没配置后端 pod
 		if lis.Status.State == networkingv1alpha1.DedicatedCLBListenerStateOccupied { // 但监听器状态是已占用，需要解绑
 			// 解绑所有后端
 			if err := clb.DeregisterAllTargets(ctx, lis.Spec.LbRegion, lis.Spec.LbId, lis.Status.ListenerId); err != nil {
@@ -145,7 +145,7 @@ func (r *DedicatedCLBListenerReconciler) ensureDedicatedTarget(ctx context.Conte
 		ctx,
 		client.ObjectKey{
 			Namespace: lis.Namespace,
-			Name:      targetPod.PodName,
+			Name:      backendkPod.PodName,
 		},
 		pod,
 	)
@@ -173,7 +173,7 @@ func (r *DedicatedCLBListenerReconciler) ensureDedicatedTarget(ctx context.Conte
 		toDel := []clb.Target{}
 		needAdd := false
 		for _, target := range targets {
-			if target.TargetIP == pod.Status.PodIP && target.TargetPort == targetPod.Port {
+			if target.TargetIP == pod.Status.PodIP && target.TargetPort == backendkPod.Port {
 				needAdd = true
 			} else {
 				toDel = append(toDel, target)
@@ -189,7 +189,7 @@ func (r *DedicatedCLBListenerReconciler) ensureDedicatedTarget(ctx context.Conte
 		}
 		if err := clb.RegisterTargets(
 			ctx, lis.Spec.LbRegion, lis.Spec.LbId, lis.Status.ListenerId,
-			clb.Target{TargetIP: pod.Status.PodIP, TargetPort: targetPod.Port},
+			clb.Target{TargetIP: pod.Status.PodIP, TargetPort: backendkPod.Port},
 		); err != nil {
 			return err
 		}
@@ -212,7 +212,7 @@ func (r *DedicatedCLBListenerReconciler) ensureDedicatedTarget(ctx context.Conte
 			}
 		}
 		// 更新 DedicatedCLBListener
-		lis.Spec.TargetPod = nil
+		lis.Spec.BackendPod = nil
 		if err := r.Update(ctx, lis); err != nil {
 			return err
 		}

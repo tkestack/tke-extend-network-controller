@@ -33,10 +33,10 @@ type DedicatedCLBListenerSpec struct {
 	// +optional
 	ListenerConfig string `json:"listenerConfig,omitempty"`
 	// +optional
-	TargetPod *TargetPod `json:"targetPod,omitempty"`
+	BackendPod *BackendPod `json:"backendPod,omitempty"`
 }
 
-type TargetPod struct {
+type BackendPod struct {
 	PodName string `json:"podName"`
 	Port    int64  `json:"port"`
 }
