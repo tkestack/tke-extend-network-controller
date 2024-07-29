@@ -7,7 +7,6 @@ import (
 	"github.com/spf13/viper"
 
 	"github.com/imroc/tke-extend-network-controller/internal/controller"
-	"github.com/imroc/tke-extend-network-controller/pkg/crd"
 	"github.com/imroc/tke-extend-network-controller/pkg/manager"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
@@ -54,7 +53,7 @@ func runManager() {
 		setupLog.Error(err, "unable to start manager")
 		os.Exit(1)
 	}
-	crd.Init(mgr)
+	networkingv1alpha1.Init(mgr)
 
 	if err = (&controller.DedicatedCLBServiceReconciler{
 		Client: mgr.GetClient(),
