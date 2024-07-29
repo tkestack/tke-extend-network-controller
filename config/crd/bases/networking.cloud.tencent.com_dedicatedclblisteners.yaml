@@ -53,11 +53,20 @@ spec:
                 type: object
               lbId:
                 type: string
+                x-kubernetes-validations:
+                - message: Value is immutable
+                  rule: self == oldSelf
               lbPort:
                 format: int64
                 type: integer
+                x-kubernetes-validations:
+                - message: Value is immutable
+                  rule: self == oldSelf
               lbRegion:
                 type: string
+                x-kubernetes-validations:
+                - message: Value is immutable
+                  rule: self == oldSelf
               listenerConfig:
                 type: string
               protocol:
@@ -65,6 +74,9 @@ spec:
                 - TCP
                 - UDP
                 type: string
+                x-kubernetes-validations:
+                - message: Value is immutable
+                  rule: self == oldSelf
             required:
             - lbId
             - lbPort

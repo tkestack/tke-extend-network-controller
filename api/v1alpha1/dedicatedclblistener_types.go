@@ -25,10 +25,14 @@ import (
 
 // DedicatedCLBListenerSpec defines the desired state of DedicatedCLBListener
 type DedicatedCLBListenerSpec struct {
+	// +kubebuilder:validation:XValidation:rule="self == oldSelf", message="Value is immutable"
 	LbId string `json:"lbId"`
+	// +kubebuilder:validation:XValidation:rule="self == oldSelf", message="Value is immutable"
 	// +optional
 	LbRegion string `json:"lbRegion,omitempty"`
-	LbPort   int64  `json:"lbPort"`
+	// +kubebuilder:validation:XValidation:rule="self == oldSelf", message="Value is immutable"
+	LbPort int64 `json:"lbPort"`
+	// +kubebuilder:validation:XValidation:rule="self == oldSelf", message="Value is immutable"
 	// +kubebuilder:validation:Enum=TCP;UDP
 	Protocol string `json:"protocol"`
 	// +optional

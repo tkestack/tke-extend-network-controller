@@ -105,13 +105,12 @@ func (r *DedicatedCLBListener) ValidateCreate() (admission.Warnings, error) {
 // ValidateUpdate implements webhook.Validator so a webhook will be registered for the type
 func (r *DedicatedCLBListener) ValidateUpdate(old runtime.Object) (admission.Warnings, error) {
 	dedicatedclblistenerlog.Info("validate update", "name", r.Name)
-	return r.validate()
+	return nil, nil
 }
 
 // ValidateDelete implements webhook.Validator so a webhook will be registered for the type
 func (r *DedicatedCLBListener) ValidateDelete() (admission.Warnings, error) {
 	dedicatedclblistenerlog.Info("validate delete", "name", r.Name)
 
-	// TODO(user): fill in your validation logic upon object deletion.
 	return nil, nil
 }
