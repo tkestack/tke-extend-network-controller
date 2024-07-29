@@ -1,10 +1,8 @@
 package app
 
 import (
-	"context"
 	"os"
 
-	"github.com/go-logr/logr"
 	"github.com/spf13/viper"
 
 	"github.com/imroc/tke-extend-network-controller/internal/controller"
@@ -90,10 +88,4 @@ func runManager() {
 		setupLog.Error(err, "problem running manager")
 		os.Exit(1)
 	}
-	logger, err := logr.FromContext(context.Background())
-	if err != nil {
-		setupLog.Error(err, "problem getting logger")
-		os.Exit(1)
-	}
-	logger.Info("starting with log level", logger.GetV())
 }
