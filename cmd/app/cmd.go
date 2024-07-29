@@ -26,6 +26,7 @@ const (
 	secretId               = "secret-id"
 	secretKey              = "secret-key"
 	region                 = "region"
+	vpcId                  = "vpcid"
 )
 
 var envReplacer = strings.NewReplacer("-", "_")
@@ -41,6 +42,7 @@ func init() {
 	addStringFlag(flags, secretId, "", "Secret ID")
 	addStringFlag(flags, secretKey, "", "Secret Key")
 	addStringFlag(flags, region, "", "The region of TKE cluster")
+	addStringFlag(flags, vpcId, "", "The VPC ID of TKE cluster")
 }
 
 func addStringFlag(flags *pflag.FlagSet, name, value, usage string) {

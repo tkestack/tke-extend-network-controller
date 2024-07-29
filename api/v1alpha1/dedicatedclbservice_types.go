@@ -27,6 +27,8 @@ import (
 type DedicatedCLBServiceSpec struct {
 	// +optional
 	LbRegion string `json:"lbRegion,omitempty"`
+	// +optional
+	VpcId string `json:"vpcId"`
 	// +default=500
 	MinPort int64 `json:"minPort"`
 	// +default=550

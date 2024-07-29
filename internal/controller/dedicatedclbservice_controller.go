@@ -28,6 +28,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	networkingv1alpha1 "github.com/imroc/tke-extend-network-controller/api/v1alpha1"
+	"github.com/imroc/tke-extend-network-controller/pkg/clb"
 )
 
 // DedicatedCLBServiceReconciler reconciles a DedicatedCLBService object
@@ -126,8 +127,12 @@ func (r *DedicatedCLBServiceReconciler) createDedicatedCLBListener(ctx context.C
 			break
 		}
 	}
-	if clbInfo == nil {
-		// TODO: 没有空余端口的clb，创建新clb
+	if clbInfo == nil { // 没有空余端口的clb，创建新clb
+		lbId, err := clb.Create(ds.Spec.LbRegion, ds.Spec.VpcId, ds.Namespace+"_"+ds.Name)
+		if err != nil {
+			return err
+		}
+		clbInfo = &networkingv1alpha1.DedicatedCLBInfo{LbId: lbId}
 		ds.Status.LbList = append(ds.Status.LbList, *clbInfo)
 	}
 	lis := &networkingv1alpha1.DedicatedCLBListener{}
@@ -135,7 +140,11 @@ func (r *DedicatedCLBServiceReconciler) createDedicatedCLBListener(ctx context.C
 	lis.Spec.ListenerConfig = ds.Spec.ListenerConfig
 	lis.Spec.LbRegion = ds.Spec.LbRegion
 	lis.Spec.LbId = clbInfo.LbId
-	lis.Spec.LbPort = clbInfo.MaxPort + 1
+	lbPort := clbInfo.MaxPort + 1
+	if lbPort < ds.Spec.MinPort {
+		lbPort = ds.Spec.MinPort
+	}
+	lis.Spec.LbPort = lbPort
 	lis.Spec.BackendPod = &networkingv1alpha1.BackendPod{
 		PodName: pod.Name,
 		Port:    port,
@@ -143,7 +152,8 @@ func (r *DedicatedCLBServiceReconciler) createDedicatedCLBListener(ctx context.C
 	if err := r.Create(ctx, lis); err != nil {
 		return err
 	}
-	if err := r.Status().Update(ctx, lis); err != nil {
+	clbInfo.MaxPort = lbPort
+	if err := r.Status().Update(ctx, ds); err != nil {
 		return err
 	}
 	return nil

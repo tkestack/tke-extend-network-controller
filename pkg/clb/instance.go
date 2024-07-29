@@ -1,6 +1,7 @@
 package clb
 
 import (
+	"errors"
 	"fmt"
 
 	clb "github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/clb/v20180317"
@@ -26,8 +27,27 @@ func GetClb(lbId, region string) (instance *clb.LoadBalancer, err error) {
 	return
 }
 
-func Create(region string) (err error) {
+func Create(region, vpcId, name string) (ldId string, err error) {
+	if vpcId == "" {
+		vpcId = defaultVpcId
+	}
 	req := clb.NewCreateLoadBalancerRequest()
 	req.LoadBalancerType = common.StringPtr("OPEN")
+	req.VpcId = &vpcId
+	client := GetClient(region)
+	resp, err := client.CreateLoadBalancer(req)
+	if err != nil {
+		return
+	}
+	ids := resp.Response.LoadBalancerIds
+	if len(ids) == 0 {
+		err = errors.New("no loadbalancer created")
+		return
+	}
+	if len(ids) > 1 {
+		err = fmt.Errorf("multiple loadbalancers created: %v", ids)
+		return
+	}
+	ldId = *ids[0]
 	return
 }
