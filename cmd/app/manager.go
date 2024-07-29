@@ -1,7 +1,6 @@
 package app
 
 import (
-	"flag"
 	"os"
 
 	"github.com/spf13/viper"
@@ -38,12 +37,8 @@ func runManager() {
 	metricsAddr := viper.GetString(metricsBindAddress)
 	probeAddr := viper.GetString(healthProbeBindAddress)
 	enableLeaderElection := viper.GetBool(leaderElect)
-	opts := zap.Options{
-		Development: true,
-	}
-	opts.BindFlags(flag.CommandLine)
 
-	ctrl.SetLogger(zap.New(zap.UseFlagOptions(&opts)))
+	ctrl.SetLogger(zap.New(zap.UseFlagOptions(zapOptions)))
 
 	mgr, err := ctrl.NewManager(
 		ctrl.GetConfigOrDie(),

@@ -1,6 +1,7 @@
 package app
 
 import (
+	"flag"
 	"fmt"
 	"strings"
 
@@ -8,6 +9,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
+	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 )
 
 var RootCommand = cobra.Command{
@@ -29,13 +31,20 @@ const (
 	vpcId                  = "vpcid"
 )
 
-var envReplacer = strings.NewReplacer("-", "_")
+var (
+	envReplacer = strings.NewReplacer("-", "_")
+	zapOptions  = &zap.Options{
+		Development: true,
+	}
+)
 
 func init() {
 	viper.AutomaticEnv()
 	viper.SetEnvKeyReplacer(envReplacer)
 
 	flags := RootCommand.Flags()
+	zapOptions.BindFlags(flag.CommandLine)
+	flags.AddGoFlagSet(flag.CommandLine)
 	addStringFlag(flags, metricsBindAddress, "0", "The address the metrics endpoint binds to. Use :8443 for HTTPS or :8080 for HTTP, or leave as 0 to disable the metrics service.")
 	addStringFlag(flags, healthProbeBindAddress, ":8081", "The address the probe endpoint binds to.")
 	addBoolFlag(flags, leaderElect, false, "Enable leader election for controller manager. Enabling this will ensure there is only one active controller manager.")
