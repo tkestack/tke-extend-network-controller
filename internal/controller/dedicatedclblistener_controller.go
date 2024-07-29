@@ -121,13 +121,13 @@ func (r *DedicatedCLBListenerReconciler) sync(ctx context.Context, log logr.Logg
 	if err := r.ensureListener(ctx, log, lis); err != nil {
 		return err
 	}
-	if err := r.ensureDedicatedTarget(ctx, log, lis); err != nil {
+	if err := r.ensureBackendPod(ctx, log, lis); err != nil {
 		return err
 	}
 	return nil
 }
 
-func (r *DedicatedCLBListenerReconciler) ensureDedicatedTarget(ctx context.Context, log logr.Logger, lis *networkingv1alpha1.DedicatedCLBListener) error {
+func (r *DedicatedCLBListenerReconciler) ensureBackendPod(ctx context.Context, log logr.Logger, lis *networkingv1alpha1.DedicatedCLBListener) error {
 	backendPod := lis.Spec.BackendPod
 	if backendPod == nil { // 没配置后端 pod
 		if lis.Status.State == networkingv1alpha1.DedicatedCLBListenerStateOccupied { // 但监听器状态是已占用，需要解绑
@@ -143,7 +143,11 @@ func (r *DedicatedCLBListenerReconciler) ensureDedicatedTarget(ctx context.Conte
 		}
 		return nil
 	}
-	log.V(6).Info("ensure backend pod registered", "podName", backendPod.PodName, "port", backendPod.Port)
+	log.V(6).Info(
+		"ensure backend pod registered",
+		"podName", backendPod.PodName,
+		"port", backendPod.Port,
+	)
 	pod := &corev1.Pod{}
 	err := r.Get(
 		ctx,
@@ -160,6 +164,11 @@ func (r *DedicatedCLBListenerReconciler) ensureDedicatedTarget(ctx context.Conte
 	if pod.DeletionTimestamp.IsZero() { // pod 没有在删除
 		// 确保 pod finalizer 存在
 		if !controllerutil.ContainsFinalizer(pod, podFinalizerName) {
+			log.V(6).Info(
+				"pod finalizer not found, try to add",
+				"podName", pod.Name,
+				"finalizerName", podFinalizerName,
+			)
 			if err := util.UpdatePodFinalizer(
 				ctx, pod, podFinalizerName, r.APIReader, r.Client, true,
 			); err != nil {
@@ -206,10 +215,21 @@ func (r *DedicatedCLBListenerReconciler) ensureDedicatedTarget(ctx context.Conte
 		}
 	} else { // pod 正在删除
 		// 清理rs
+		log.V(6).Info(
+			"pod deleting, try to deregister all targets",
+			"pod", pod,
+			"lbId", lis.Spec.LbId,
+			"listenerId", lis.Status.ListenerId,
+		)
 		if err := clb.DeregisterAllTargets(ctx, lis.Spec.LbRegion, lis.Spec.LbId, lis.Status.ListenerId); err != nil {
 			return err
 		}
 		// 清理成功，删除 pod finalizer
+		log.V(6).Info(
+			"pod deregisterd, remove pod finalizer",
+			"pod", pod.Name,
+			"finalizerName", podFinalizerName,
+		)
 		if controllerutil.ContainsFinalizer(pod, podFinalizerName) {
 			if err := util.UpdatePodFinalizer(
 				ctx, pod, podFinalizerName, r.APIReader, r.Client, false,
@@ -218,6 +238,7 @@ func (r *DedicatedCLBListenerReconciler) ensureDedicatedTarget(ctx context.Conte
 			}
 		}
 		// 更新 DedicatedCLBListener
+		log.V(6).Info("pod deregered, reset backend pod to nil")
 		lis.Spec.BackendPod = nil
 		if err := r.Update(ctx, lis); err != nil {
 			return err
@@ -234,7 +255,7 @@ func (r *DedicatedCLBListenerReconciler) ensureListener(ctx context.Context, log
 	case networkingv1alpha1.DedicatedCLBListenerStateAvailable, networkingv1alpha1.DedicatedCLBListenerStateOccupied:
 		listenerId := lis.Status.ListenerId
 		if listenerId == "" { // 不应该没有监听器ID，重建监听器
-			log.Info("listener id not found, try to recreate")
+			log.Info("listener id not found from status, try to recreate", "state", lis.Status.State)
 			lis.Status.State = networkingv1alpha1.DedicatedCLBListenerStatePending
 			if err := r.Status().Update(ctx, lis); err != nil {
 				return err
@@ -251,7 +272,12 @@ func (r *DedicatedCLBListenerReconciler) ensureListener(ctx context.Context, log
 			return r.createListener(ctx, log, lis)
 		}
 		if listener.Port != lis.Spec.LbPort || listener.Protocol != lis.Spec.Protocol { // 监听器端口和协议不符预期，清理重建
-			log.Info("unexpected listener, invalid port or protocol, try to recreate", "want", fmt.Sprintf("%d/%s", lis.Spec.LbPort, lis.Spec.Protocol), "got", fmt.Sprintf("%d/%s", listener.Port, listener.Protocol))
+			log.Info(
+				"unexpected listener, invalid port or protocol, try to recreate",
+				"want", fmt.Sprintf("%d/%s", lis.Spec.LbPort, lis.Spec.Protocol),
+				"got", fmt.Sprintf("%d/%s", listener.Port, listener.Protocol),
+				"listenerId", listenerId,
+			)
 			lis.Status.State = networkingv1alpha1.DedicatedCLBListenerStatePending
 			lis.Status.ListenerId = ""
 			if err := r.Status().Update(ctx, lis); err != nil {
@@ -290,7 +316,7 @@ func (r *DedicatedCLBListenerReconciler) createListener(ctx context.Context, log
 		return err
 	}
 
-	log.V(5).Info("listener successfully created", "id", id)
+	log.V(5).Info("listener successfully created", "listenerId", id)
 	lis.Status.State = networkingv1alpha1.DedicatedCLBListenerStateAvailable
 	lis.Status.ListenerId = id
 	return r.Status().Update(ctx, lis)
