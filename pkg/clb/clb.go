@@ -29,6 +29,10 @@ func DefaultRegion() string {
 	return defaultRegion
 }
 
+func DefaultVpcId() string {
+	return defaultVpcId
+}
+
 var clients = make(map[string]*clb.Client)
 
 func GetClient(region string) *clb.Client {

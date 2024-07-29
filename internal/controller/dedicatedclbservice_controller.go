@@ -19,7 +19,6 @@ package controller
 import (
 	"context"
 	"fmt"
-	"strconv"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -29,6 +28,7 @@ import (
 
 	networkingv1alpha1 "github.com/imroc/tke-extend-network-controller/api/v1alpha1"
 	"github.com/imroc/tke-extend-network-controller/pkg/clb"
+	"github.com/imroc/tke-extend-network-controller/pkg/crd"
 )
 
 // DedicatedCLBServiceReconciler reconciles a DedicatedCLBService object
@@ -70,30 +70,18 @@ func (r *DedicatedCLBServiceReconciler) Reconcile(ctx context.Context, req ctrl.
 	return ctrl.Result{}, nil
 }
 
-const (
-	backendPodNameField = "spec.backendPod.podName"
-	lbPortField         = "spec.lbPort"
-	protocolField       = "spec.protocol"
-)
-
 func (r *DedicatedCLBServiceReconciler) syncPodPort(ctx context.Context, ds *networkingv1alpha1.DedicatedCLBService, pod *corev1.Pod, port int64, protocol string) error {
-	list := &networkingv1alpha1.DedicatedCLBListenerList{}
-	if err := r.List(
-		ctx, list, client.InNamespace(pod.Namespace),
-		client.MatchingFields{
-			backendPodNameField: pod.Name,
-			protocolField:       protocol,
-		},
-	); err != nil {
+	list, err := crd.FindDedicatedCLBListenerByBackendPod(ctx, pod, port, protocol)
+	if err != nil {
 		return err
 	}
-	if len(list.Items) == 0 { // 没找到DedicatedCLBListener，创建一个
+	if len(list) == 0 { // 没找到DedicatedCLBListener，创建一个
 		if err := r.createDedicatedCLBListener(ctx, ds, pod, port, protocol); err != nil {
 			return err
 		}
 	}
-	if len(list.Items) > 1 {
-		return fmt.Errorf("found %d DedicatedCLBListener for pod %s(%s/%d)", len(list.Items), pod.Name, protocol, port)
+	if len(list) > 1 {
+		return fmt.Errorf("found %d DedicatedCLBListener for pod %s(%s/%d)", len(list), pod.Name, protocol, port)
 	}
 	return nil
 }
@@ -162,32 +150,6 @@ func (r *DedicatedCLBServiceReconciler) createDedicatedCLBListener(ctx context.C
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *DedicatedCLBServiceReconciler) SetupWithManager(mgr ctrl.Manager) error {
-	indexer := mgr.GetFieldIndexer()
-	indexer.IndexField(
-		context.TODO(), &networkingv1alpha1.DedicatedCLBListener{}, backendPodNameField,
-		func(o client.Object) []string {
-			backendPod := o.(*networkingv1alpha1.DedicatedCLBListener).Spec.BackendPod
-			if backendPod != nil {
-				return []string{backendPod.PodName}
-			}
-			return []string{""}
-		},
-	)
-	indexer.IndexField(
-		context.TODO(), &networkingv1alpha1.DedicatedCLBListener{}, lbPortField,
-		func(o client.Object) []string {
-			lbPort := o.(*networkingv1alpha1.DedicatedCLBListener).Spec.LbPort
-			return []string{strconv.Itoa(int(lbPort))}
-		},
-	)
-	indexer.IndexField(
-		context.TODO(), &networkingv1alpha1.DedicatedCLBListener{}, protocolField,
-		func(o client.Object) []string {
-			protocol := o.(*networkingv1alpha1.DedicatedCLBListener).Spec.Protocol
-			return []string{protocol}
-		},
-	)
-
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&networkingv1alpha1.DedicatedCLBService{}).
 		Complete(r)

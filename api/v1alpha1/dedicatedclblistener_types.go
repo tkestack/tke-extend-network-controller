@@ -29,6 +29,7 @@ type DedicatedCLBListenerSpec struct {
 	// +optional
 	LbRegion string `json:"lbRegion,omitempty"`
 	LbPort   int64  `json:"lbPort"`
+	// +kubebuilder:validation:Enum=TCP;UDP
 	Protocol string `json:"protocol"`
 	// +optional
 	ListenerConfig string `json:"listenerConfig,omitempty"`
