@@ -44,6 +44,7 @@ func runManager() {
 		ctrl.GetConfigOrDie(),
 		manager.GetOptions(scheme, metricsAddr, probeAddr, enableLeaderElection),
 	)
+	setupLog.Info("log level", "level", setupLog.GetV())
 	if err != nil {
 		setupLog.Error(err, "unable to start manager")
 		os.Exit(1)
