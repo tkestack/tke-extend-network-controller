@@ -53,7 +53,7 @@ func runManager() {
 		setupLog.Error(err, "unable to start manager")
 		os.Exit(1)
 	}
-	networkingv1alpha1.Init(mgr)
+	networkingv1alpha1.Init(setupLog, mgr)
 
 	if err = (&controller.DedicatedCLBServiceReconciler{
 		Client: mgr.GetClient(),
