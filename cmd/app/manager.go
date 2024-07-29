@@ -1,8 +1,10 @@
 package app
 
 import (
+	"context"
 	"os"
 
+	"github.com/go-logr/logr"
 	"github.com/spf13/viper"
 
 	"github.com/imroc/tke-extend-network-controller/internal/controller"
@@ -44,7 +46,6 @@ func runManager() {
 		ctrl.GetConfigOrDie(),
 		manager.GetOptions(scheme, metricsAddr, probeAddr, enableLeaderElection),
 	)
-	setupLog.Info("log level", "level", setupLog.GetV())
 	if err != nil {
 		setupLog.Error(err, "unable to start manager")
 		os.Exit(1)
@@ -65,14 +66,6 @@ func runManager() {
 		setupLog.Error(err, "unable to create controller", "controller", "DedicatedNatgwService")
 		os.Exit(1)
 	}
-	// if err = (&controller.CLBPodBindingReconciler{
-	// 	Client:    mgr.GetClient(),
-	// 	Scheme:    mgr.GetScheme(),
-	// 	APIReader: mgr.GetAPIReader(),
-	// }).SetupWithManager(mgr); err != nil {
-	// 	setupLog.Error(err, "unable to create controller", "controller", "CLBPodBindingReconciler")
-	// 	os.Exit(1)
-	// }
 	if err = (&controller.DedicatedCLBListenerReconciler{
 		Client:    mgr.GetClient(),
 		Scheme:    mgr.GetScheme(),
@@ -82,11 +75,6 @@ func runManager() {
 		os.Exit(1)
 	}
 	// +kubebuilder:scaffold:builder
-
-	// if err = (&networkingv1alpha1.CLBPodBinding{}).SetupWebhookWithManager(mgr); err != nil {
-	// 	setupLog.Error(err, "unable to create webhook", "webhook", "CLBPodBinding")
-	// 	os.Exit(1)
-	// }
 
 	if err := mgr.AddHealthzCheck("healthz", healthz.Ping); err != nil {
 		setupLog.Error(err, "unable to set up health check")
@@ -102,4 +90,10 @@ func runManager() {
 		setupLog.Error(err, "problem running manager")
 		os.Exit(1)
 	}
+	logger, err := logr.FromContext(context.Background())
+	if err != nil {
+		setupLog.Error(err, "problem getting logger")
+		os.Exit(1)
+	}
+	logger.Info("starting with log level", logger.GetV())
 }

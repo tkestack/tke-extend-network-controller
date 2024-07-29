@@ -234,13 +234,14 @@ func (r *DedicatedCLBListenerReconciler) ensureListener(ctx context.Context, log
 	case networkingv1alpha1.DedicatedCLBListenerStateAvailable, networkingv1alpha1.DedicatedCLBListenerStateOccupied:
 		listenerId := lis.Status.ListenerId
 		if listenerId == "" { // 不应该没有监听器ID，重建监听器
+			log.Info("listener id not found, try to recreate")
 			lis.Status.State = networkingv1alpha1.DedicatedCLBListenerStatePending
 			if err := r.Status().Update(ctx, lis); err != nil {
 				return err
 			}
-			log.Info("listener id not found, try to recreate")
 			return r.createListener(ctx, log, lis)
 		}
+		log.V(5).Info("ensure listener", "listenerId", listenerId)
 		listener, err := clb.GetListener(ctx, lis.Spec.LbRegion, lis.Spec.LbId, listenerId)
 		if err != nil {
 			return err
