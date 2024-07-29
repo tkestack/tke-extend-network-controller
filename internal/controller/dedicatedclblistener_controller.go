@@ -128,8 +128,8 @@ func (r *DedicatedCLBListenerReconciler) sync(ctx context.Context, log logr.Logg
 }
 
 func (r *DedicatedCLBListenerReconciler) ensureDedicatedTarget(ctx context.Context, log logr.Logger, lis *networkingv1alpha1.DedicatedCLBListener) error {
-	backendkPod := lis.Spec.BackendPod
-	if backendkPod == nil { // 没配置后端 pod
+	backendPod := lis.Spec.BackendPod
+	if backendPod == nil { // 没配置后端 pod
 		if lis.Status.State == networkingv1alpha1.DedicatedCLBListenerStateOccupied { // 但监听器状态是已占用，需要解绑
 			// 解绑所有后端
 			if err := clb.DeregisterAllTargets(ctx, lis.Spec.LbRegion, lis.Spec.LbId, lis.Status.ListenerId); err != nil {
@@ -143,13 +143,13 @@ func (r *DedicatedCLBListenerReconciler) ensureDedicatedTarget(ctx context.Conte
 		}
 		return nil
 	}
-	log.Info("register backend pod", "podName", backendkPod.PodName, "port", backendkPod.Port)
+	log.V(6).Info("ensure backend pod registered", "podName", backendPod.PodName, "port", backendPod.Port)
 	pod := &corev1.Pod{}
 	err := r.Get(
 		ctx,
 		client.ObjectKey{
 			Namespace: lis.Namespace,
-			Name:      backendkPod.PodName,
+			Name:      backendPod.PodName,
 		},
 		pod,
 	)
@@ -177,13 +177,14 @@ func (r *DedicatedCLBListenerReconciler) ensureDedicatedTarget(ctx context.Conte
 		toDel := []clb.Target{}
 		needAdd := true
 		for _, target := range targets {
-			if target.TargetIP == pod.Status.PodIP && target.TargetPort == backendkPod.Port {
+			if target.TargetIP == pod.Status.PodIP && target.TargetPort == backendPod.Port {
 				needAdd = false
 			} else {
 				toDel = append(toDel, target)
 			}
 		}
 		if len(toDel) > 0 {
+			log.Info("deregister extra rs", "rs", toDel)
 			if err := clb.DeregisterTargetsForListener(ctx, lis.Spec.LbRegion, lis.Spec.LbId, lis.Status.ListenerId, toDel...); err != nil {
 				return err
 			}
@@ -191,9 +192,10 @@ func (r *DedicatedCLBListenerReconciler) ensureDedicatedTarget(ctx context.Conte
 		if !needAdd {
 			return nil
 		}
+		log.V(6).Info("register backend pod", "backend", backendPod)
 		if err := clb.RegisterTargets(
 			ctx, lis.Spec.LbRegion, lis.Spec.LbId, lis.Status.ListenerId,
-			clb.Target{TargetIP: pod.Status.PodIP, TargetPort: backendkPod.Port},
+			clb.Target{TargetIP: pod.Status.PodIP, TargetPort: backendPod.Port},
 		); err != nil {
 			return err
 		}
