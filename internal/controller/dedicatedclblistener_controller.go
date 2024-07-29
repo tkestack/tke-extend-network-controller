@@ -143,6 +143,7 @@ func (r *DedicatedCLBListenerReconciler) ensureDedicatedTarget(ctx context.Conte
 		}
 		return nil
 	}
+	log.Info("register backend pod", "podName", backendkPod.PodName, "port", backendkPod.Port)
 	pod := &corev1.Pod{}
 	err := r.Get(
 		ctx,
@@ -158,7 +159,7 @@ func (r *DedicatedCLBListenerReconciler) ensureDedicatedTarget(ctx context.Conte
 	podFinalizerName := "dedicatedclblistener.networking.cloud.tencent.com/" + lis.Name
 	if pod.DeletionTimestamp.IsZero() { // pod 没有在删除
 		// 确保 pod finalizer 存在
-		if controllerutil.ContainsFinalizer(pod, podFinalizerName) {
+		if !controllerutil.ContainsFinalizer(pod, podFinalizerName) {
 			if err := util.UpdatePodFinalizer(
 				ctx, pod, podFinalizerName, r.APIReader, r.Client, true,
 			); err != nil {
@@ -174,10 +175,10 @@ func (r *DedicatedCLBListenerReconciler) ensureDedicatedTarget(ctx context.Conte
 			return err
 		}
 		toDel := []clb.Target{}
-		needAdd := false
+		needAdd := true
 		for _, target := range targets {
 			if target.TargetIP == pod.Status.PodIP && target.TargetPort == backendkPod.Port {
-				needAdd = true
+				needAdd = false
 			} else {
 				toDel = append(toDel, target)
 			}
