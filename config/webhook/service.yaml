@@ -4,7 +4,7 @@ metadata:
   labels:
     app.kubernetes.io/name: tke-extend-network-controller
     app.kubernetes.io/managed-by: kustomize
-  name: tke-extend-network-controller-webhook-service
+  name: webhook-service
   namespace: kube-system
 spec:
   ports:

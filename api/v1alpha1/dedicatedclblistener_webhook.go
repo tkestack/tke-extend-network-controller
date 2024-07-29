@@ -85,6 +85,7 @@ func validateLbPort(lis *DedicatedCLBListener) error {
 }
 
 // +kubebuilder:webhook:path=/validate-networking-cloud-tencent-com-v1alpha1-dedicatedclblistener,mutating=false,failurePolicy=fail,sideEffects=None,groups=networking.cloud.tencent.com,resources=dedicatedclblisteners,verbs=create;update,versions=v1alpha1,name=vdedicatedclblistener.kb.io,admissionReviewVersions=v1
+
 var _ webhook.Validator = &DedicatedCLBListener{}
 
 func (r *DedicatedCLBListener) validate() (admission.Warnings, error) {
