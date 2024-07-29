@@ -18,6 +18,7 @@ package v1alpha1
 
 import (
 	clb "github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/clb/v20180317"
+	"github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -29,29 +30,32 @@ func (s *CLBListenerConfigSpec) CreateListenerRequest(lbId string, port int64, p
 	req.Ports = []*int64{&port}
 	req.Protocol = &protocol
 	req.LoadBalancerId = &lbId
+	req.HealthCheck = &clb.HealthCheck{
+		SourceIpType: common.Int64Ptr(1),
+	}
 	if s == nil {
 		return req
 	}
 	if hc := s.Healthcheck; hc != nil {
-		req.HealthCheck = &clb.HealthCheck{
-			HealthSwitch:    hc.HealthSwitch,
-			TimeOut:         hc.TimeOut,
-			IntervalTime:    hc.IntervalTime,
-			HealthNum:       hc.HealthNum,
-			UnHealthNum:     hc.UnHealthNum,
-			HttpCode:        hc.HttpCode,
-			HttpCheckPath:   hc.HttpCheckPath,
-			HttpCheckDomain: hc.HttpCheckDomain,
-			HttpCheckMethod: hc.HttpCheckMethod,
-			CheckPort:       hc.CheckPort,
-			ContextType:     hc.ContextType,
-			SendContext:     hc.SendContext,
-			RecvContext:     hc.RecvContext,
-			CheckType:       hc.CheckType,
-			HttpVersion:     hc.HttpVersion,
-			SourceIpType:    hc.SourceIpType,
-			ExtendedCode:    hc.ExtendedCode,
+		req.HealthCheck.HealthSwitch = hc.HealthSwitch
+		req.HealthCheck.TimeOut = hc.TimeOut
+		req.HealthCheck.IntervalTime = hc.IntervalTime
+		req.HealthCheck.HealthNum = hc.HealthNum
+		req.HealthCheck.UnHealthNum = hc.UnHealthNum
+		req.HealthCheck.HttpCode = hc.HttpCode
+		req.HealthCheck.HttpCheckPath = hc.HttpCheckPath
+		req.HealthCheck.HttpCheckDomain = hc.HttpCheckDomain
+		req.HealthCheck.HttpCheckMethod = hc.HttpCheckMethod
+		req.HealthCheck.CheckPort = hc.CheckPort
+		req.HealthCheck.ContextType = hc.ContextType
+		req.HealthCheck.SendContext = hc.SendContext
+		req.HealthCheck.RecvContext = hc.RecvContext
+		req.HealthCheck.CheckType = hc.CheckType
+		req.HealthCheck.HttpVersion = hc.HttpVersion
+		if hc.SourceIpType != nil {
+			req.HealthCheck.SourceIpType = hc.SourceIpType
 		}
+		req.HealthCheck.ExtendedCode = hc.ExtendedCode
 	}
 	if cert := s.Certificate; cert != nil {
 		req.Certificate = &clb.CertificateInput{
