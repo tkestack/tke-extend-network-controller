@@ -25,24 +25,34 @@ import (
 
 // DedicatedCLBServiceSpec defines the desired state of DedicatedCLBService
 type DedicatedCLBServiceSpec struct {
-	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
-	// Important: Run "make" to regenerate code after modifying this file
-
-	// +default=500
-	MinPort int32 `json:"minPort"`
-	// +default=550
-	MaxPort     int32 `json:"maxPort"`
-	ServiceName int32 `json:"serviceName"`
 	// +optional
-	ExtensiveParameters string `json:"extensiveParameters"`
+	LbRegion string `json:"lbRegion,omitempty"`
+	// +default=500
+	MinPort int64 `json:"minPort"`
+	// +default=550
+	MaxPort  int64                     `json:"maxPort"`
+	Selector map[string]string         `json:"selector"`
+	Ports    []DedicatedCLBServicePort `json:"ports"`
+	// +optional
+	ListenerConfig string `json:"listenerConfig,omitempty"`
 	// +optional
 	ExistedLbIds []string `json:"existedLbIds"`
 }
 
+type DedicatedCLBServicePort struct {
+	Protocol string `json:"protocol"`
+	Port     int64  `json:"port"`
+}
+
 // DedicatedCLBServiceStatus defines the observed state of DedicatedCLBService
 type DedicatedCLBServiceStatus struct {
-	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
-	// Important: Run "make" to regenerate code after modifying this file
+	LbList []DedicatedCLBInfo `json:"lbList"`
+}
+
+type DedicatedCLBInfo struct {
+	LbId string `json:"lbId"`
+	// +optional
+	MaxPort int64 `json:"maxPort"`
 }
 
 // +kubebuilder:object:root=true

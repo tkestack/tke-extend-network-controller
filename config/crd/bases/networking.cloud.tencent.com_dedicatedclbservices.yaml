@@ -44,24 +44,56 @@ spec:
                 items:
                   type: string
                 type: array
-              extensiveParameters:
+              lbRegion:
+                type: string
+              listenerConfig:
                 type: string
               maxPort:
-                format: int32
+                format: int64
                 type: integer
               minPort:
-                format: int32
+                format: int64
                 type: integer
-              serviceName:
-                format: int32
-                type: integer
+              ports:
+                items:
+                  properties:
+                    port:
+                      format: int64
+                      type: integer
+                    protocol:
+                      type: string
+                  required:
+                  - port
+                  - protocol
+                  type: object
+                type: array
+              selector:
+                additionalProperties:
+                  type: string
+                type: object
             required:
             - maxPort
             - minPort
-            - serviceName
+            - ports
+            - selector
             type: object
           status:
             description: DedicatedCLBServiceStatus defines the observed state of DedicatedCLBService
+            properties:
+              lbList:
+                items:
+                  properties:
+                    lbId:
+                      type: string
+                    maxPort:
+                      format: int64
+                      type: integer
+                  required:
+                  - lbId
+                  type: object
+                type: array
+            required:
+            - lbList
             type: object
         type: object
     served: true

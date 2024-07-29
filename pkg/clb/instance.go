@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	clb "github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/clb/v20180317"
+	"github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common"
 )
 
 func GetClb(lbId, region string) (instance *clb.LoadBalancer, err error) {
@@ -22,5 +23,11 @@ func GetClb(lbId, region string) (instance *clb.LoadBalancer, err error) {
 		return
 	}
 	instance = resp.Response.LoadBalancerSet[0]
+	return
+}
+
+func Create(region string) (err error) {
+	req := clb.NewCreateLoadBalancerRequest()
+	req.LoadBalancerType = common.StringPtr("OPEN")
 	return
 }
