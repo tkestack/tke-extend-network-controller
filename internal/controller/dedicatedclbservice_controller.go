@@ -145,6 +145,7 @@ func (r *DedicatedCLBServiceReconciler) createDedicatedCLBListener(ctx context.C
 		lbPort = ds.Spec.MinPort
 	}
 	lis.Spec.LbPort = lbPort
+	lis.Spec.Protocol = protocol
 	lis.Spec.BackendPod = &networkingv1alpha1.BackendPod{
 		PodName: pod.Name,
 		Port:    port,
