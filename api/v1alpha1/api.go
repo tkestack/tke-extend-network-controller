@@ -1,4 +1,4 @@
-package crd
+package v1alpha1
 
 import (
 	ctrl "sigs.k8s.io/controller-runtime"

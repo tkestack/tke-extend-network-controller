@@ -28,7 +28,6 @@ import (
 
 	networkingv1alpha1 "github.com/imroc/tke-extend-network-controller/api/v1alpha1"
 	"github.com/imroc/tke-extend-network-controller/pkg/clb"
-	"github.com/imroc/tke-extend-network-controller/pkg/crd"
 )
 
 // DedicatedCLBServiceReconciler reconciles a DedicatedCLBService object
@@ -71,7 +70,7 @@ func (r *DedicatedCLBServiceReconciler) Reconcile(ctx context.Context, req ctrl.
 }
 
 func (r *DedicatedCLBServiceReconciler) syncPodPort(ctx context.Context, ds *networkingv1alpha1.DedicatedCLBService, pod *corev1.Pod, port int64, protocol string) error {
-	list, err := crd.FindDedicatedCLBListenerByBackendPod(ctx, pod, port, protocol)
+	list, err := networkingv1alpha1.FindDedicatedCLBListenerByBackendPod(ctx, pod, port, protocol)
 	if err != nil {
 		return err
 	}
@@ -83,7 +82,7 @@ func (r *DedicatedCLBServiceReconciler) syncPodPort(ctx context.Context, ds *net
 	if len(list) > 1 {
 		return fmt.Errorf("found %d DedicatedCLBListener for pod %s(%s/%d)", len(list), pod.Name, protocol, port)
 	}
-	return nil
+	return r.useDedicatedCLBListener(ctx, &list[0], pod, port)
 }
 
 func (r *DedicatedCLBServiceReconciler) syncPod(ctx context.Context, ds *networkingv1alpha1.DedicatedCLBService, pod *corev1.Pod) error {
@@ -95,7 +94,7 @@ func (r *DedicatedCLBServiceReconciler) syncPod(ctx context.Context, ds *network
 	return nil
 }
 
-func (r *DedicatedCLBServiceReconciler) useDedicatedCLBListener(ctx context.Context, ds *networkingv1alpha1.DedicatedCLBService, lis *networkingv1alpha1.DedicatedCLBListener, pod *corev1.Pod, port int64) error {
+func (r *DedicatedCLBServiceReconciler) useDedicatedCLBListener(ctx context.Context, lis *networkingv1alpha1.DedicatedCLBListener, pod *corev1.Pod, port int64) error {
 	lis.Spec.BackendPod = &networkingv1alpha1.BackendPod{
 		PodName: pod.Name,
 		Port:    port,
