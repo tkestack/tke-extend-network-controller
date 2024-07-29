@@ -19,6 +19,7 @@ package controller
 import (
 	"context"
 	"fmt"
+	"strconv"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -70,19 +71,27 @@ func (r *DedicatedCLBServiceReconciler) Reconcile(ctx context.Context, req ctrl.
 }
 
 func (r *DedicatedCLBServiceReconciler) syncPodPort(ctx context.Context, ds *networkingv1alpha1.DedicatedCLBService, pod *corev1.Pod, port int64, protocol string) error {
-	list, err := networkingv1alpha1.FindDedicatedCLBListenerByBackendPod(ctx, pod, port, protocol)
-	if err != nil {
+	list := &networkingv1alpha1.DedicatedCLBListenerList{}
+	if err := r.List(
+		ctx, list, client.InNamespace(pod.Namespace),
+		client.MatchingFields{
+			"spec.backendPod.podName": pod.Name,
+			"spec.protocol":           protocol,
+			"spec.lbPort":             strconv.Itoa(int(port)),
+		},
+	); err != nil {
 		return err
 	}
-	if len(list) == 0 { // 没找到DedicatedCLBListener，创建一个
+
+	if len(list.Items) == 0 { // 没找到DedicatedCLBListener，创建一个
 		if err := r.createDedicatedCLBListener(ctx, ds, pod, port, protocol); err != nil {
 			return err
 		}
 	}
-	if len(list) > 1 {
-		return fmt.Errorf("found %d DedicatedCLBListener for pod %s(%s/%d)", len(list), pod.Name, protocol, port)
+	if len(list.Items) > 1 {
+		return fmt.Errorf("found %d DedicatedCLBListener for pod %s(%s/%d)", len(list.Items), pod.Name, protocol, port)
 	}
-	return r.useDedicatedCLBListener(ctx, &list[0], pod, port)
+	return r.useDedicatedCLBListener(ctx, &list.Items[0], pod, port)
 }
 
 func (r *DedicatedCLBServiceReconciler) syncPod(ctx context.Context, ds *networkingv1alpha1.DedicatedCLBService, pod *corev1.Pod) error {

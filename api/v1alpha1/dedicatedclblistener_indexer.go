@@ -4,7 +4,6 @@ import (
 	"context"
 	"strconv"
 
-	corev1 "k8s.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -47,19 +46,4 @@ func indexFieldForDedicatedCLBListener(indexer client.FieldIndexer) {
 			return []string{lbId}
 		},
 	)
-}
-
-func FindDedicatedCLBListenerByBackendPod(ctx context.Context, pod *corev1.Pod, port int64, protocol string) ([]DedicatedCLBListener, error) {
-	list := &DedicatedCLBListenerList{}
-	if err := apiClient.List(
-		ctx, list, client.InNamespace(pod.Namespace),
-		client.MatchingFields{
-			backendPodNameField: pod.Name,
-			protocolField:       protocol,
-			lbPortField:         strconv.Itoa(int(port)),
-		},
-	); err != nil {
-		return nil, err
-	}
-	return list.Items, nil
 }

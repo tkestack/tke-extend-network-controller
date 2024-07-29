@@ -25,16 +25,21 @@ import (
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/go-logr/logr"
 	networkingv1alpha1 "github.com/imroc/tke-extend-network-controller/api/v1alpha1"
 	"github.com/imroc/tke-extend-network-controller/pkg/clb"
 	"github.com/imroc/tke-extend-network-controller/pkg/util"
+	"sigs.k8s.io/controller-runtime/pkg/handler"
 )
 
 // DedicatedCLBListenerReconciler reconciles a DedicatedCLBListener object
@@ -323,10 +328,62 @@ func (r *DedicatedCLBListenerReconciler) createListener(ctx context.Context, log
 	return r.Status().Update(ctx, lis)
 }
 
+type podChangedPredicate struct {
+	predicate.Funcs
+}
+
+func (podChangedPredicate) Update(e event.UpdateEvent) bool {
+	oldPod := e.ObjectOld.(*corev1.Pod)
+	newPod := e.ObjectNew.(*corev1.Pod)
+	if oldPod == nil || newPod == nil {
+		panic("oldPod or newPod is nil")
+	}
+	// pod 删除时触发对账（解绑rs）
+	if !oldPod.DeletionTimestamp.Equal(newPod.DeletionTimestamp) {
+		return true
+	}
+	// pod IP 变更时触发对账（重新绑定rs）
+	if oldPod.Status.PodIP != newPod.Status.PodIP {
+		return true
+	}
+	return false
+}
+
 // SetupWithManager sets up the controller with the Manager.
 func (r *DedicatedCLBListenerReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&networkingv1alpha1.DedicatedCLBListener{}).
 		WithEventFilter(predicate.GenerationChangedPredicate{}).
+		Watches(
+			&corev1.Pod{},
+			handler.EnqueueRequestsFromMapFunc(r.findObjectsForPod),
+			builder.WithPredicates(podChangedPredicate{}),
+		).
 		Complete(r)
+}
+
+func (r *DedicatedCLBListenerReconciler) findObjectsForPod(ctx context.Context, pod client.Object) []reconcile.Request {
+	list := &networkingv1alpha1.DedicatedCLBListenerList{}
+	err := r.List(
+		ctx,
+		list,
+		client.InNamespace(pod.GetNamespace()),
+		client.MatchingFields{
+			"spec.backendPod.podName": pod.GetName(),
+		},
+	)
+	if err != nil {
+		log.FromContext(ctx).Error(err, "failed to list dedicatedclblisteners", "podName", pod.GetName())
+		return []reconcile.Request{}
+	}
+	requests := make([]reconcile.Request, len(list.Items))
+	for i, item := range list.Items {
+		requests[i] = reconcile.Request{
+			NamespacedName: types.NamespacedName{
+				Name:      item.GetName(),
+				Namespace: item.GetNamespace(),
+			},
+		}
+	}
+	return requests
 }
