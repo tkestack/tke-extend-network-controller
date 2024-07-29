@@ -131,6 +131,7 @@ func (r *DedicatedCLBListenerReconciler) ensureBackendPod(ctx context.Context, l
 	backendPod := lis.Spec.BackendPod
 	if backendPod == nil { // 没配置后端 pod
 		if lis.Status.State == networkingv1alpha1.DedicatedCLBListenerStateOccupied { // 但监听器状态是已占用，需要解绑
+			log.V(6).Info("no backend pod configured, try to deregister all targets")
 			// 解绑所有后端
 			if err := clb.DeregisterAllTargets(ctx, lis.Spec.LbRegion, lis.Spec.LbId, lis.Status.ListenerId); err != nil {
 				return err
