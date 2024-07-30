@@ -23,7 +23,7 @@ func indexFieldForDedicatedCLBListener(indexer client.FieldIndexer) error {
 			if backendPod != nil {
 				return []string{backendPod.PodName}
 			}
-			return []string{""}
+			return nil
 		},
 	); err != nil {
 		return err
