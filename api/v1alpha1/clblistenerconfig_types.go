@@ -32,11 +32,15 @@ func (s *CLBListenerConfigSpec) CreateListenerRequest(lbId string, port int64, p
 	req.LoadBalancerId = &lbId
 	req.HealthCheck = &clb.HealthCheck{
 		SourceIpType: common.Int64Ptr(1),
+		HealthSwitch: common.Int64Ptr(0),
 	}
 	if s == nil {
 		return req
 	}
 	if hc := s.Healthcheck; hc != nil {
+		if hc.HealthSwitch != nil {
+			req.HealthCheck.HealthSwitch = hc.HealthSwitch
+		}
 		req.HealthCheck.HealthSwitch = hc.HealthSwitch
 		req.HealthCheck.TimeOut = hc.TimeOut
 		req.HealthCheck.IntervalTime = hc.IntervalTime
