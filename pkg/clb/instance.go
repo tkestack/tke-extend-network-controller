@@ -3,6 +3,7 @@ package clb
 import (
 	"errors"
 	"fmt"
+	"time"
 
 	clb "github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/clb/v20180317"
 	"github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common"
@@ -27,7 +28,7 @@ func GetClb(lbId, region string) (instance *clb.LoadBalancer, err error) {
 	return
 }
 
-func Create(region, vpcId, name string) (ldId string, err error) {
+func Create(region, vpcId, name string) (lbId string, err error) {
 	if vpcId == "" {
 		vpcId = defaultVpcId
 	}
@@ -48,6 +49,17 @@ func Create(region, vpcId, name string) (ldId string, err error) {
 		err = fmt.Errorf("multiple loadbalancers created: %v", ids)
 		return
 	}
-	ldId = *ids[0]
+	lbId = *ids[0]
+	for {
+		lb, err := GetClb(lbId, region)
+		if err != nil {
+			return "", err
+		}
+		if *lb.Status == 0 { // 创建中，等待一下
+			time.Sleep(time.Second * 3)
+			continue
+		}
+		break
+	}
 	return
 }

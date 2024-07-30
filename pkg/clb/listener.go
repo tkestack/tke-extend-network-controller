@@ -76,6 +76,10 @@ func CreateListener(ctx context.Context, region string, req *clb.CreateListenerR
 		err = fmt.Errorf("found %d listeners created", len(resp.Response.ListenerIds))
 		return
 	}
+	err = Wait(ctx, region, *resp.Response.RequestId)
+	if err != nil {
+		return
+	}
 	id = *resp.Response.ListenerIds[0]
 	return
 }
@@ -103,6 +107,12 @@ func DeleteListener(ctx context.Context, region, lbId, listenerId string) error 
 	req.LoadBalancerId = &lbId
 	req.ListenerId = &listenerId
 	client := GetClient(region)
-	_, err := client.DeleteListenerWithContext(ctx, req)
+	resp, err := client.DeleteListenerWithContext(ctx, req)
+	if err != nil {
+		return err
+	}
+	if err := Wait(ctx, region, *resp.Response.RequestId); err != nil {
+		return err
+	}
 	return err
 }
