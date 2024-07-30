@@ -117,8 +117,42 @@ func (r *DedicatedCLBListenerReconciler) syncDelete(ctx context.Context, log log
 	// }
 	if lis.Status.ListenerId != "" {
 		log.V(5).Info("delete listener", "listenerId", lis.Status.ListenerId)
-		return clb.DeleteListener(ctx, lis.Spec.LbRegion, lis.Spec.LbId, lis.Status.ListenerId)
+		if err := clb.DeleteListener(ctx, lis.Spec.LbRegion, lis.Spec.LbId, lis.Status.ListenerId); err != nil {
+			return err
+		}
 	}
+	backend := lis.Spec.BackendPod
+	if backend == nil {
+		return nil
+	}
+
+	// 清理 pod finalizer
+	log.V(5).Info("clean pod finalizer before delete DedicatedCLBListener", "pod", backend.PodName)
+	pod := &corev1.Pod{}
+	err := r.Get(
+		ctx,
+		client.ObjectKey{
+			Namespace: lis.Namespace,
+			Name:      backend.PodName,
+		},
+		pod,
+	)
+	if err != nil {
+		if apierrors.IsNotFound(err) {
+			log.V(5).Info("configured pod not found, ignore clean pod finalizer", "pod", backend.PodName)
+			return nil
+		}
+		return err
+	}
+	podFinalizerName := getDedicatedCLBListenerPodFinalizerName(lis)
+	if controllerutil.ContainsFinalizer(pod, podFinalizerName) {
+		if err := util.UpdatePodFinalizer(
+			ctx, pod, podFinalizerName, r.APIReader, r.Client, false,
+		); err != nil {
+			return err
+		}
+	}
+
 	return nil
 }
 
@@ -130,6 +164,10 @@ func (r *DedicatedCLBListenerReconciler) sync(ctx context.Context, log logr.Logg
 		return err
 	}
 	return nil
+}
+
+func getDedicatedCLBListenerPodFinalizerName(lis *networkingv1alpha1.DedicatedCLBListener) string {
+	return "dedicatedclblistener.networking.cloud.tencent.com/" + lis.Name
 }
 
 func (r *DedicatedCLBListenerReconciler) ensureBackendPod(ctx context.Context, log logr.Logger, lis *networkingv1alpha1.DedicatedCLBListener) error {
@@ -170,7 +208,7 @@ func (r *DedicatedCLBListenerReconciler) ensureBackendPod(ctx context.Context, l
 		}
 		return err
 	}
-	podFinalizerName := "dedicatedclblistener.networking.cloud.tencent.com/" + lis.Name
+	podFinalizerName := getDedicatedCLBListenerPodFinalizerName(lis)
 	if pod.DeletionTimestamp.IsZero() { // pod 没有在删除
 		// 确保 pod finalizer 存在
 		if !controllerutil.ContainsFinalizer(pod, podFinalizerName) {
