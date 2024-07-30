@@ -379,9 +379,10 @@ func (r *DedicatedCLBListenerReconciler) findObjectsForPod(ctx context.Context, 
 		return []reconcile.Request{}
 	}
 	if len(list.Items) == 0 {
-		log.V(7).Info("dedicatedclblisteners not foud for pod", "pod", pod.GetName())
+		log.V(7).Info("dedicatedclblisteners not found for pod", "pod", pod.GetName())
 		return []reconcile.Request{}
 	}
+
 	requests := make([]reconcile.Request, len(list.Items))
 	for i, item := range list.Items {
 		requests[i] = reconcile.Request{
@@ -391,5 +392,6 @@ func (r *DedicatedCLBListenerReconciler) findObjectsForPod(ctx context.Context, 
 			},
 		}
 	}
+	log.V(7).Info("dedicatedclblisteners founded for pod", "pod", pod.GetName(), "listeners", requests)
 	return requests
 }
