@@ -31,6 +31,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
@@ -335,7 +336,8 @@ func (r *DedicatedCLBListenerReconciler) SetupWithManager(mgr ctrl.Manager) erro
 		Watches(
 			&corev1.Pod{},
 			handler.EnqueueRequestsFromMapFunc(r.findObjectsForPod),
-			builder.WithPredicates(predicate.ResourceVersionChangedPredicate{}),
+			builder.WithPredicates(ignoreDeletion{}),
+			// builder.WithPredicates(predicate.ResourceVersionChangedPredicate{}),
 		).
 		Complete(r)
 }
@@ -396,4 +398,12 @@ func (e *podEventHandler) triggerUpdate(ctx context.Context, obj client.Object, 
 			NamespacedName: client.ObjectKeyFromObject(&b),
 		})
 	}
+}
+
+type ignoreDeletion struct {
+	predicate.Funcs
+}
+
+func (ignoreDeletion) Delete(e event.DeleteEvent) bool {
+	return false
 }
