@@ -48,7 +48,6 @@ func runManager() {
 		setupLog.Error(err, "unable to start manager")
 		os.Exit(1)
 	}
-	networkingv1alpha1.Init(setupLog, mgr)
 
 	if err = (&controller.DedicatedCLBServiceReconciler{
 		Client: mgr.GetClient(),
@@ -73,6 +72,7 @@ func runManager() {
 		os.Exit(1)
 	}
 	// +kubebuilder:scaffold:builder
+	networkingv1alpha1.Init(setupLog, mgr)
 
 	if err := mgr.AddHealthzCheck("healthz", healthz.Ping); err != nil {
 		setupLog.Error(err, "unable to set up health check")
