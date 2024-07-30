@@ -19,7 +19,6 @@ package controller
 import (
 	"context"
 	"fmt"
-	"strconv"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -73,11 +72,12 @@ func (r *DedicatedCLBServiceReconciler) Reconcile(ctx context.Context, req ctrl.
 func (r *DedicatedCLBServiceReconciler) syncPodPort(ctx context.Context, ds *networkingv1alpha1.DedicatedCLBService, pod *corev1.Pod, port int64, protocol string) error {
 	list := &networkingv1alpha1.DedicatedCLBListenerList{}
 	if err := r.List(
-		ctx, list, client.InNamespace(pod.Namespace),
+		ctx, list,
+		client.InNamespace(pod.Namespace),
 		client.MatchingFields{
 			"spec.backendPod.podName": pod.Name,
+			"spec.backendPod.port":    fmt.Sprint(port),
 			"spec.protocol":           protocol,
-			"spec.lbPort":             strconv.Itoa(int(port)),
 		},
 	); err != nil {
 		return err

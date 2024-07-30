@@ -59,8 +59,10 @@ func GetListenersByPort(ctx context.Context, region, lbId string, port int64) (l
 	return
 }
 
+const TkePodListenerName = "TKE-DEDICATED-POD"
+
 func CreateListener(ctx context.Context, region string, req *clb.CreateListenerRequest) (id string, err error) {
-	req.ListenerNames = []*string{common.StringPtr("TKE-DEDICATED-LISTENER")}
+	req.ListenerNames = []*string{common.StringPtr(TkePodListenerName)}
 	client := GetClient(region)
 	resp, err := client.CreateListenerWithContext(ctx, req)
 	if err != nil {
@@ -90,10 +92,6 @@ func DeleteListenerByPort(ctx context.Context, region, lbId string, port int64, 
 			break
 		}
 	}
-	// id, err := GetListenerId(ctx, region, lbId, port, protocol)
-	// if err != nil {
-	// 	return err
-	// }
 	if id == "" { // 监听器不存在，忽略
 		return nil
 	}

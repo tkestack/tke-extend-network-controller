@@ -12,6 +12,7 @@ const (
 	lbPortField         = "spec.lbPort"
 	lbIdField           = "spec.lbId"
 	protocolField       = "spec.protocol"
+	stateField          = "status.state"
 )
 
 func indexFieldForDedicatedCLBListener(indexer client.FieldIndexer) {
@@ -44,6 +45,13 @@ func indexFieldForDedicatedCLBListener(indexer client.FieldIndexer) {
 		func(o client.Object) []string {
 			lbId := o.(*DedicatedCLBListener).Spec.LbId
 			return []string{lbId}
+		},
+	)
+	indexer.IndexField(
+		context.TODO(), &DedicatedCLBListener{}, stateField,
+		func(o client.Object) []string {
+			state := o.(*DedicatedCLBListener).Status.State
+			return []string{state}
 		},
 	)
 }

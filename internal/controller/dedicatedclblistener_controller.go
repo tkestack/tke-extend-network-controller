@@ -164,6 +164,10 @@ func (r *DedicatedCLBListenerReconciler) ensureBackendPod(ctx context.Context, l
 		pod,
 	)
 	if err != nil {
+		if apierrors.IsNotFound(err) {
+			log.Info("configured pod not found, ignore", "pod", backendPod.PodName)
+			return nil
+		}
 		return err
 	}
 	podFinalizerName := "dedicatedclblistener.networking.cloud.tencent.com/" + lis.Name
