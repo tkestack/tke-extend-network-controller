@@ -22,7 +22,6 @@ import (
 	"fmt"
 
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/client-go/util/workqueue"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -336,7 +335,7 @@ func (r *DedicatedCLBListenerReconciler) SetupWithManager(mgr ctrl.Manager) erro
 		Watches(
 			&corev1.Pod{},
 			handler.EnqueueRequestsFromMapFunc(r.findObjectsForPod),
-			builder.WithPredicates(ignoreDeletion{}),
+			builder.WithPredicates(podChangedPredicate{}),
 			// builder.WithPredicates(predicate.ResourceVersionChangedPredicate{}),
 		).
 		Complete(r)
@@ -373,37 +372,26 @@ func (r *DedicatedCLBListenerReconciler) findObjectsForPod(ctx context.Context, 
 	return requests
 }
 
-type podEventHandler struct {
-	client.Client
-}
-
-func (e *podEventHandler) triggerUpdate(ctx context.Context, obj client.Object, q workqueue.RateLimitingInterface) {
-	log := log.FromContext(ctx)
-	list := &networkingv1alpha1.DedicatedCLBListenerList{}
-	err := e.List(
-		ctx, list,
-		client.InNamespace(obj.GetNamespace()),
-		client.MatchingFields{
-			"spec.backendPod.podName": obj.GetName(),
-		},
-	)
-	if err != nil {
-		log.Error(err, "failed to list DedicatedCLBListener")
-		return
-	}
-
-	for _, b := range list.Items {
-		log.V(7).Info("pod trigger DedicatedCLBListener update", "pod", obj.GetName(), "listener", b.Name)
-		q.Add(reconcile.Request{
-			NamespacedName: client.ObjectKeyFromObject(&b),
-		})
-	}
-}
-
-type ignoreDeletion struct {
+type podChangedPredicate struct {
 	predicate.Funcs
 }
 
-func (ignoreDeletion) Delete(e event.DeleteEvent) bool {
+func (podChangedPredicate) Update(e event.UpdateEvent) bool {
+	oldPod := e.ObjectOld.(*corev1.Pod)
+	newPod := e.ObjectNew.(*corev1.Pod)
+	if oldPod == nil || newPod == nil {
+		panic("unexpected nil pod")
+	}
+	//  只有正在删除或 IP 变化时才触发 DedicatedCLBListener 的对账
+	if (!oldPod.DeletionTimestamp.Equal(newPod.DeletionTimestamp)) ||
+		(oldPod.Status.PodIP != newPod.Status.PodIP) {
+		return true
+	}
+	return false
+}
+
+// Pod 已彻底删除的事件不触发对账，避免解绑 Pod 后删除 pod finalizer 后触发删除事件又立即重新对账导致CLB接口报错:
+// [TencentCloudSDKError] Code=FailedOperation.ResourceInOperating, Message=Your task is working (DelQLBL4ListenerDevice). Pls wait for the task to complete and try again.
+func (podChangedPredicate) Delete(e event.DeleteEvent) bool {
 	return false
 }
