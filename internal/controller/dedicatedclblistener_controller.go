@@ -28,10 +28,12 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/log"
+	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/go-logr/logr"
@@ -163,7 +165,7 @@ func (r *DedicatedCLBListenerReconciler) ensureBackendPod(ctx context.Context, l
 	)
 	if err != nil {
 		if apierrors.IsNotFound(err) {
-			log.Info("configured pod not found, ignore", "pod", backendPod.PodName)
+			log.V(5).Info("configured pod not found, ignore", "pod", backendPod.PodName)
 			return nil
 		}
 		return err
@@ -333,7 +335,7 @@ func (r *DedicatedCLBListenerReconciler) SetupWithManager(mgr ctrl.Manager) erro
 		Watches(
 			&corev1.Pod{},
 			handler.EnqueueRequestsFromMapFunc(r.findObjectsForPod),
-			// builder.WithPredicates(predicate.ResourceVersionChangedPredicate{}),
+			builder.WithPredicates(predicate.ResourceVersionChangedPredicate{}),
 		).
 		Complete(r)
 }
