@@ -186,7 +186,8 @@ func (r *DedicatedCLBListenerReconciler) ensureBackendPod(ctx context.Context, l
 			}
 		}
 		if pod.Status.PodIP == "" {
-			return fmt.Errorf("no IP found for pod %s", pod.Name)
+			log.V(5).Info("pod ip not ready, ignore", "pod", pod.Name)
+			return nil
 		}
 		// 绑定rs
 		targets, err := clb.DescribeTargets(ctx, lis.Spec.LbRegion, lis.Spec.LbId, lis.Status.ListenerId)
@@ -330,8 +331,14 @@ func (r *DedicatedCLBListenerReconciler) createListener(ctx context.Context, log
 // SetupWithManager sets up the controller with the Manager.
 func (r *DedicatedCLBListenerReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&networkingv1alpha1.DedicatedCLBListener{}).
+		Named("dedicatedclblistener").
+		// For(&networkingv1alpha1.DedicatedCLBListener{}).
 		// WithEventFilter(predicate.GenerationChangedPredicate{}).
+		Watches(
+			&networkingv1alpha1.DedicatedCLBListener{},
+			&handler.EnqueueRequestForObject{},
+			builder.WithPredicates(predicate.GenerationChangedPredicate{}),
+		).
 		Watches(
 			&corev1.Pod{},
 			handler.EnqueueRequestsFromMapFunc(r.findObjectsForPod),
@@ -383,7 +390,7 @@ func (podChangedPredicate) Update(e event.UpdateEvent) bool {
 		panic("unexpected nil pod")
 	}
 	//  只有正在删除或 IP 变化时才触发 DedicatedCLBListener 的对账
-	if (!oldPod.DeletionTimestamp.Equal(newPod.DeletionTimestamp)) ||
+	if (oldPod.DeletionTimestamp == nil && newPod.DeletionTimestamp != nil) ||
 		(oldPod.Status.PodIP != newPod.Status.PodIP) {
 		return true
 	}
