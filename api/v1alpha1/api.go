@@ -13,7 +13,10 @@ var apiClient client.Client
 func Init(log logr.Logger, mgr ctrl.Manager) {
 	apiClient = mgr.GetClient()
 	indexer := mgr.GetFieldIndexer()
-	indexFieldForDedicatedCLBListener(indexer)
+	if err := indexFieldForDedicatedCLBListener(indexer); err != nil {
+		log.Error(err, "unable to index DedicatedCLBListener")
+		os.Exit(1)
+	}
 	if err := (&DedicatedCLBListener{}).SetupWebhookWithManager(mgr); err != nil {
 		log.Error(err, "unable to create webhook", "webhook", "DedicatedCLBListener")
 		os.Exit(1)
