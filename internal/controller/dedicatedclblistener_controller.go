@@ -337,6 +337,7 @@ func (podChangedPredicate) Update(e event.UpdateEvent) bool {
 	if oldPod == nil || newPod == nil {
 		panic("oldPod or newPod is nil")
 	}
+	fmt.Println("pod changed")
 	// pod 删除时触发对账（解绑rs）
 	if !oldPod.DeletionTimestamp.Equal(newPod.DeletionTimestamp) {
 		return true
@@ -363,6 +364,8 @@ func (r *DedicatedCLBListenerReconciler) SetupWithManager(mgr ctrl.Manager) erro
 
 func (r *DedicatedCLBListenerReconciler) findObjectsForPod(ctx context.Context, pod client.Object) []reconcile.Request {
 	list := &networkingv1alpha1.DedicatedCLBListenerList{}
+	log := log.FromContext(ctx)
+	log.V(7).Info("find dedicatedclblisteners for pod", "pod", pod.GetName())
 	err := r.List(
 		ctx,
 		list,
@@ -372,7 +375,11 @@ func (r *DedicatedCLBListenerReconciler) findObjectsForPod(ctx context.Context, 
 		},
 	)
 	if err != nil {
-		log.FromContext(ctx).Error(err, "failed to list dedicatedclblisteners", "podName", pod.GetName())
+		log.Error(err, "failed to list dedicatedclblisteners", "podName", pod.GetName())
+		return []reconcile.Request{}
+	}
+	if len(list.Items) == 0 {
+		log.V(7).Info("dedicatedclblisteners not foud for pod", "pod", pod.GetName())
 		return []reconcile.Request{}
 	}
 	requests := make([]reconcile.Request, len(list.Items))
