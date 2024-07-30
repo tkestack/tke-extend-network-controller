@@ -220,41 +220,36 @@ func (r *DedicatedCLBListenerReconciler) ensureBackendPod(ctx context.Context, l
 		}
 		// 更新监听器状态
 		lis.Status.State = networkingv1alpha1.DedicatedCLBListenerStateOccupied
-		if err := r.Status().Update(ctx, lis); err != nil {
-			return err
-		}
-	} else { // pod 正在删除
-		// 清理rs
-		log.V(6).Info(
-			"pod deleting, try to deregister all targets",
-			"pod", pod,
-			"lbId", lis.Spec.LbId,
-			"listenerId", lis.Status.ListenerId,
-		)
-		if err := clb.DeregisterAllTargets(ctx, lis.Spec.LbRegion, lis.Spec.LbId, lis.Status.ListenerId); err != nil {
-			return err
-		}
-		// 清理成功，删除 pod finalizer
-		log.V(6).Info(
-			"pod deregisterd, remove pod finalizer",
-			"pod", pod.Name,
-			"finalizerName", podFinalizerName,
-		)
-		if controllerutil.ContainsFinalizer(pod, podFinalizerName) {
-			if err := util.UpdatePodFinalizer(
-				ctx, pod, podFinalizerName, r.APIReader, r.Client, false,
-			); err != nil {
-				return err
-			}
-		}
-		// 更新 DedicatedCLBListener
-		log.V(6).Info("pod deregered, reset backend pod to nil")
-		lis.Spec.BackendPod = nil
-		if err := r.Update(ctx, lis); err != nil {
+		return r.Status().Update(ctx, lis)
+	}
+
+	// pod 正在删除,清理rs
+	log.V(6).Info(
+		"pod deleting, try to deregister all targets",
+		"pod", pod,
+		"lbId", lis.Spec.LbId,
+		"listenerId", lis.Status.ListenerId,
+	)
+	if err := clb.DeregisterAllTargets(ctx, lis.Spec.LbRegion, lis.Spec.LbId, lis.Status.ListenerId); err != nil {
+		return err
+	}
+	// 清理成功，删除 pod finalizer
+	log.V(6).Info(
+		"pod deregisterd, remove pod finalizer",
+		"pod", pod.Name,
+		"finalizerName", podFinalizerName,
+	)
+	if controllerutil.ContainsFinalizer(pod, podFinalizerName) {
+		if err := util.UpdatePodFinalizer(
+			ctx, pod, podFinalizerName, r.APIReader, r.Client, false,
+		); err != nil {
 			return err
 		}
 	}
-	return nil
+	// 更新 DedicatedCLBListener
+	log.V(6).Info("pod deregistered, reset state to available")
+	lis.Status.State = networkingv1alpha1.DedicatedCLBListenerStateAvailable
+	return r.Status().Update(ctx, lis)
 }
 
 func (r *DedicatedCLBListenerReconciler) ensureListener(ctx context.Context, log logr.Logger, lis *networkingv1alpha1.DedicatedCLBListener) error {
