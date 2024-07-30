@@ -22,24 +22,22 @@ import (
 	"fmt"
 
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/client-go/util/workqueue"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
-	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
-	"sigs.k8s.io/controller-runtime/pkg/event"
+	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/log"
-	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/go-logr/logr"
 	networkingv1alpha1 "github.com/imroc/tke-extend-network-controller/api/v1alpha1"
 	"github.com/imroc/tke-extend-network-controller/pkg/clb"
 	"github.com/imroc/tke-extend-network-controller/pkg/util"
-	"sigs.k8s.io/controller-runtime/pkg/handler"
 )
 
 // DedicatedCLBListenerReconciler reconciles a DedicatedCLBListener object
@@ -327,37 +325,15 @@ func (r *DedicatedCLBListenerReconciler) createListener(ctx context.Context, log
 	return r.Status().Update(ctx, lis)
 }
 
-type podChangedPredicate struct {
-	predicate.Funcs
-}
-
-func (podChangedPredicate) Update(e event.UpdateEvent) bool {
-	oldPod := e.ObjectOld.(*corev1.Pod)
-	newPod := e.ObjectNew.(*corev1.Pod)
-	if oldPod == nil || newPod == nil {
-		panic("oldPod or newPod is nil")
-	}
-	fmt.Println("pod changed")
-	// pod 删除时触发对账（解绑rs）
-	if !oldPod.DeletionTimestamp.Equal(newPod.DeletionTimestamp) {
-		return true
-	}
-	// pod IP 变更时触发对账（重新绑定rs）
-	if oldPod.Status.PodIP != newPod.Status.PodIP {
-		return true
-	}
-	return false
-}
-
 // SetupWithManager sets up the controller with the Manager.
 func (r *DedicatedCLBListenerReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&networkingv1alpha1.DedicatedCLBListener{}).
-		WithEventFilter(predicate.GenerationChangedPredicate{}).
+		// WithEventFilter(predicate.GenerationChangedPredicate{}).
 		Watches(
 			&corev1.Pod{},
 			handler.EnqueueRequestsFromMapFunc(r.findObjectsForPod),
-			builder.WithPredicates(podChangedPredicate{}),
+			// builder.WithPredicates(predicate.ResourceVersionChangedPredicate{}),
 		).
 		Complete(r)
 }
@@ -365,7 +341,6 @@ func (r *DedicatedCLBListenerReconciler) SetupWithManager(mgr ctrl.Manager) erro
 func (r *DedicatedCLBListenerReconciler) findObjectsForPod(ctx context.Context, pod client.Object) []reconcile.Request {
 	list := &networkingv1alpha1.DedicatedCLBListenerList{}
 	log := log.FromContext(ctx)
-	log.V(7).Info("find dedicatedclblisteners for pod", "pod", pod.GetName())
 	err := r.List(
 		ctx,
 		list,
@@ -379,7 +354,6 @@ func (r *DedicatedCLBListenerReconciler) findObjectsForPod(ctx context.Context, 
 		return []reconcile.Request{}
 	}
 	if len(list.Items) == 0 {
-		log.V(7).Info("dedicatedclblisteners not found for pod", "pod", pod.GetName())
 		return []reconcile.Request{}
 	}
 
@@ -392,6 +366,32 @@ func (r *DedicatedCLBListenerReconciler) findObjectsForPod(ctx context.Context, 
 			},
 		}
 	}
-	log.V(7).Info("dedicatedclblisteners founded for pod", "pod", pod.GetName(), "listeners", requests)
 	return requests
+}
+
+type podEventHandler struct {
+	client.Client
+}
+
+func (e *podEventHandler) triggerUpdate(ctx context.Context, obj client.Object, q workqueue.RateLimitingInterface) {
+	log := log.FromContext(ctx)
+	list := &networkingv1alpha1.DedicatedCLBListenerList{}
+	err := e.List(
+		ctx, list,
+		client.InNamespace(obj.GetNamespace()),
+		client.MatchingFields{
+			"spec.backendPod.podName": obj.GetName(),
+		},
+	)
+	if err != nil {
+		log.Error(err, "failed to list DedicatedCLBListener")
+		return
+	}
+
+	for _, b := range list.Items {
+		log.V(7).Info("pod trigger DedicatedCLBListener update", "pod", obj.GetName(), "listener", b.Name)
+		q.Add(reconcile.Request{
+			NamespacedName: client.ObjectKeyFromObject(&b),
+		})
+	}
 }
