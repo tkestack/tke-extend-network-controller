@@ -112,9 +112,6 @@ func (r *DedicatedCLBListenerReconciler) syncDelete(ctx context.Context, log log
 		return nil
 	}
 	// 解绑所有后端
-	// if err := clb.DeregisterAllTargets(ctx, lis.Spec.LbRegion, lis.Spec.LbId, lis.Spec.LbPort, lis.Spec.Protocol); err != nil {
-	// 	return err
-	// }
 	if lis.Status.ListenerId != "" {
 		log.V(5).Info("delete listener", "listenerId", lis.Status.ListenerId)
 		if err := clb.DeleteListener(ctx, lis.Spec.LbRegion, lis.Spec.LbId, lis.Status.ListenerId); err != nil {
