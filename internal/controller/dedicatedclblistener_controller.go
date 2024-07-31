@@ -209,6 +209,8 @@ func getDedicatedCLBListenerPodFinalizerName(lis *networkingv1alpha1.DedicatedCL
 }
 
 func (r *DedicatedCLBListenerReconciler) ensureBackendPod(ctx context.Context, log logr.Logger, lis *networkingv1alpha1.DedicatedCLBListener) error {
+	// 到这一步 listenerId 一定不为空
+	log = log.WithValues("listenerId", lis.Status.ListenerId)
 	// 没配置后端 pod，确保后端rs全被解绑，并且状态为 Available
 	backendPod := lis.Spec.BackendPod
 	if backendPod == nil {
@@ -219,19 +221,19 @@ func (r *DedicatedCLBListenerReconciler) ensureBackendPod(ctx context.Context, l
 				return err
 			}
 			// 更新监听器状态
-			lis.Status.State = networkingv1alpha1.DedicatedCLBListenerStateAvailable
-			if err := r.Status().Update(ctx, lis); err != nil {
-				return err
+			if lis.Status.State != networkingv1alpha1.DedicatedCLBListenerStateAvailable {
+				log.V(5).Info("reset listener state to available")
+				lis.Status.State = networkingv1alpha1.DedicatedCLBListenerStateAvailable
+				if err := r.Status().Update(ctx, lis); err != nil {
+					return err
+				}
 			}
 		}
 		return nil
 	}
-	// 有配置后端 pod，确保pod被绑定到监听器上
-	log.V(6).Info(
-		"ensure backend pod registered",
-		"podName", backendPod.PodName,
-		"port", backendPod.Port,
-	)
+	// 有配置后端 pod，对pod对账
+	log = log.WithValues("pod", backendPod.PodName, "port", backendPod.Port)
+	log.V(6).Info("ensure backend pod")
 	pod := &corev1.Pod{}
 	err := r.Get(
 		ctx,
@@ -243,10 +245,10 @@ func (r *DedicatedCLBListenerReconciler) ensureBackendPod(ctx context.Context, l
 	)
 	if err != nil {
 		if apierrors.IsNotFound(err) {
-			log.V(5).Info("configured pod not found, ignore register pod", "pod", backendPod.PodName)
+			log.V(5).Info("configured pod not found, ignore reconcile the pod")
 			// 后端pod不存在，确保状态为 Available
 			if lis.Status.State != networkingv1alpha1.DedicatedCLBListenerStateAvailable {
-				log.V(5).Info("configured pod not found but state is not available, reset state to available", "state", lis.Status.State)
+				log.V(5).Info("configured pod not found but state is not available, reset state to available", "oldState", lis.Status.State)
 				lis.Status.State = networkingv1alpha1.DedicatedCLBListenerStateAvailable
 				if err := r.Status().Update(ctx, lis); err != nil {
 					return err
@@ -262,8 +264,7 @@ func (r *DedicatedCLBListenerReconciler) ensureBackendPod(ctx context.Context, l
 		// 确保 pod finalizer 存在
 		if !controllerutil.ContainsFinalizer(pod, podFinalizerName) {
 			log.V(6).Info(
-				"pod finalizer not found, try to add",
-				"podName", pod.Name,
+				"add pod finalizer",
 				"finalizerName", podFinalizerName,
 			)
 			if err := util.UpdatePodFinalizer(
@@ -273,7 +274,7 @@ func (r *DedicatedCLBListenerReconciler) ensureBackendPod(ctx context.Context, l
 			}
 		}
 		if pod.Status.PodIP == "" {
-			log.V(5).Info("pod ip not ready, ignore", "pod", pod.Name)
+			log.V(5).Info("pod ip not ready, ignore")
 			return nil
 		}
 		// 绑定rs
@@ -291,15 +292,16 @@ func (r *DedicatedCLBListenerReconciler) ensureBackendPod(ctx context.Context, l
 			}
 		}
 		if len(toDel) > 0 {
-			log.Info("deregister extra rs", "rs", toDel)
+			log.Info("deregister extra rs", "extraRs", toDel)
 			if err := clb.DeregisterTargetsForListener(ctx, lis.Spec.LbRegion, lis.Spec.LbId, lis.Status.ListenerId, toDel...); err != nil {
 				return err
 			}
 		}
 		if !needAdd {
+			log.V(6).Info("backend pod already registered", "podIP", pod.Status.PodIP)
 			return nil
 		}
-		log.V(6).Info("register backend pod", "backend", backendPod)
+		log.V(6).Info("register backend pod", "podIP", pod.Status.PodIP)
 		if err := clb.RegisterTargets(
 			ctx, lis.Spec.LbRegion, lis.Spec.LbId, lis.Status.ListenerId,
 			clb.Target{TargetIP: pod.Status.PodIP, TargetPort: backendPod.Port},
@@ -307,6 +309,7 @@ func (r *DedicatedCLBListenerReconciler) ensureBackendPod(ctx context.Context, l
 			return err
 		}
 		// 更新监听器状态
+		log.V(6).Info("set listener state to occupied")
 		lis.Status.State = networkingv1alpha1.DedicatedCLBListenerStateOccupied
 		return r.Status().Update(ctx, lis)
 	}
