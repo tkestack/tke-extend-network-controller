@@ -61,35 +61,25 @@ spec:
     - lb-zzz
 ```
 
-controller 会自动为关联的所有 Pod 自动创建 `CLBPodBinding`:
+controller 会自动为关联的所有 Pod 自动创建 `DedicatedCLBListener`:
 
 ```yaml
-apiVersion: networking.cloud.tencent.com/v1apha1
-kind: CLBPodBinding
+apiVersion: networking.cloud.tencent.com/v1alpha1
+kind: DedicatedCLBListener
 metadata:
-  namespace: demo
-  name: gameserver-xxx
+  name: gameserver-0
 spec:
-  podName: gameserver-yyy
-  lbId: lb-xxx # 为 Pod 分配的 CLB 实例 ID
-  lbRegion: ap-chengdu # CLB 所在地域
-  lbPort: 576 # 自动分配的 CLB 监听器的端口号
-  protocol: TCP # CLB 监听器协议（TCP/UDP）
-  targetPort: 9000 # 容器监听的端口
+  lbId: lb-xxx # 必选，CLB 的实例 ID
+  lbRegion: ap-chengdu # 可选，CLB 所在地域，默认为集群所在地域
+  lbPort: 8088 # 必选，监听器端口
+  protocol: TCP # 必选，监听器协议。TCP | UDP
+  listenerConfig: clblistenerconfig-sample # 可选，创建监听器的配置
+  backendPod: # 可选，需绑定的后端Pod
+    podName: gameserver-0 # 指定 backendPod 时必选，后端 Pod 名称
+    port: 80 # 指定 backendPod 时必选，后端 Pod 监听的端口
 status:
-  state: Success
+  listenerId: lbl-ku486mr3 # 监听器 ID
+  state: Occupied # 监听器状态，Pending (监听器创建中) | Occupied (监听器已绑定Pod) | Available (监听器已创建但还未绑定Pod) | Deleting (监听器删除中)
 ```
 
 然后 controller 根据 `CLBPodBinding` 进行对账，自动将 Pod 绑定到对应的 CLB 监听器上。
-
-另外，为了记录 CLB 的信息，controller 会自动为 CLB 创建 `CLB` 资源：
-
-```yaml
-apiVersion: networking.cloud.tencent.com/v1apha1
-kind: CLB
-metadata:
-  name: lb-xxx # 与 Pod 同名
-spec:
-  autoCreated: true # 标识是否为 controller 自动创建（用于在删除 DedicatedNatgwService 时决定是否自动清理CLB）
-  region: ap-chengdu # 记录 CLB 所在地域
-```
