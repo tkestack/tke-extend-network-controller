@@ -17,14 +17,17 @@ func Wait(ctx context.Context, region, reqId string) error {
 		if err != nil {
 			return err
 		}
-		status := *resp.Response.Status
-		if status == 2 { // 任务进行中，继续等待
+		switch *resp.Response.Status {
+		case 2: // 任务进行中，继续等待
 			time.Sleep(2 * time.Second)
 			continue
-		} else if status == 1 { // 任务失败，返回错误
+		case 1: // 任务失败，返回错误
 			return fmt.Errorf("clb task %s failed", reqId)
+		case 0: // 任务成功，返回nil
+			return nil
+		default: // 未知状态码，返回错误
+			return fmt.Errorf("unknown task status %d", *resp.Response.Status)
 		}
-		break
 	}
 	return fmt.Errorf("clb task %s wait too long", reqId)
 }
