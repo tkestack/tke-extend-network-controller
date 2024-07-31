@@ -6,6 +6,7 @@ import (
 	"github.com/spf13/viper"
 
 	"github.com/imroc/tke-extend-network-controller/internal/controller"
+	"github.com/imroc/tke-extend-network-controller/pkg/kube"
 	"github.com/imroc/tke-extend-network-controller/pkg/manager"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
@@ -73,6 +74,7 @@ func runManager() {
 	}
 	// +kubebuilder:scaffold:builder
 	networkingv1alpha1.Init(setupLog, mgr)
+	kube.Init(mgr)
 
 	if err := mgr.AddHealthzCheck("healthz", healthz.Ping); err != nil {
 		setupLog.Error(err, "unable to set up health check")

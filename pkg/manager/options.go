@@ -8,7 +8,7 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 
-	kubelib "github.com/imroc/tke-extend-network-controller/pkg/kube"
+	"github.com/imroc/tke-extend-network-controller/pkg/kube"
 	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/metrics/filters"
@@ -27,7 +27,7 @@ func GetOptions(scheme *runtime.Scheme, metricsAddr, probeAddr string, enableLea
 		Cache: cache.Options{
 			ByObject: map[client.Object]cache.ByObject{
 				&corev1.Pod{}: {
-					Transform: kubelib.StripPodUnusedFields,
+					Transform: kube.StripPodUnusedFields,
 				},
 			},
 		},

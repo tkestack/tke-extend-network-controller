@@ -39,7 +39,7 @@ import (
 	"github.com/go-logr/logr"
 	networkingv1alpha1 "github.com/imroc/tke-extend-network-controller/api/v1alpha1"
 	"github.com/imroc/tke-extend-network-controller/pkg/clb"
-	"github.com/imroc/tke-extend-network-controller/pkg/util"
+	"github.com/imroc/tke-extend-network-controller/pkg/kube"
 )
 
 // DedicatedCLBListenerReconciler reconciles a DedicatedCLBListener object
@@ -131,15 +131,13 @@ func (r *DedicatedCLBListenerReconciler) cleanPodFinalizer(ctx context.Context, 
 	}
 	podFinalizerName := getDedicatedCLBListenerPodFinalizerName(lis)
 	if controllerutil.ContainsFinalizer(pod, podFinalizerName) {
-		if err := util.UpdatePodFinalizer(
-			ctx, pod, podFinalizerName, r.APIReader, r.Client, false,
-		); err != nil {
+		if err := kube.RemovePodFinalizer(ctx, pod, podFinalizerName); err != nil {
 			log.Error(err, "failed to remove pod finalizer")
 			return err
 		}
-		log.V(5).Info("clean pod finalizer success")
+		log.V(5).Info("remove pod finalizer success")
 	} else {
-		log.V(5).Info("pod finalizer not found, ignore clean pod finalizer")
+		log.V(5).Info("pod finalizer not found, ignore remove pod finalizer")
 	}
 	return nil
 }
@@ -267,9 +265,8 @@ func (r *DedicatedCLBListenerReconciler) ensureBackendPod(ctx context.Context, l
 				"add pod finalizer",
 				"finalizerName", podFinalizerName,
 			)
-			if err := util.UpdatePodFinalizer(
-				ctx, pod, podFinalizerName, r.APIReader, r.Client, true,
-			); err != nil {
+			if err := kube.AddPodFinalizer(ctx, pod, podFpodFinalizerName); err != nil {
+				log.Error(err, "failed to add pod finalizer")
 				return err
 			}
 		}
@@ -324,12 +321,8 @@ func (r *DedicatedCLBListenerReconciler) ensureBackendPod(ctx context.Context, l
 		"pod deregisterd, remove pod finalizer",
 		"finalizerName", podFinalizerName,
 	)
-	if controllerutil.ContainsFinalizer(pod, podFinalizerName) {
-		if err := util.UpdatePodFinalizer(
-			ctx, pod, podFinalizerName, r.APIReader, r.Client, false,
-		); err != nil {
-			return err
-		}
+	if err := kube.RemovePodFinalizer(ctx, pod, podFinalizerName); err != nil {
+		return err
 	}
 	// 更新 DedicatedCLBListener
 	log.V(6).Info("reset listener state to available")
