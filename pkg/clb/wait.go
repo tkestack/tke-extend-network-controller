@@ -17,12 +17,11 @@ func Wait(ctx context.Context, region, reqId string) error {
 		if err != nil {
 			return err
 		}
-		switch *resp.Response.Status {
-		case 2:
-			fmt.Println("still deleting")
+		status := *resp.Response.Status
+		if status == 2 { // 任务进行中，继续等待
 			time.Sleep(2 * time.Second)
 			continue
-		case 1:
+		} else if status == 1 { // 任务失败，返回错误
 			return fmt.Errorf("clb task %s failed", reqId)
 		}
 		break
