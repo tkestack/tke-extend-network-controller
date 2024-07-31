@@ -315,19 +315,13 @@ func (r *DedicatedCLBListenerReconciler) ensureBackendPod(ctx context.Context, l
 	}
 
 	// pod 正在删除,清理rs
-	log.V(6).Info(
-		"pod deleting, try to deregister all targets",
-		"pod", pod,
-		"lbId", lis.Spec.LbId,
-		"listenerId", lis.Status.ListenerId,
-	)
+	log.V(6).Info("pod deleting, try to deregister all targets")
 	if err := clb.DeregisterAllTargets(ctx, lis.Spec.LbRegion, lis.Spec.LbId, lis.Status.ListenerId); err != nil {
 		return err
 	}
 	// 清理成功，删除 pod finalizer
 	log.V(6).Info(
 		"pod deregisterd, remove pod finalizer",
-		"pod", pod.Name,
 		"finalizerName", podFinalizerName,
 	)
 	if controllerutil.ContainsFinalizer(pod, podFinalizerName) {
@@ -338,7 +332,7 @@ func (r *DedicatedCLBListenerReconciler) ensureBackendPod(ctx context.Context, l
 		}
 	}
 	// 更新 DedicatedCLBListener
-	log.V(6).Info("pod deregistered, reset state to available")
+	log.V(6).Info("reset listener state to available")
 	lis.Status.State = networkingv1alpha1.DedicatedCLBListenerStateAvailable
 	return r.Status().Update(ctx, lis)
 }
