@@ -82,4 +82,4 @@ status:
   state: Occupied # 监听器状态，Pending (监听器创建中) | Occupied (监听器已绑定Pod) | Available (监听器已创建但还未绑定Pod) | Deleting (监听器删除中)
 ```
 
-然后 controller 根据 `CLBPodBinding` 进行对账，自动将 Pod 绑定到对应的 CLB 监听器上。
+然后 controller 根据 `DedicatedCLBListener` 进行对账，自动将 Pod 绑定到对应的 CLB 监听器上。
