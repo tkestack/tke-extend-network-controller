@@ -56,6 +56,7 @@ const (
 	DedicatedCLBListenerStateOccupied  = "Occupied"
 	DedicatedCLBListenerStateAvailable = "Available"
 	DedicatedCLBListenerStatePending   = "Pending"
+	DedicatedCLBListenerStateDeleting  = "Deleting"
 )
 
 // +kubebuilder:object:root=true

@@ -111,19 +111,27 @@ func (r *DedicatedCLBListenerReconciler) syncDelete(ctx context.Context, log log
 	if state != networkingv1alpha1.DedicatedCLBListenerStateOccupied && state != networkingv1alpha1.DedicatedCLBListenerStateAvailable {
 		return nil
 	}
-	// 解绑所有后端
+	lis.Status.State = networkingv1alpha1.DedicatedCLBListenerStateDeleting
+	if err := r.Status().Update(ctx, lis); err != nil {
+		return err
+	}
+	// 删除监听器
 	if lis.Status.ListenerId != "" {
 		log.V(5).Info("delete listener", "listenerId", lis.Status.ListenerId)
 		if err := clb.DeleteListener(ctx, lis.Spec.LbRegion, lis.Spec.LbId, lis.Status.ListenerId); err != nil {
 			return err
 		}
+		lis.Status.ListenerId = ""
+		if err := r.Status().Update(ctx, lis); err != nil {
+			return err
+		}
 	}
+
+	// 删除监听器后，清理后端 pod 的 finalizer
 	backend := lis.Spec.BackendPod
 	if backend == nil {
 		return nil
 	}
-
-	// 清理 pod finalizer
 	log.V(5).Info("clean pod finalizer before delete DedicatedCLBListener", "pod", backend.PodName)
 	pod := &corev1.Pod{}
 	err := r.Get(
@@ -168,8 +176,9 @@ func getDedicatedCLBListenerPodFinalizerName(lis *networkingv1alpha1.DedicatedCL
 }
 
 func (r *DedicatedCLBListenerReconciler) ensureBackendPod(ctx context.Context, log logr.Logger, lis *networkingv1alpha1.DedicatedCLBListener) error {
+	// 没配置后端 pod，确保后端rs全被解绑，并且状态为 Available
 	backendPod := lis.Spec.BackendPod
-	if backendPod == nil { // 没配置后端 pod
+	if backendPod == nil {
 		if lis.Status.State == networkingv1alpha1.DedicatedCLBListenerStateOccupied { // 但监听器状态是已占用，需要解绑
 			log.V(6).Info("no backend pod configured, try to deregister all targets")
 			// 解绑所有后端
@@ -184,6 +193,7 @@ func (r *DedicatedCLBListenerReconciler) ensureBackendPod(ctx context.Context, l
 		}
 		return nil
 	}
+	// 有配置后端 pod，确保pod被绑定到监听器上
 	log.V(6).Info(
 		"ensure backend pod registered",
 		"podName", backendPod.PodName,
@@ -200,7 +210,16 @@ func (r *DedicatedCLBListenerReconciler) ensureBackendPod(ctx context.Context, l
 	)
 	if err != nil {
 		if apierrors.IsNotFound(err) {
-			log.V(5).Info("configured pod not found, ignore", "pod", backendPod.PodName)
+			log.V(5).Info("configured pod not found, ignore register pod", "pod", backendPod.PodName)
+			// 后端pod不存在，确保状态为 Available
+			if lis.Status.State != networkingv1alpha1.DedicatedCLBListenerStateAvailable {
+				log.V(5).Info("configured pod not found but state is not available, reset state to available", "state", lis.Status.State)
+				lis.Status.State = networkingv1alpha1.DedicatedCLBListenerStateAvailable
+				if err := r.Status().Update(ctx, lis); err != nil {
+					return err
+				}
+				return nil
+			}
 			return nil
 		}
 		return err

@@ -19,7 +19,7 @@ func Wait(ctx context.Context, region, reqId string) error {
 		}
 		switch *resp.Response.Status {
 		case 2:
-			time.Sleep(1 * time.Second)
+			time.Sleep(2 * time.Second)
 			continue
 		case 1:
 			return fmt.Errorf("clb task %s failed", reqId)
