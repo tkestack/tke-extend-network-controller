@@ -265,7 +265,7 @@ func (r *DedicatedCLBListenerReconciler) ensureBackendPod(ctx context.Context, l
 				"add pod finalizer",
 				"finalizerName", podFinalizerName,
 			)
-			if err := kube.AddPodFinalizer(ctx, pod, podFpodFinalizerName); err != nil {
+			if err := kube.AddPodFinalizer(ctx, pod, podFinalizerName); err != nil {
 				log.Error(err, "failed to add pod finalizer")
 				return err
 			}
