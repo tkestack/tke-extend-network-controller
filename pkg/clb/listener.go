@@ -32,14 +32,17 @@ func GetListener(ctx context.Context, region, lbId, listenerId string) (lis *Lis
 		err = fmt.Errorf("found %d listeners for %s", len(resp.Response.Listeners), listenerId)
 		return
 	}
-	listener := resp.Response.Listeners[0]
-	lis = &Listener{
-		ListenerId:   *listener.ListenerId,
-		ListenerName: *listener.ListenerName,
-		Protocol:     *listener.Protocol,
-		Port:         *listener.Port,
-	}
+	lis = convertListener(resp.Response.Listeners[0])
 	return
+}
+
+func convertListener(lbLis *clb.Listener) *Listener {
+	return &Listener{
+		ListenerId:   *lbLis.ListenerId,
+		ListenerName: *lbLis.ListenerName,
+		Protocol:     *lbLis.Protocol,
+		Port:         *lbLis.Port,
+	}
 }
 
 func GetListenerByPort(ctx context.Context, region, lbId string, port int64, protocol string) (lis *Listener, err error) {
@@ -52,13 +55,8 @@ func GetListenerByPort(ctx context.Context, region, lbId string, port int64, pro
 	if err != nil {
 		return
 	}
-	if len(resp.Response.Listeners) > 0 {
-		lbLis := resp.Response.Listeners[0]
-		lis = &Listener{
-			ListenerId: *lbLis.ListenerId,
-			Protocol:   *lbLis.Protocol,
-			Port:       *lbLis.Port,
-		}
+	if len(resp.Response.Listeners) > 0 { // TODO: 精细化判断数量(超过1个的不可能发生的情况)
+		lis = convertListener(resp.Response.Listeners[0])
 		return
 	}
 	return
