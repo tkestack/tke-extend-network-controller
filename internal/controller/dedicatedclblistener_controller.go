@@ -106,38 +106,13 @@ func (r *DedicatedCLBListenerReconciler) Reconcile(ctx context.Context, req ctrl
 	return ctrl.Result{}, nil
 }
 
-func (r *DedicatedCLBListenerReconciler) syncDelete(ctx context.Context, log logr.Logger, lis *networkingv1alpha1.DedicatedCLBListener) error {
-	state := lis.Status.State
-	if state == networkingv1alpha1.DedicatedCLBListenerStatePending || state == "" {
-		return nil
-	}
-	if state != networkingv1alpha1.DedicatedCLBListenerStateDeleting {
-		lis.Status.State = networkingv1alpha1.DedicatedCLBListenerStateDeleting
-		if err := r.Status().Update(ctx, lis); err != nil {
-			return err
-		}
-	}
-	log.V(5).Info("sync delete start")
-	defer log.V(5).Info("sync delete end")
-	// 删除监听器
-	if lis.Status.ListenerId != "" {
-		log.V(5).Info("delete listener", "listenerId", lis.Status.ListenerId)
-		if err := clb.DeleteListener(ctx, lis.Spec.LbRegion, lis.Spec.LbId, lis.Status.ListenerId); err != nil {
-			return err
-		}
-		log.V(7).Info("listener deleted, remove listenerId from status", "listenerId", lis.Status.ListenerId)
-		lis.Status.ListenerId = ""
-		if err := r.Status().Update(ctx, lis); err != nil {
-			return err
-		}
-	}
-
-	// 删除监听器后，清理后端 pod 的 finalizer
+func (r *DedicatedCLBListenerReconciler) cleanPodFinalizer(ctx context.Context, log logr.Logger, lis *networkingv1alpha1.DedicatedCLBListener) error {
 	backend := lis.Spec.BackendPod
 	if backend == nil {
 		return nil
 	}
-	log.V(5).Info("clean pod finalizer before delete DedicatedCLBListener", "pod", backend.PodName)
+	log = log.WithValues("pod", backend.PodName)
+	log.V(5).Info("clean pod finalizer before delete DedicatedCLBListener")
 	pod := &corev1.Pod{}
 	err := r.Get(
 		ctx,
@@ -149,7 +124,7 @@ func (r *DedicatedCLBListenerReconciler) syncDelete(ctx context.Context, log log
 	)
 	if err != nil {
 		if apierrors.IsNotFound(err) {
-			log.V(5).Info("configured pod not found, ignore clean pod finalizer", "pod", backend.PodName)
+			log.V(5).Info("configured pod not found, ignore clean pod finalizer")
 			return nil
 		}
 		return err
@@ -159,10 +134,64 @@ func (r *DedicatedCLBListenerReconciler) syncDelete(ctx context.Context, log log
 		if err := util.UpdatePodFinalizer(
 			ctx, pod, podFinalizerName, r.APIReader, r.Client, false,
 		); err != nil {
+			log.Error(err, "failed to remove pod finalizer")
+			return err
+		}
+		log.V(5).Info("clean pod finalizer success")
+	} else {
+		log.V(5).Info("pod finalizer not found, ignore clean pod finalizer")
+	}
+	return nil
+}
+
+func (r *DedicatedCLBListenerReconciler) cleanListener(ctx context.Context, log logr.Logger, lis *networkingv1alpha1.DedicatedCLBListener) error {
+	if lis.Status.ListenerId == "" {
+		return nil
+	}
+	log = log.WithValues("listenerId", lis.Status.ListenerId, "port", lis.Spec.LbPort, "protocol", lis.Spec.Protocol)
+	log.V(5).Info("start cleanListener")
+	defer log.V(5).Info("end cleanListener")
+	// 删除监听器
+	log.V(5).Info("delete listener")
+	listenerId, err := clb.DeleteListenerByPort(ctx, lis.Spec.LbRegion, lis.Spec.LbId, lis.Spec.LbPort, lis.Spec.Protocol)
+	if err != nil {
+		return err
+	}
+	if listenerId != lis.Status.ListenerId {
+		log.Info(
+			"deleted clb port's listenerId is not equal to listenerId in status",
+			"deletedListenerId", listenerId,
+		)
+	}
+	log.V(7).Info("listener deleted, remove listenerId from status")
+	lis.Status.ListenerId = ""
+	if err := r.Status().Update(ctx, lis); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (r *DedicatedCLBListenerReconciler) syncDelete(ctx context.Context, log logr.Logger, lis *networkingv1alpha1.DedicatedCLBListener) error {
+	state := lis.Status.State
+
+	// 如果监听器还没创建过，直接返回
+	if state == networkingv1alpha1.DedicatedCLBListenerStatePending || state == "" {
+		return nil
+	}
+
+	// 确保处于删除状态，避免重入
+	if state != networkingv1alpha1.DedicatedCLBListenerStateDeleting {
+		lis.Status.State = networkingv1alpha1.DedicatedCLBListenerStateDeleting
+		if err := r.Status().Update(ctx, lis); err != nil {
 			return err
 		}
 	}
-	return nil
+	// 确保监听器已删除
+	if err := r.cleanListener(ctx, log, lis); err != nil {
+		return err
+	}
+	// 删除监听器后，清理后端 pod 的 finalizer
+	return r.cleanPodFinalizer(ctx, log, lis)
 }
 
 func (r *DedicatedCLBListenerReconciler) sync(ctx context.Context, log logr.Logger, lis *networkingv1alpha1.DedicatedCLBListener) error {
@@ -379,15 +408,15 @@ func (r *DedicatedCLBListenerReconciler) createListener(ctx context.Context, log
 	}
 	var listenerId string
 	if existedLis != nil { // 端口冲突，如果是控制器创建的，则直接复用，如果不是，则报错引导用户人工确认手动清理冲突的监听器（避免直接重建误删用户有用的监听器）
-		log.Info("lb port already existed", "port", lis.Spec.LbPort, "protocol", lis.Spec.Protocol, "listenerId", existedLis.ListenerId, "listenerName", existedLis.ListenerName)
+		log = log.WithValues("listenerId", existedLis.ListenerId, "port", lis.Spec.LbPort, "protocol", lis.Spec.Protocol)
+		log.Info("lb port already existed", "listenerName", existedLis.ListenerName)
 		if existedLis.ListenerName == clb.TkePodListenerName { // 已经创建了，直接复用
 			log.Info("reuse already existed listener")
 			listenerId = existedLis.ListenerId
 		} else {
-			return fmt.Errorf(
-				"lb port already existed, but not created by tke, please confirm and delete the conficted listener manually (lbId:%s lbPort:%d protocol:%s listenerName:%s)",
-				lis.Spec.LbId, lis.Spec.LbPort, lis.Spec.Protocol, existedLis.ListenerName,
-			)
+			err = errors.New("lb port already existed, but not created by tke, please confirm and delete the conficted listener manually")
+			log.Error(err, "listenerName", existedLis.ListenerName)
+			return err
 		}
 	} else { // 没有端口冲突，创建监听器
 		log.V(5).Info("try to create listener")

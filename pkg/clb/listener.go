@@ -87,15 +87,17 @@ func CreateListener(ctx context.Context, region string, req *clb.CreateListenerR
 	return
 }
 
-func DeleteListenerByPort(ctx context.Context, region, lbId string, port int64, protocol string) error {
+func DeleteListenerByPort(ctx context.Context, region, lbId string, port int64, protocol string) (id string, err error) {
 	lis, err := GetListenerByPort(ctx, region, lbId, port, protocol)
 	if err != nil {
-		return err
+		return
 	}
 	if lis == nil { // 监听器不存在，忽略
-		return nil
+		return
 	}
-	return DeleteListener(ctx, region, lbId, lis.ListenerId)
+	id = lis.ListenerId
+	err = DeleteListener(ctx, region, lbId, id)
+	return
 }
 
 func DeleteListener(ctx context.Context, region, lbId, listenerId string) error {
