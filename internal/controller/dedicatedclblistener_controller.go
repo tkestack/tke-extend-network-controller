@@ -369,16 +369,34 @@ func (r *DedicatedCLBListenerReconciler) createListener(ctx context.Context, log
 			}
 		}
 	}
-	// 创建监听器 TODO: 如果端口冲突，考虑强制删除重建监听器
-	log.V(5).Info("try to create listener")
-	id, err := clb.CreateListener(ctx, lis.Spec.LbRegion, config.Spec.CreateListenerRequest(lis.Spec.LbId, lis.Spec.LbPort, lis.Spec.Protocol))
+	existedLis, err := clb.GetListenerByPort(ctx, lis.Spec.LbRegion, lis.Spec.LbId, lis.Spec.LbPort, lis.Spec.Protocol)
 	if err != nil {
 		return err
 	}
-
-	log.V(5).Info("listener successfully created", "listenerId", id)
+	var listenerId string
+	if existedLis != nil { // 端口冲突，如果是控制器创建的，则直接复用，如果不是，则报错引导用户人工确认手动清理冲突的监听器（避免直接重建误删用户有用的监听器）
+		log.Info("lb port already existed", "port", lis.Spec.LbPort, "protocol", lis.Spec.Protocol, "listenerId", existedLis.ListenerId, "listenerName", existedLis.ListenerName)
+		if existedLis.ListenerName == clb.TkePodListenerName { // 已经创建了，直接复用
+			log.Info("reuse already existed listener")
+			listenerId = existedLis.ListenerId
+		} else {
+			return fmt.Errorf(
+				"lb port already existed, but not created by tke, please confirm and delete the conficted listener manually (lbId:%s lbPort:%d protocol:%s listenerName:%s)",
+				lis.Spec.LbId, lis.Spec.LbPort, lis.Spec.Protocol, existedLis.ListenerName,
+			)
+		}
+	} else { // 没有端口冲突，创建监听器
+		log.V(5).Info("try to create listener")
+		id, err := clb.CreateListener(ctx, lis.Spec.LbRegion, config.Spec.CreateListenerRequest(lis.Spec.LbId, lis.Spec.LbPort, lis.Spec.Protocol))
+		if err != nil {
+			return err
+		}
+		log.V(5).Info("listener successfully created", "listenerId", id)
+		listenerId = id
+	}
+	log.V(5).Info("listener ready, set state to available")
 	lis.Status.State = networkingv1alpha1.DedicatedCLBListenerStateAvailable
-	lis.Status.ListenerId = id
+	lis.Status.ListenerId = listenerId
 	return r.Status().Update(ctx, lis)
 }
 

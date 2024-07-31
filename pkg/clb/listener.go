@@ -10,9 +10,10 @@ import (
 )
 
 type Listener struct {
-	Port       int64
-	Protocol   string
-	ListenerId string
+	Port         int64
+	Protocol     string
+	ListenerId   string
+	ListenerName string
 }
 
 func GetListener(ctx context.Context, region, lbId, listenerId string) (lis *Listener, err error) {
@@ -33,28 +34,32 @@ func GetListener(ctx context.Context, region, lbId, listenerId string) (lis *Lis
 	}
 	listener := resp.Response.Listeners[0]
 	lis = &Listener{
-		ListenerId: *listener.ListenerId,
-		Protocol:   *listener.Protocol,
-		Port:       *listener.Port,
+		ListenerId:   *listener.ListenerId,
+		ListenerName: *listener.ListenerName,
+		Protocol:     *listener.Protocol,
+		Port:         *listener.Port,
 	}
 	return
 }
 
-func GetListenersByPort(ctx context.Context, region, lbId string, port int64) (listeners []*Listener, err error) {
+func GetListenerByPort(ctx context.Context, region, lbId string, port int64, protocol string) (lis *Listener, err error) {
 	req := clb.NewDescribeListenersRequest()
 	req.Port = &port
 	req.LoadBalancerId = &lbId
+	req.Protocol = &protocol
 	client := GetClient(region)
 	resp, err := client.DescribeListenersWithContext(ctx, req)
 	if err != nil {
 		return
 	}
-	for _, lis := range resp.Response.Listeners {
-		listeners = append(listeners, &Listener{
-			ListenerId: *lis.ListenerId,
-			Protocol:   *lis.Protocol,
-			Port:       *lis.Port,
-		})
+	if len(resp.Response.Listeners) > 0 {
+		lbLis := resp.Response.Listeners[0]
+		lis = &Listener{
+			ListenerId: *lbLis.ListenerId,
+			Protocol:   *lbLis.Protocol,
+			Port:       *lbLis.Port,
+		}
+		return
 	}
 	return
 }
@@ -85,21 +90,14 @@ func CreateListener(ctx context.Context, region string, req *clb.CreateListenerR
 }
 
 func DeleteListenerByPort(ctx context.Context, region, lbId string, port int64, protocol string) error {
-	lis, err := GetListenersByPort(ctx, region, lbId, port)
+	lis, err := GetListenerByPort(ctx, region, lbId, port, protocol)
 	if err != nil {
 		return err
 	}
-	id := ""
-	for _, l := range lis {
-		if l.Protocol == protocol && port == l.Port {
-			id = l.ListenerId
-			break
-		}
-	}
-	if id == "" { // 监听器不存在，忽略
+	if lis == nil { // 监听器不存在，忽略
 		return nil
 	}
-	return DeleteListener(ctx, region, lbId, id)
+	return DeleteListener(ctx, region, lbId, lis.ListenerId)
 }
 
 func DeleteListener(ctx context.Context, region, lbId, listenerId string) error {
