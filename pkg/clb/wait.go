@@ -19,6 +19,7 @@ func Wait(ctx context.Context, region, reqId string) error {
 		}
 		switch *resp.Response.Status {
 		case 2:
+			fmt.Println("still deleting")
 			time.Sleep(2 * time.Second)
 			continue
 		case 1:

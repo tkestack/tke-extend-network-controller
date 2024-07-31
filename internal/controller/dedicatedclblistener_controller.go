@@ -108,19 +108,24 @@ func (r *DedicatedCLBListenerReconciler) Reconcile(ctx context.Context, req ctrl
 
 func (r *DedicatedCLBListenerReconciler) syncDelete(ctx context.Context, log logr.Logger, lis *networkingv1alpha1.DedicatedCLBListener) error {
 	state := lis.Status.State
-	if state != networkingv1alpha1.DedicatedCLBListenerStateOccupied && state != networkingv1alpha1.DedicatedCLBListenerStateAvailable {
+	if state == networkingv1alpha1.DedicatedCLBListenerStatePending || state == "" {
 		return nil
 	}
-	lis.Status.State = networkingv1alpha1.DedicatedCLBListenerStateDeleting
-	if err := r.Status().Update(ctx, lis); err != nil {
-		return err
+	if state != networkingv1alpha1.DedicatedCLBListenerStateDeleting {
+		lis.Status.State = networkingv1alpha1.DedicatedCLBListenerStateDeleting
+		if err := r.Status().Update(ctx, lis); err != nil {
+			return err
+		}
 	}
+	log.V(5).Info("sync delete start")
+	defer log.V(5).Info("sync delete end")
 	// 删除监听器
 	if lis.Status.ListenerId != "" {
 		log.V(5).Info("delete listener", "listenerId", lis.Status.ListenerId)
 		if err := clb.DeleteListener(ctx, lis.Spec.LbRegion, lis.Spec.LbId, lis.Status.ListenerId); err != nil {
 			return err
 		}
+		log.V(7).Info("listener deleted, remove listenerId from status", "listenerId", lis.Status.ListenerId)
 		lis.Status.ListenerId = ""
 		if err := r.Status().Update(ctx, lis); err != nil {
 			return err
@@ -157,7 +162,6 @@ func (r *DedicatedCLBListenerReconciler) syncDelete(ctx context.Context, log log
 			return err
 		}
 	}
-
 	return nil
 }
 
