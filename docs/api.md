@@ -10,11 +10,27 @@
 ### Resource Types
 - [CLB](#clb)
 - [CLBListenerConfig](#clblistenerconfig)
-- [CLBPodBinding](#clbpodbinding)
 - [DedicatedCLBListener](#dedicatedclblistener)
 - [DedicatedCLBService](#dedicatedclbservice)
 - [DedicatedNatgwService](#dedicatednatgwservice)
 
+
+
+#### BackendPod
+
+
+
+
+
+
+
+_Appears in:_
+- [DedicatedCLBListenerSpec](#dedicatedclblistenerspec)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `podName` _string_ |  |  |  |
+| `port` _integer_ |  |  |  |
 
 
 #### CLB
@@ -134,64 +150,6 @@ _Appears in:_
 
 
 
-#### CLBPodBinding
-
-
-
-CLBPodBinding is the Schema for the clbpodbindings API
-
-
-
-
-
-| Field | Description | Default | Validation |
-| --- | --- | --- | --- |
-| `apiVersion` _string_ | `networking.cloud.tencent.com/v1alpha1` | | |
-| `kind` _string_ | `CLBPodBinding` | | |
-| `kind` _string_ | Kind is a string value representing the REST resource this object represents.<br />Servers may infer this from the endpoint the client submits requests to.<br />Cannot be updated.<br />In CamelCase.<br />More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds |  |  |
-| `apiVersion` _string_ | APIVersion defines the versioned schema of this representation of an object.<br />Servers should convert recognized schemas to the latest internal value, and<br />may reject unrecognized values.<br />More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources |  |  |
-| `metadata` _[ObjectMeta](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.28/#objectmeta-v1-meta)_ | Refer to Kubernetes API documentation for fields of `metadata`. |  |  |
-| `spec` _[CLBPodBindingSpec](#clbpodbindingspec)_ |  |  |  |
-| `status` _[CLBPodBindingStatus](#clbpodbindingstatus)_ |  |  |  |
-
-
-#### CLBPodBindingSpec
-
-
-
-CLBPodBindingSpec defines the desired state of CLBPodBinding
-
-
-
-_Appears in:_
-- [CLBPodBinding](#clbpodbinding)
-
-| Field | Description | Default | Validation |
-| --- | --- | --- | --- |
-| `podName` _string_ |  |  |  |
-| `lbId` _string_ |  |  |  |
-| `lbRegion` _string_ |  |  |  |
-| `lbPort` _integer_ |  |  |  |
-| `protocol` _string_ |  |  |  |
-| `targetPort` _integer_ |  |  |  |
-
-
-#### CLBPodBindingStatus
-
-
-
-CLBPodBindingStatus defines the observed state of CLBPodBinding
-
-
-
-_Appears in:_
-- [CLBPodBinding](#clbpodbinding)
-
-| Field | Description | Default | Validation |
-| --- | --- | --- | --- |
-| `state` _string_ | INSERT ADDITIONAL STATUS FIELD - define observed state of cluster<br />Important: Run "make" to regenerate code after modifying this file |  |  |
-
-
 #### CLBSpec
 
 
@@ -256,6 +214,23 @@ _Appears in:_
 | `certCaId` _string_ |  |  |  |
 
 
+#### DedicatedCLBInfo
+
+
+
+
+
+
+
+_Appears in:_
+- [DedicatedCLBServiceStatus](#dedicatedclbservicestatus)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `lbId` _string_ |  |  |  |
+| `maxPort` _integer_ |  |  |  |
+
+
 #### DedicatedCLBListener
 
 
@@ -293,9 +268,9 @@ _Appears in:_
 | `lbId` _string_ |  |  |  |
 | `lbRegion` _string_ |  |  |  |
 | `lbPort` _integer_ |  |  |  |
-| `protocol` _string_ |  |  |  |
+| `protocol` _string_ |  |  | Enum: [TCP UDP] <br /> |
 | `listenerConfig` _string_ |  |  |  |
-| `dedicatedTarget` _[DedicatedTarget](#dedicatedtarget)_ |  |  |  |
+| `backendPod` _[BackendPod](#backendpod)_ |  |  |  |
 
 
 #### DedicatedCLBListenerStatus
@@ -336,6 +311,23 @@ DedicatedCLBService is the Schema for the dedicatedclbservices API
 | `status` _[DedicatedCLBServiceStatus](#dedicatedclbservicestatus)_ |  |  |  |
 
 
+#### DedicatedCLBServicePort
+
+
+
+
+
+
+
+_Appears in:_
+- [DedicatedCLBServiceSpec](#dedicatedclbservicespec)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `protocol` _string_ |  |  |  |
+| `port` _integer_ |  |  |  |
+
+
 #### DedicatedCLBServiceSpec
 
 
@@ -349,10 +341,13 @@ _Appears in:_
 
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
+| `lbRegion` _string_ |  |  |  |
+| `vpcId` _string_ |  |  |  |
 | `minPort` _integer_ |  |  |  |
 | `maxPort` _integer_ |  |  |  |
-| `serviceName` _integer_ |  |  |  |
-| `extensiveParameters` _string_ |  |  |  |
+| `selector` _object (keys:string, values:string)_ |  |  |  |
+| `ports` _[DedicatedCLBServicePort](#dedicatedclbserviceport) array_ |  |  |  |
+| `listenerConfig` _string_ |  |  |  |
 | `existedLbIds` _string array_ |  |  |  |
 
 
@@ -367,6 +362,9 @@ DedicatedCLBServiceStatus defines the observed state of DedicatedCLBService
 _Appears in:_
 - [DedicatedCLBService](#dedicatedclbservice)
 
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `lbList` _[DedicatedCLBInfo](#dedicatedclbinfo) array_ |  |  |  |
 
 
 #### DedicatedNatgwService
@@ -417,23 +415,6 @@ DedicatedNatgwServiceStatus defines the observed state of DedicatedNatgwService
 _Appears in:_
 - [DedicatedNatgwService](#dedicatednatgwservice)
 
-
-
-#### DedicatedTarget
-
-
-
-
-
-
-
-_Appears in:_
-- [DedicatedCLBListenerSpec](#dedicatedclblistenerspec)
-
-| Field | Description | Default | Validation |
-| --- | --- | --- | --- |
-| `ip` _string_ |  |  |  |
-| `port` _integer_ |  |  |  |
 
 
 #### MultiCertInfo

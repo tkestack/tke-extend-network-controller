@@ -44,6 +44,7 @@ metadata:
   namespace: demo
   name: gameserver
 spec:
+  lbRegion: ap-chengdu # 可选，CLB 所在地域，默认为集群所在地域
   minPort: 500 # 在CLB自动创建监听器，每个Pod占用一个端口，端口号范围在 500-600
   maxPort: 600
   selector:
@@ -53,7 +54,6 @@ spec:
     targetPort: 9000 # 容器监听的端口
   - protocol: UDP
     targetPort: 8000
-  lbRegion: ap-chengdu # 可选，CLB 所在地域，默认为集群所在地域
   extensiveParameters: '{"VipIsp":"CTCC"}' # 如果自动创建CLB，指定购买CLB接口的参数: https://cloud.tencent.com/document/product/214/30692
   existedLbIds: # 如果复用已有的 CLB 实例，指定 CLB 实例 ID 的列表
     - lb-xxx
