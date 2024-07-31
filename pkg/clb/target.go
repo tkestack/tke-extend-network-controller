@@ -135,11 +135,11 @@ func DeregisterTargetsForListener(ctx context.Context, region, lbId, listenerId 
 	req.ListenerId = &listenerId
 	req.Targets = clbTargets
 	client := GetClient(region)
-	_, err := client.DeregisterTargetsWithContext(ctx, req)
+	resp, err := client.DeregisterTargetsWithContext(ctx, req)
 	if err != nil {
 		return err
 	}
-	return nil
+	return Wait(ctx, region, *resp.Response.RequestId)
 }
 
 func getClbTargets(targets []Target) (clbTargets []*clb.Target) {
