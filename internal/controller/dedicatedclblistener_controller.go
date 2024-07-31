@@ -19,7 +19,6 @@ package controller
 import (
 	"context"
 	"errors"
-	"fmt"
 
 	corev1 "k8s.io/api/core/v1"
 
@@ -331,51 +330,36 @@ func (r *DedicatedCLBListenerReconciler) ensureBackendPod(ctx context.Context, l
 }
 
 func (r *DedicatedCLBListenerReconciler) ensureListener(ctx context.Context, log logr.Logger, lis *networkingv1alpha1.DedicatedCLBListener) error {
-	switch lis.Status.State {
-	case networkingv1alpha1.DedicatedCLBListenerStatePending:
+	// 如果监听器状态是 Pending，尝试创建
+	if lis.Status.State == networkingv1alpha1.DedicatedCLBListenerStatePending {
 		log.V(5).Info("listener is pending, try to create")
 		return r.createListener(ctx, log, lis)
-	case networkingv1alpha1.DedicatedCLBListenerStateAvailable, networkingv1alpha1.DedicatedCLBListenerStateOccupied:
-		listenerId := lis.Status.ListenerId
-		if listenerId == "" { // 不应该没有监听器ID，重建监听器
-			log.Info("listener id not found from status, try to recreate", "state", lis.Status.State)
-			lis.Status.State = networkingv1alpha1.DedicatedCLBListenerStatePending
-			if err := r.Status().Update(ctx, lis); err != nil {
-				return err
-			}
-			return r.createListener(ctx, log, lis)
-		}
-		log.V(5).Info("ensure listener", "listenerId", listenerId)
-		listener, err := clb.GetListener(ctx, lis.Spec.LbRegion, lis.Spec.LbId, listenerId)
-		if err != nil {
+	}
+	listenerId := lis.Status.ListenerId
+	if listenerId == "" { // 不应该没有监听器ID，重建监听器
+		log.Info("listener id not found from status, try to recreate", "state", lis.Status.State)
+		lis.Status.State = networkingv1alpha1.DedicatedCLBListenerStatePending
+		if err := r.Status().Update(ctx, lis); err != nil {
 			return err
 		}
-		if listener == nil { // 监听器不存在，重建监听器
-			log.Info("listener not found, try to recreate", "listenerId", listenerId)
-			return r.createListener(ctx, log, lis)
-		}
-		if listener.Port != lis.Spec.LbPort || listener.Protocol != lis.Spec.Protocol { // 监听器端口和协议不符预期，清理重建
-			log.Info(
-				"unexpected listener, invalid port or protocol, try to recreate",
-				"want", fmt.Sprintf("%d/%s", lis.Spec.LbPort, lis.Spec.Protocol),
-				"got", fmt.Sprintf("%d/%s", listener.Port, listener.Protocol),
-				"listenerId", listenerId,
-			)
-			lis.Status.State = networkingv1alpha1.DedicatedCLBListenerStatePending
-			lis.Status.ListenerId = ""
-			if err := r.Status().Update(ctx, lis); err != nil {
-				return err
-			}
-			// 清理不需要的监听器
-			if err := clb.DeleteListener(ctx, lis.Spec.LbRegion, lis.Spec.LbId, listener.ListenerId); err != nil {
-				return err
-			}
-			// 重建监听器
-			return r.createListener(ctx, log, lis)
-		}
+		return r.createListener(ctx, log, lis)
 	}
-	if lis.Status.ListenerId == "" {
-		return errors.New("listener id is empty")
+	// 监听器存在，进行对账
+	log.V(5).Info("ensure listener", "listenerId", listenerId)
+	listener, err := clb.GetListenerByPort(ctx, lis.Spec.LbRegion, lis.Spec.LbId, lis.Spec.LbPort, lis.Spec.Protocol)
+	if err != nil {
+		return err
+	}
+	if listener == nil { // 监听器不存在，重建监听器
+		log.Info("listener not found, try to recreate", "listenerId", listenerId)
+		return r.createListener(ctx, log, lis)
+	}
+	if listener.ListenerId != listenerId { // 监听器ID不匹配，更新监听器ID
+		log.Info("listener id not match, update listenerId in status", "realListenerId", listener.ListenerId)
+		lis.Status.ListenerId = listener.ListenerId
+		if err := r.Status().Update(ctx, lis); err != nil {
+			return err
+		}
 	}
 	return nil
 }
