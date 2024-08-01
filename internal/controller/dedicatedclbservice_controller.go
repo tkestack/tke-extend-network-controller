@@ -103,14 +103,14 @@ func (r *DedicatedCLBServiceReconciler) Reconcile(ctx context.Context, req ctrl.
 }
 
 func (r *DedicatedCLBServiceReconciler) ensureStatus(ctx context.Context, ds *networkingv1alpha1.DedicatedCLBService) error {
-	lbMap := map[string]*networkingv1alpha1.DedicatedCLBInfo{}
+	lbMap := map[string]networkingv1alpha1.DedicatedCLBInfo{}
 	for _, lb := range ds.Status.LbList {
 		lbMap[lb.LbId] = lb
 	}
 	needUpdate := false
 	for _, lbId := range ds.Spec.ExistedLbIds {
 		if _, ok := lbMap[lbId]; !ok {
-			ds.Status.LbList = append(ds.Status.LbList, &networkingv1alpha1.DedicatedCLBInfo{LbId: lbId})
+			ds.Status.LbList = append(ds.Status.LbList, networkingv1alpha1.DedicatedCLBInfo{LbId: lbId})
 			needUpdate = true
 		}
 	}
@@ -268,6 +268,7 @@ OUTER_LOOP:
 				break OUTER_LOOP
 			}
 			lb.MaxPort = port
+			ds.Status.LbList[lbIndex] = lb
 			created = true
 			if lb.MaxPort >= ds.Spec.MaxPort { // 该lb已分配完所有端口，尝试下一个lb
 				lbIndex++
@@ -304,7 +305,7 @@ func (r *DedicatedCLBServiceReconciler) findObjectsForPod(ctx context.Context, p
 	for _, ds := range list.Items {
 		podSelector := labels.Set(ds.Spec.Selector).AsSelector()
 		if podSelector.Matches(podLabels) {
-			log.V(5).Info("pod matched dedicatedclbservice's selector, trigger reconcile", "pod", pod.GetName())
+			log.V(5).Info("pod matched dedicatedclbservice's selector, trigger reconcile", "pod", pod.GetName(), "dedicatedclbservice", ds.Name, "namespace", ds.Namespace)
 			requests = append(
 				requests,
 				reconcile.Request{
