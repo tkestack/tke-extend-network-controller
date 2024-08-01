@@ -28,6 +28,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
+	"github.com/go-logr/logr"
 	networkingv1alpha1 "github.com/imroc/tke-extend-network-controller/api/v1alpha1"
 )
 
@@ -174,7 +175,7 @@ func (r *DedicatedCLBServiceReconciler) diff(
 			toUpdate = append(toUpdate, listener)
 			allocatableListeners[bind.Protocol] = allocatableListeners[bind.Protocol][1:]
 			log.V(5).Info(
-				"reuse listener",
+				"bind pod to listener",
 				"listener", listener.Name,
 				"pod", bind.BackendPod.PodName, "backendPort",
 				bind.BackendPod.Port, "lbId", listener.Spec.LbId,
@@ -188,14 +189,14 @@ func (r *DedicatedCLBServiceReconciler) diff(
 		for protocol, num := range listenersNeedCreate {
 			log.Info("create new listener", "protocol", protocol, "num", num)
 		}
-		if err = r.allocateNewListener(ctx, ds, listenersNeedCreate); err != nil {
+		if err = r.allocateNewListener(ctx, log, ds, listenersNeedCreate); err != nil {
 			return
 		}
 	}
 	return
 }
 
-func (r *DedicatedCLBServiceReconciler) allocateNewListener(ctx context.Context, ds *networkingv1alpha1.DedicatedCLBService, num map[string]int) error {
+func (r *DedicatedCLBServiceReconciler) allocateNewListener(ctx context.Context, log logr.Logger, ds *networkingv1alpha1.DedicatedCLBService, num map[string]int) error {
 	needNewListener := func() (protocol string, need bool) {
 		for protocol, n := range num {
 			n--
@@ -245,6 +246,7 @@ func (r *DedicatedCLBServiceReconciler) allocateNewListener(ctx context.Context,
 			if err = controllerutil.SetControllerReference(ds, lis, r.Scheme); err != nil {
 				break
 			}
+			log.Info("create new DedicatedCLBListener", "name", lis.Name, "lbId", lis.Spec.LbId)
 			if err = r.Create(ctx, lis); err != nil {
 				break
 			}
@@ -253,6 +255,7 @@ func (r *DedicatedCLBServiceReconciler) allocateNewListener(ctx context.Context,
 		}
 	}
 	if created { // 有成功创建过，更新status
+		log.V(5).Info("update status", "lbList", ds.Status.LbList)
 		if statusErr := r.Status().Update(ctx, ds); statusErr != nil {
 			return statusErr // TODO: 两个err可能同时发生，出现err覆盖
 		}
