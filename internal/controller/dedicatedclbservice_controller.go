@@ -73,6 +73,7 @@ func (r *DedicatedCLBServiceReconciler) Reconcile(ctx context.Context, req ctrl.
 	}
 	if len(pods.Items) == 0 {
 		log.Info("no pods matches the selector")
+		return ctrl.Result{}, nil
 	}
 	listeners := &networkingv1alpha1.DedicatedCLBListenerList{}
 	if err := r.List(
