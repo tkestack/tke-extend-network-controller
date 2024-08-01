@@ -18,6 +18,7 @@ package controller
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	corev1 "k8s.io/api/core/v1"
@@ -76,6 +77,8 @@ func (r *DedicatedCLBServiceReconciler) Reconcile(ctx context.Context, req ctrl.
 	); err != nil {
 		return ctrl.Result{}, err
 	}
+	log := log.FromContext(ctx)
+	log.V(5).Info("find related pods and listeners", "pods", len(pods.Items), "listeners", len(listeners.Items), "podSelector", ds.Spec.Selector)
 	toUpdate, err := r.diff(ctx, ds, pods.Items, listeners.Items)
 	if err != nil {
 		return ctrl.Result{}, err
@@ -85,12 +88,6 @@ func (r *DedicatedCLBServiceReconciler) Reconcile(ctx context.Context, req ctrl.
 			return ctrl.Result{}, err
 		}
 	}
-	// for _, pod := range podList.Items {
-	// 	if err := r.syncPod(ctx, ds, &pod); err != nil { // TODO: 部分错误不影响其它pod
-	// 		log.Error(err, "failed to sync pod")
-	// 		return ctrl.Result{}, err
-	// 	}
-	// }
 	return ctrl.Result{}, nil
 }
 
@@ -197,6 +194,9 @@ func (r *DedicatedCLBServiceReconciler) diff(
 }
 
 func (r *DedicatedCLBServiceReconciler) allocateNewListener(ctx context.Context, log logr.Logger, ds *networkingv1alpha1.DedicatedCLBService, num map[string]int) error {
+	if len(ds.Status.LbList) == 0 {
+		return errors.New("no clb found")
+	}
 	needNewListener := func() (protocol string, need bool) {
 		for protocol, n := range num {
 			n--
@@ -211,15 +211,22 @@ func (r *DedicatedCLBServiceReconciler) allocateNewListener(ctx context.Context,
 	}
 	created := false
 	var err error
-	protocol, need := needNewListener()
-	for _, lb := range ds.Status.LbList {
+	lbIndex := 0
+OUTER_LOOP:
+	for {
+		protocol, need := needNewListener()
 		if !need {
 			break
 		}
-		if lb.MaxPort == 0 {
-			lb.MaxPort = ds.Spec.MinPort - 1
-		}
-		for lb.MaxPort < ds.Spec.MaxPort {
+		for lbIndex < len(ds.Status.LbList) {
+			lb := ds.Status.LbList[lbIndex]
+			if lb.MaxPort == 0 {
+				lb.MaxPort = ds.Spec.MinPort - 1
+			}
+			if lb.MaxPort >= ds.Spec.MaxPort { // 该lb已分配完所有端口，尝试下一个lb
+				lbIndex++
+				continue
+			}
 			port := lb.MaxPort + 1
 			name := fmt.Sprintf("%s-%d-%s", ds.Name, port, protocol)
 			lis := &networkingv1alpha1.DedicatedCLBListener{}
@@ -230,7 +237,7 @@ func (r *DedicatedCLBServiceReconciler) allocateNewListener(ctx context.Context,
 			}
 			if !apierrors.IsNotFound(getErr) { // 其它错误，直接返回
 				err = getErr
-				break
+				break OUTER_LOOP
 			}
 			// 没有同名监听器，新建
 			lis.Spec.LbId = lb.LbId
@@ -244,14 +251,17 @@ func (r *DedicatedCLBServiceReconciler) allocateNewListener(ctx context.Context,
 				labelKeyDedicatedCLBServiceName: ds.Name,
 			}
 			if err = controllerutil.SetControllerReference(ds, lis, r.Scheme); err != nil {
-				break
+				break OUTER_LOOP
 			}
 			log.Info("create new DedicatedCLBListener", "name", lis.Name, "lbId", lis.Spec.LbId)
 			if err = r.Create(ctx, lis); err != nil {
-				break
+				break OUTER_LOOP
 			}
 			lb.MaxPort = port
 			created = true
+			if lb.MaxPort >= ds.Spec.MaxPort { // 该lb已分配完所有端口，尝试下一个lb
+				lbIndex++
+			}
 		}
 	}
 	if created { // 有成功创建过，更新status
