@@ -61,6 +61,8 @@ func (r *DedicatedCLBServiceReconciler) Reconcile(ctx context.Context, req ctrl.
 	if err := r.ensureStatus(ctx, ds); err != nil {
 		return ctrl.Result{}, err
 	}
+	log := log.FromContext(ctx)
+	log.V(7).Info("list related pods", "podNamespace", req.Namespace, "podSelector", ds.Spec.Selector)
 	pods := &corev1.PodList{}
 	if err := r.List(
 		ctx, pods,
@@ -68,6 +70,9 @@ func (r *DedicatedCLBServiceReconciler) Reconcile(ctx context.Context, req ctrl.
 		client.MatchingLabels(ds.Spec.Selector),
 	); err != nil {
 		return ctrl.Result{}, err
+	}
+	if len(pods.Items) == 0 {
+		log.Info("no pods matches the selector")
 	}
 	listeners := &networkingv1alpha1.DedicatedCLBListenerList{}
 	if err := r.List(
@@ -77,7 +82,6 @@ func (r *DedicatedCLBServiceReconciler) Reconcile(ctx context.Context, req ctrl.
 	); err != nil {
 		return ctrl.Result{}, err
 	}
-	log := log.FromContext(ctx)
 	log.V(5).Info("find related pods and listeners", "pods", len(pods.Items), "listeners", len(listeners.Items), "podSelector", ds.Spec.Selector)
 	toUpdate, err := r.diff(ctx, ds, pods.Items, listeners.Items)
 	if err != nil {
