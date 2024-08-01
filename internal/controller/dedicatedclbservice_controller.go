@@ -20,14 +20,18 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/log"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/go-logr/logr"
 	networkingv1alpha1 "github.com/imroc/tke-extend-network-controller/api/v1alpha1"
@@ -42,6 +46,8 @@ type DedicatedCLBServiceReconciler struct {
 // +kubebuilder:rbac:groups=networking.cloud.tencent.com,resources=dedicatedclbservices,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=networking.cloud.tencent.com,resources=dedicatedclbservices/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups=networking.cloud.tencent.com,resources=dedicatedclbservices/finalizers,verbs=update
+// +kubebuilder:rbac:groups="",resources=pods,verbs=get;list;watch;update
+// +kubebuilder:rbac:groups="",resources=pods/status,verbs=get
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
@@ -208,11 +214,10 @@ func (r *DedicatedCLBServiceReconciler) allocateNewListener(ctx context.Context,
 			if n <= 0 { // 后续已不再需要该协议的监听器，删除对应的计数器
 				delete(num, protocol)
 			}
-			if n >= 0 { // 本地需要该协议的监听器
-				return protocol, true
-			}
+			// 本次需要该协议的监听器
+			return protocol, true
 		}
-		return "", false // 计数器清空，不再需要任何监听器
+		return "", false // 计数器已全部清空，不再需要任何监听器
 	}
 	created := false
 	var err error
@@ -233,7 +238,7 @@ OUTER_LOOP:
 				continue
 			}
 			port := lb.MaxPort + 1
-			name := fmt.Sprintf("%s-%d-%s", ds.Name, port, protocol)
+			name := strings.ToLower(fmt.Sprintf("%s-%d-%s", ds.Name, port, protocol))
 			lis := &networkingv1alpha1.DedicatedCLBListener{}
 
 			getErr := r.Get(ctx, client.ObjectKey{Namespace: ds.Namespace, Name: name}, lis)
@@ -279,6 +284,38 @@ OUTER_LOOP:
 	return err
 }
 
+func (r *DedicatedCLBServiceReconciler) findObjectsForPod(ctx context.Context, pod client.Object) []reconcile.Request {
+	list := &networkingv1alpha1.DedicatedCLBServiceList{}
+	log := log.FromContext(ctx)
+	err := r.List(
+		ctx,
+		list,
+		client.InNamespace(pod.GetNamespace()),
+	)
+	if err != nil {
+		log.Error(err, "failed to list dedicatedclbservices", "podName", pod.GetName())
+		return []reconcile.Request{}
+	}
+	if len(list.Items) == 0 {
+		return []reconcile.Request{}
+	}
+	podLabels := labels.Set(pod.GetLabels())
+	requests := []reconcile.Request{}
+	for _, ds := range list.Items {
+		podSelector := labels.Set(ds.Spec.Selector).AsSelector()
+		if podSelector.Matches(podLabels) {
+			log.V(5).Info("pod matched dedicatedclbservice's selector, trigger reconcile", "pod", pod.GetName())
+			requests = append(
+				requests,
+				reconcile.Request{
+					NamespacedName: client.ObjectKeyFromObject(&ds),
+				},
+			)
+		}
+	}
+	return requests
+}
+
 const labelKeyDedicatedCLBServiceName = "networking.cloud.tencent.com/dedicatedclbservice-name"
 
 // SetupWithManager sets up the controller with the Manager.
@@ -286,5 +323,9 @@ func (r *DedicatedCLBServiceReconciler) SetupWithManager(mgr ctrl.Manager) error
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&networkingv1alpha1.DedicatedCLBService{}).
 		Owns(&networkingv1alpha1.DedicatedCLBListener{}).
+		Watches( // TODO: 只关注创建，删除待考虑
+			&corev1.Pod{},
+			handler.EnqueueRequestsFromMapFunc(r.findObjectsForPod),
+		).
 		Complete(r)
 }

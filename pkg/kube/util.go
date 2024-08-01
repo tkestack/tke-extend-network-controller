@@ -46,6 +46,7 @@ func StripPodUnusedFields(obj any) (any, error) {
 		newMeta.DeletionTimestamp = pod.DeletionTimestamp
 		newMeta.Finalizers = pod.Finalizers
 		newMeta.ResourceVersion = pod.ResourceVersion
+		newMeta.Labels = pod.Labels
 		pod.ObjectMeta = newMeta
 	}
 
