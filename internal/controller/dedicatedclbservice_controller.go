@@ -27,7 +27,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	networkingv1alpha1 "github.com/imroc/tke-extend-network-controller/api/v1alpha1"
-	"github.com/imroc/tke-extend-network-controller/pkg/clb"
 )
 
 // DedicatedCLBServiceReconciler reconciles a DedicatedCLBService object
@@ -50,115 +49,203 @@ type DedicatedCLBServiceReconciler struct {
 // For more details, check Reconcile and its Result here:
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.18.4/pkg/reconcile
 func (r *DedicatedCLBServiceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	log := log.FromContext(ctx)
-	log.Info("reconcile DedicatedCLBService start")
-	defer log.Info("reconcile DedicatedCLBService end")
+	// log := log.FromContext(ctx)
 	ds := &networkingv1alpha1.DedicatedCLBService{}
 	if err := r.Get(ctx, req.NamespacedName, ds); err != nil {
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
-	podList := &corev1.PodList{}
-	if err := r.List(ctx, podList, client.InNamespace(req.Namespace), client.MatchingLabels(ds.Spec.Selector)); err != nil {
+	if err := r.ensureStatus(ctx, ds); err != nil {
 		return ctrl.Result{}, err
 	}
-	for _, pod := range podList.Items {
-		if err := r.syncPod(ctx, ds, &pod); err != nil { // TODO: 部分错误不影响其它pod
+	pods := &corev1.PodList{}
+	if err := r.List(
+		ctx, pods,
+		client.InNamespace(req.Namespace),
+		client.MatchingLabels(ds.Spec.Selector),
+	); err != nil {
+		return ctrl.Result{}, err
+	}
+	listeners := &networkingv1alpha1.DedicatedCLBListenerList{}
+	if err := r.List(
+		ctx, listeners,
+		client.InNamespace(req.Namespace),
+		client.MatchingLabels{labelKeyDedicatedCLBServiceName: req.Name},
+	); err != nil {
+		return ctrl.Result{}, err
+	}
+	toUpdate, err := r.diff(ctx, ds, pods.Items, listeners.Items)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+	for _, listener := range toUpdate {
+		if err := r.Update(ctx, listener); err != nil {
 			return ctrl.Result{}, err
 		}
 	}
+	// for _, pod := range podList.Items {
+	// 	if err := r.syncPod(ctx, ds, &pod); err != nil { // TODO: 部分错误不影响其它pod
+	// 		log.Error(err, "failed to sync pod")
+	// 		return ctrl.Result{}, err
+	// 	}
+	// }
 	return ctrl.Result{}, nil
 }
 
-func (r *DedicatedCLBServiceReconciler) syncPodPort(ctx context.Context, ds *networkingv1alpha1.DedicatedCLBService, pod *corev1.Pod, port int64, protocol string) error {
-	list := &networkingv1alpha1.DedicatedCLBListenerList{}
-	if err := r.List(
-		ctx, list,
-		client.InNamespace(pod.Namespace),
-		client.MatchingFields{
-			"spec.backendPod.podName": pod.Name,
-			"spec.backendPod.port":    fmt.Sprint(port),
-			"spec.protocol":           protocol,
-		},
-	); err != nil {
-		return err
-	}
-
-	if len(list.Items) == 0 { // 没找到DedicatedCLBListener，创建一个
-		if err := r.createDedicatedCLBListener(ctx, ds, pod, port, protocol); err != nil {
-			return err
-		}
-	}
-	if len(list.Items) > 1 {
-		return fmt.Errorf("found %d DedicatedCLBListener for pod %s(%s/%d)", len(list.Items), pod.Name, protocol, port)
-	}
-	return r.useDedicatedCLBListener(ctx, &list.Items[0], pod, port)
-}
-
-func (r *DedicatedCLBServiceReconciler) syncPod(ctx context.Context, ds *networkingv1alpha1.DedicatedCLBService, pod *corev1.Pod) error {
-	for _, port := range ds.Spec.Ports {
-		if err := r.syncPodPort(ctx, ds, pod, port.Port, port.Protocol); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func (r *DedicatedCLBServiceReconciler) useDedicatedCLBListener(ctx context.Context, lis *networkingv1alpha1.DedicatedCLBListener, pod *corev1.Pod, port int64) error {
-	lis.Spec.BackendPod = &networkingv1alpha1.BackendPod{
-		PodName: pod.Name,
-		Port:    port,
-	}
-	if err := r.Update(ctx, lis); err != nil {
-		return err
-	}
-	return nil
-}
-
-func (r *DedicatedCLBServiceReconciler) createDedicatedCLBListener(ctx context.Context, ds *networkingv1alpha1.DedicatedCLBService, pod *corev1.Pod, port int64, protocol string) error {
-	// 找到有空余端口的clb
-	var clbInfo *networkingv1alpha1.DedicatedCLBInfo
+func (r *DedicatedCLBServiceReconciler) ensureStatus(ctx context.Context, ds *networkingv1alpha1.DedicatedCLBService) error {
+	lbMap := map[string]*networkingv1alpha1.DedicatedCLBInfo{}
 	for _, lb := range ds.Status.LbList {
-		if lb.MaxPort < ds.Spec.MaxPort {
-			clbInfo = &lb
-			break
+		lbMap[lb.LbId] = lb
+	}
+	needUpdate := false
+	for _, lbId := range ds.Spec.ExistedLbIds {
+		if _, ok := lbMap[lbId]; !ok {
+			ds.Status.LbList = append(ds.Status.LbList, &networkingv1alpha1.DedicatedCLBInfo{LbId: lbId})
+			needUpdate = true
 		}
 	}
-	if clbInfo == nil { // 没有空余端口的clb，创建新clb
-		lbId, err := clb.Create(ds.Spec.LbRegion, ds.Spec.VpcId, ds.Namespace+"_"+ds.Name)
-		if err != nil {
-			return err
+	if needUpdate {
+		return r.Status().Update(ctx, ds)
+	}
+	return nil
+}
+
+func getListenerKey(podName string, port int64, protocol string) string {
+	return fmt.Sprintf("%s-%s-%d", podName, protocol, port)
+}
+
+func (r *DedicatedCLBServiceReconciler) diff(
+	ctx context.Context, ds *networkingv1alpha1.DedicatedCLBService,
+	pods []corev1.Pod, listeners []networkingv1alpha1.DedicatedCLBListener,
+) (
+	toUpdate []*networkingv1alpha1.DedicatedCLBListener,
+	err error,
+) {
+	log := log.FromContext(ctx)
+	usedListeners := make(map[string]*networkingv1alpha1.DedicatedCLBListener)          // pod-port-protocol --> listener
+	allocatableListeners := make(map[string][]*networkingv1alpha1.DedicatedCLBListener) // protocol --> listeners
+	for _, listener := range listeners {
+		backendPod := listener.Spec.BackendPod
+		if backendPod == nil {
+			allocatableListeners[listener.Spec.Protocol] = append(allocatableListeners[listener.Spec.Protocol], &listener)
+		} else {
+			usedListeners[getListenerKey(backendPod.PodName, backendPod.Port, listener.Spec.Protocol)] = &listener
 		}
-		clbInfo = &networkingv1alpha1.DedicatedCLBInfo{LbId: lbId}
-		ds.Status.LbList = append(ds.Status.LbList, *clbInfo)
 	}
-	lis := &networkingv1alpha1.DedicatedCLBListener{}
-	lis.Namespace = ds.Namespace
-	lis.Spec.ListenerConfig = ds.Spec.ListenerConfig
-	lis.Spec.LbRegion = ds.Spec.LbRegion
-	lis.Spec.LbId = clbInfo.LbId
-	lbPort := clbInfo.MaxPort + 1
-	if lbPort < ds.Spec.MinPort {
-		lbPort = ds.Spec.MinPort
+	type bind struct {
+		BackendPod *networkingv1alpha1.BackendPod
+		Protocol   string
 	}
-	lis.Spec.LbPort = lbPort
-	lis.Spec.Protocol = protocol
-	lis.Spec.BackendPod = &networkingv1alpha1.BackendPod{
-		PodName: pod.Name,
-		Port:    port,
+	binds := []bind{}
+	for _, pod := range pods {
+		for _, port := range ds.Spec.Ports {
+			key := getListenerKey(pod.Name, port.Port, port.Protocol)
+			_, ok := usedListeners[key]
+			if ok { // pod 已绑定到监听器
+				delete(usedListeners, key)
+				continue
+			}
+			// 没绑定到监听器，尝试找一个
+			binds = append(binds, bind{Protocol: port.Protocol, BackendPod: &networkingv1alpha1.BackendPod{PodName: pod.Name, Port: port.Port}})
+		}
 	}
-	if err := r.Create(ctx, lis); err != nil {
-		return err
+	// 所有pod都绑定了，直接返回
+	if len(binds) == 0 {
+		log.V(7).Info("all pods are bound, ignore")
+		return
 	}
-	clbInfo.MaxPort = lbPort
-	if err := r.Status().Update(ctx, ds); err != nil {
+	// 还有需要绑定的pod
+	// 先将配置了其它未知Pod的监听器合并到可被分配的监听器列表
+	for _, listener := range usedListeners {
+		allocatableListeners[listener.Spec.Protocol] = append(allocatableListeners[listener.Spec.Protocol], listener)
+	}
+	if len(allocatableListeners) > 0 {
+		for protocol, listeners := range allocatableListeners {
+			log.V(7).Info("found allocatable listeners", "protocol", protocol, "listeners", len(listeners))
+		}
+	}
+	listenersNeedCreate := make(map[string]int)
+	for _, bind := range binds {
+		listeners := allocatableListeners[bind.Protocol]
+		if len(listeners) > 0 { // 还有可被分配的监听器
+			listener := listeners[0]
+			listener.Spec.BackendPod = bind.BackendPod
+			toUpdate = append(toUpdate, listener)
+			allocatableListeners[bind.Protocol] = allocatableListeners[bind.Protocol][1:]
+			log.V(5).Info(
+				"reuse listener",
+				"listener", listener.Name,
+				"pod", bind.BackendPod.PodName, "backendPort",
+				bind.BackendPod.Port, "lbId", listener.Spec.LbId,
+				"lbPort", listener.Spec.LbPort,
+			)
+		} else { // 没有可被分配的监听器，新建一个
+			listenersNeedCreate[bind.Protocol]++
+		}
+	}
+	if len(listenersNeedCreate) > 0 {
+		for protocol, num := range listenersNeedCreate {
+			log.Info("create new listener", "protocol", protocol, "num", num)
+		}
+		if err = r.allocateNewListener(ctx, ds, listenersNeedCreate); err != nil {
+			return
+		}
+	}
+	return
+}
+
+func (r *DedicatedCLBServiceReconciler) allocateNewListener(ctx context.Context, ds *networkingv1alpha1.DedicatedCLBService, num map[string]int) error {
+	needNewListener := func() (protocol string, need bool) {
+		for protocol, n := range num {
+			n--
+			if n <= 0 { // 后续已不再需要该协议的监听器，删除对应的计数器
+				delete(num, protocol)
+			}
+			if n >= 0 { // 本地需要该协议的监听器
+				return protocol, true
+			}
+		}
+		return "", false // 计数器清空，不再需要任何监听器
+	}
+	created := false
+	var err error
+	for _, lb := range ds.Status.LbList {
+		if lb.MaxPort == 0 {
+			lb.MaxPort = ds.Spec.MinPort - 1
+		}
+		for lb.MaxPort < ds.Spec.MaxPort {
+			protocol, need := needNewListener()
+			if !need {
+				break
+			}
+			lis := &networkingv1alpha1.DedicatedCLBListener{}
+			lis.Spec.LbId = lb.LbId
+			lis.Spec.LbPort = lb.MaxPort + 1
+			lis.Spec.Protocol = protocol
+			lis.Spec.ListenerConfig = ds.Spec.ListenerConfig
+			lis.Spec.LbRegion = ds.Spec.LbRegion
+			if err = r.Create(ctx, lis); err != nil {
+				break
+			}
+			lb.MaxPort++
+			created = true
+		}
+	}
+	if created { // 有成功创建过，更新status
+		if err := r.Status().Update(ctx, ds); err != nil {
+			return err // TODO: 两个err可能同时发生，出现err覆盖
+		}
+	} else {
 		return err
 	}
 	return nil
 }
+
+const labelKeyDedicatedCLBServiceName = "networking.cloud.tencent.com/dedicatedclbservice-name"
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *DedicatedCLBServiceReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&networkingv1alpha1.DedicatedCLBService{}).
+		Owns(&networkingv1alpha1.DedicatedCLBListener{}).
 		Complete(r)
 }

@@ -662,8 +662,14 @@ func (in *DedicatedCLBServiceStatus) DeepCopyInto(out *DedicatedCLBServiceStatus
 	*out = *in
 	if in.LbList != nil {
 		in, out := &in.LbList, &out.LbList
-		*out = make([]DedicatedCLBInfo, len(*in))
-		copy(*out, *in)
+		*out = make([]*DedicatedCLBInfo, len(*in))
+		for i := range *in {
+			if (*in)[i] != nil {
+				in, out := &(*in)[i], &(*out)[i]
+				*out = new(DedicatedCLBInfo)
+				**out = **in
+			}
+		}
 	}
 }
 

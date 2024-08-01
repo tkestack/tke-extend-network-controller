@@ -48,7 +48,7 @@ type DedicatedCLBServicePort struct {
 
 // DedicatedCLBServiceStatus defines the observed state of DedicatedCLBService
 type DedicatedCLBServiceStatus struct {
-	LbList []DedicatedCLBInfo `json:"lbList"`
+	LbList []*DedicatedCLBInfo `json:"lbList"`
 }
 
 type DedicatedCLBInfo struct {
