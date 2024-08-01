@@ -42,8 +42,8 @@ type DedicatedCLBServiceSpec struct {
 }
 
 type DedicatedCLBServicePort struct {
-	Protocol string `json:"protocol"`
-	Port     int64  `json:"port"`
+	Protocol   string `json:"protocol"`
+	TargetPort int64  `json:"targetPort"`
 }
 
 // DedicatedCLBServiceStatus defines the observed state of DedicatedCLBService

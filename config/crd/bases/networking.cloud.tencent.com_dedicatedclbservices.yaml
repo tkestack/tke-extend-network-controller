@@ -57,14 +57,14 @@ spec:
               ports:
                 items:
                   properties:
-                    port:
-                      format: int64
-                      type: integer
                     protocol:
                       type: string
+                    targetPort:
+                      format: int64
+                      type: integer
                   required:
-                  - port
                   - protocol
+                  - targetPort
                   type: object
                 type: array
               selector:

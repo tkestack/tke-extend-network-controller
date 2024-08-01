@@ -141,14 +141,14 @@ func (r *DedicatedCLBServiceReconciler) diff(
 	binds := []bind{}
 	for _, pod := range pods {
 		for _, port := range ds.Spec.Ports {
-			key := getListenerKey(pod.Name, port.Port, port.Protocol)
+			key := getListenerKey(pod.Name, port.TargetPort, port.Protocol)
 			_, ok := usedListeners[key]
 			if ok { // pod 已绑定到监听器
 				delete(usedListeners, key)
 				continue
 			}
 			// 没绑定到监听器，尝试找一个
-			binds = append(binds, bind{Protocol: port.Protocol, BackendPod: &networkingv1alpha1.BackendPod{PodName: pod.Name, Port: port.Port}})
+			binds = append(binds, bind{Protocol: port.Protocol, BackendPod: &networkingv1alpha1.BackendPod{PodName: pod.Name, Port: port.TargetPort}})
 		}
 	}
 	// 所有pod都绑定了，直接返回
