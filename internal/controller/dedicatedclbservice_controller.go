@@ -21,9 +21,11 @@ import (
 	"fmt"
 
 	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	networkingv1alpha1 "github.com/imroc/tke-extend-network-controller/api/v1alpha1"
@@ -208,36 +210,55 @@ func (r *DedicatedCLBServiceReconciler) allocateNewListener(ctx context.Context,
 	}
 	created := false
 	var err error
+	protocol, need := needNewListener()
 	for _, lb := range ds.Status.LbList {
+		if !need {
+			break
+		}
 		if lb.MaxPort == 0 {
 			lb.MaxPort = ds.Spec.MinPort - 1
 		}
 		for lb.MaxPort < ds.Spec.MaxPort {
-			protocol, need := needNewListener()
-			if !need {
+			port := lb.MaxPort + 1
+			name := fmt.Sprintf("%s-%d-%s", ds.Name, port, protocol)
+			lis := &networkingv1alpha1.DedicatedCLBListener{}
+
+			getErr := r.Get(ctx, client.ObjectKey{Namespace: ds.Namespace, Name: name}, lis)
+			if getErr == nil { // 存在同名监听器，跳过
+				continue
+			}
+			if !apierrors.IsNotFound(getErr) { // 其它错误，直接返回
+				err = getErr
 				break
 			}
-			lis := &networkingv1alpha1.DedicatedCLBListener{}
+			// 没有同名监听器，新建
 			lis.Spec.LbId = lb.LbId
-			lis.Spec.LbPort = lb.MaxPort + 1
+			lis.Spec.LbPort = port
 			lis.Spec.Protocol = protocol
 			lis.Spec.ListenerConfig = ds.Spec.ListenerConfig
 			lis.Spec.LbRegion = ds.Spec.LbRegion
+			lis.Namespace = ds.Namespace
+			lis.Name = name
+			lis.Labels = map[string]string{
+				labelKeyDedicatedCLBServiceName: ds.Name,
+			}
+			if err = controllerutil.SetControllerReference(ds, lis, r.Scheme); err != nil {
+				break
+			}
 			if err = r.Create(ctx, lis); err != nil {
 				break
 			}
-			lb.MaxPort++
+			lb.MaxPort = port
 			created = true
 		}
 	}
 	if created { // 有成功创建过，更新status
-		if err := r.Status().Update(ctx, ds); err != nil {
-			return err // TODO: 两个err可能同时发生，出现err覆盖
+		if statusErr := r.Status().Update(ctx, ds); statusErr != nil {
+			return statusErr // TODO: 两个err可能同时发生，出现err覆盖
 		}
-	} else {
 		return err
 	}
-	return nil
+	return err
 }
 
 const labelKeyDedicatedCLBServiceName = "networking.cloud.tencent.com/dedicatedclbservice-name"
