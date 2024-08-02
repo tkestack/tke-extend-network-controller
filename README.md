@@ -8,7 +8,7 @@
 
 类似会议、游戏战斗服等场景，每个 Pod 都需要一个独立的公网地址 (IP:Port)，而 TKE 集群默认不提供这个能力，可通过安装此插件来实现为每个 Pod 的某个端口都分配一个独立的公网地址。
 
-## 使用 CLB 为 Pod 分配专属地址
+## 使用 CLB 为 Pod 分配公网地址映射
 
 通过自动为 CLB 创建监听器并绑定单个 Pod 来实现为 Pod 分配独立的公网地址：
 
@@ -62,7 +62,7 @@ status:
 
 然后 controller 根据 `DedicatedCLBListener` 进行对账，自动将 Pod 绑定到对应的 CLB 监听器上。
 
-## 使用 NAT 网关为 Pod 分配专属地址
+## 使用 NAT 网关为 Pod 分配公网地址映射
 
 TODO
 
