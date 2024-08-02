@@ -15,7 +15,7 @@ func GetClbExternalAddress(ctx context.Context, lbId, region string) (address st
 	if err != nil {
 		return
 	}
-	if lb.LoadBalancerDomain != nil {
+	if lb.LoadBalancerDomain != nil && *lb.LoadBalancerDomain != "" {
 		address = *lb.LoadBalancerDomain
 		return
 	}
