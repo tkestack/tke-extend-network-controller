@@ -21,6 +21,7 @@ func GetClbExternalAddress(ctx context.Context, lbId, region string) (address st
 	}
 	if len(lb.LoadBalancerVips) > 0 {
 		address = *lb.LoadBalancerVips[0]
+		return
 	}
 	err = fmt.Errorf("no external address found for clb %s", lbId)
 	return
