@@ -212,6 +212,8 @@ func (r *DedicatedCLBServiceReconciler) allocateNewListener(ctx context.Context,
 			n--
 			if n <= 0 { // 后续已不再需要该协议的监听器，删除对应的计数器
 				delete(num, protocol)
+			} else {
+				num[protocol] = n
 			}
 			// 本次需要该协议的监听器
 			return protocol, true
@@ -266,21 +268,31 @@ OUTER_LOOP:
 			if err = r.Create(ctx, lis); err != nil {
 				break OUTER_LOOP
 			}
+			log.Info("create new DedicatedCLBListener succeed", "name", lis.Name, "lbId", lis.Spec.LbId)
 			lb.MaxPort = port
 			ds.Status.LbList[lbIndex] = lb
 			created = true
-			if lb.MaxPort >= ds.Spec.MaxPort { // 该lb已分配完所有端口，尝试下一个lb
+			if lb.MaxPort >= ds.Spec.MaxPort { // 该lb已分配完所有端口，继续尝试下一个lb
 				lbIndex++
+			}
+
+			// 监听器创建成功，如果还有lb分配，就继续判断是否需要创建，如果耗尽，就不再判断
+			if lbIndex < len(ds.Status.LbList) { // 还有lb，跳出循环，继续判断是否还需要监听器 TODO: 换更优雅的判断代码
+				break
+			} else { // 所有 lb 和端口耗尽，不再尝试
+				log.Info("lb is not enough, stop trying allocate new listener")
+				break OUTER_LOOP
 			}
 		}
 	}
 	if created { // 有成功创建过，更新status
-		log.V(5).Info("update status", "lbList", ds.Status.LbList)
+		log.V(5).Info("update lbList status", "lbList", ds.Status.LbList)
 		if statusErr := r.Status().Update(ctx, ds); statusErr != nil {
 			return statusErr // TODO: 两个err可能同时发生，出现err覆盖
 		}
 		return err
 	}
+	log.V(5).Info("no listener created")
 	return err
 }
 
