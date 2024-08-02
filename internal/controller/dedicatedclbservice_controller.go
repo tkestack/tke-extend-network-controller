@@ -103,6 +103,7 @@ func (r *DedicatedCLBServiceReconciler) Reconcile(ctx context.Context, req ctrl.
 		if err := r.allocateNewListener(ctx, log, ds, protocol, num); err != nil {
 			return ctrl.Result{}, err
 		}
+		log.Info("create new listener succeed", "protocol", protocol, "num", num)
 	}
 	return ctrl.Result{}, nil
 }
@@ -205,12 +206,14 @@ func (r *DedicatedCLBServiceReconciler) allocateNewListener(ctx context.Context,
 	if len(ds.Status.LbList) == 0 {
 		return errors.New("no clb found")
 	}
-	created := false
+	updateStatus := false
 	var err error
 	lbIndex := 0
 OUTER_LOOP:
 	for n := num; n > 0; n-- { // 每个n个端口的循环
+		log.Info("outer loop start")
 		for { // 分配单个lb端口的循环
+			log.Info("inner loop start")
 			if lbIndex >= len(ds.Status.LbList) {
 				log.Info("lb is not enough, stop trying allocate new listener")
 				break OUTER_LOOP
@@ -229,6 +232,10 @@ OUTER_LOOP:
 
 			getErr := r.Get(ctx, client.ObjectKey{Namespace: ds.Namespace, Name: name}, lis)
 			if getErr == nil { // 存在同名监听器，跳过
+				log.V(5).Info("ignore creating listener with existed name", "name", name)
+				lb.MaxPort++
+				ds.Status.LbList[lbIndex] = lb
+				updateStatus = true
 				continue
 			}
 			if !apierrors.IsNotFound(getErr) { // 其它错误，直接返回
@@ -255,12 +262,12 @@ OUTER_LOOP:
 			}
 			lb.MaxPort = port
 			ds.Status.LbList[lbIndex] = lb
-			created = true
+			updateStatus = true
 			break // 创建成功，跳出本次端口分配的循环
 		}
 	}
 
-	if created { // 有成功创建过，更新status
+	if updateStatus { // 有成功创建过，更新status
 		log.V(5).Info("update lbList status", "lbList", ds.Status.LbList)
 		if statusErr := r.Status().Update(ctx, ds); statusErr != nil {
 			return statusErr // TODO: 两个err可能同时发生，出现err覆盖
