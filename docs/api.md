@@ -288,6 +288,7 @@ _Appears in:_
 | --- | --- | --- | --- |
 | `listenerId` _string_ |  |  |  |
 | `state` _string_ |  |  |  |
+| `address` _string_ |  |  |  |
 
 
 #### DedicatedCLBService
@@ -325,7 +326,8 @@ _Appears in:_
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
 | `protocol` _string_ |  |  |  |
-| `port` _integer_ |  |  |  |
+| `targetPort` _integer_ |  |  |  |
+| `addressPodAnnotation` _string_ |  |  |  |
 
 
 #### DedicatedCLBServiceSpec
