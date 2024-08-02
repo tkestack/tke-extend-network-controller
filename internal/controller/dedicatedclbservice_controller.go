@@ -59,7 +59,7 @@ type DedicatedCLBServiceReconciler struct {
 // For more details, check Reconcile and its Result here:
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.18.4/pkg/reconcile
 func (r *DedicatedCLBServiceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	// log := log.FromContext(ctx)
+	log := log.FromContext(ctx)
 	ds := &networkingv1alpha1.DedicatedCLBService{}
 	if err := r.Get(ctx, req.NamespacedName, ds); err != nil {
 		return ctrl.Result{}, client.IgnoreNotFound(err)
@@ -67,7 +67,6 @@ func (r *DedicatedCLBServiceReconciler) Reconcile(ctx context.Context, req ctrl.
 	if err := r.ensureStatus(ctx, ds); err != nil {
 		return ctrl.Result{}, err
 	}
-	log := log.FromContext(ctx)
 	log.V(7).Info("list related pods", "podNamespace", req.Namespace, "podSelector", ds.Spec.Selector)
 	pods := &corev1.PodList{}
 	if err := r.List(
