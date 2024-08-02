@@ -61,6 +61,9 @@ const (
 
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
+// +kubebuilder:printcolumn:name="LbId",type="string",JSONPath=".spec.lbId",description="CLB ID"
+// +kubebuilder:printcolumn:name="LbPort",type="integer",JSONPath=".spec.lbPort",description="Port of CLB Listener"
+// +kubebuilder:printcolumn:name="State",type="string",JSONPath=".status.state",description="State of the dedicated clb listener"
 
 // DedicatedCLBListener is the Schema for the dedicatedclblisteners API
 type DedicatedCLBListener struct {

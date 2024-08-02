@@ -14,7 +14,20 @@ spec:
     singular: dedicatedclblistener
   scope: Namespaced
   versions:
-  - name: v1alpha1
+  - additionalPrinterColumns:
+    - description: CLB ID
+      jsonPath: .spec.lbId
+      name: LbId
+      type: string
+    - description: Port of CLB Listener
+      jsonPath: .spec.lbPort
+      name: LbPort
+      type: integer
+    - description: State of the dedicated clb listener
+      jsonPath: .status.state
+      name: State
+      type: string
+    name: v1alpha1
     schema:
       openAPIV3Schema:
         description: DedicatedCLBListener is the Schema for the dedicatedclblisteners
