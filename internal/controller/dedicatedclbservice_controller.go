@@ -158,6 +158,13 @@ func (r *DedicatedCLBServiceReconciler) ensurePodAnnotation(ctx context.Context,
 				return err
 			}
 			if realAddr != "" && realAddr != addr {
+				log.FromContext(ctx).V(5).Info(
+					"set external address to pod annotation",
+					"pod", pod.Name,
+					"port", port.TargetPort,
+					"protocol", port.Protocol,
+					"oldAddr", addr, "realAddr", realAddr,
+				)
 				if err := kube.SetPodAnnotation(ctx, &pod, port.AddressAnnotation, realAddr); err != nil {
 					return err
 				}
