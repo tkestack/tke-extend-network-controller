@@ -227,7 +227,7 @@ OUTER_LOOP:
 				lbIndex++
 				continue
 			}
-			name := strings.ToLower(fmt.Sprintf("%s-%d-%s", ds.Name, port, protocol))
+			name := strings.ToLower(fmt.Sprintf("%s-%s-%d-%s", ds.Name, lb.LbId, port, protocol))
 			lis := &networkingv1alpha1.DedicatedCLBListener{}
 
 			getErr := r.Get(ctx, client.ObjectKey{Namespace: ds.Namespace, Name: name}, lis)
