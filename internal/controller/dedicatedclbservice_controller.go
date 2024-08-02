@@ -89,12 +89,18 @@ func (r *DedicatedCLBServiceReconciler) Reconcile(ctx context.Context, req ctrl.
 		return ctrl.Result{}, err
 	}
 	log.V(5).Info("find related pods and listeners", "pods", len(pods.Items), "listeners", len(listeners.Items), "podSelector", ds.Spec.Selector)
-	toUpdate, err := r.diff(ctx, ds, pods.Items, listeners.Items)
+	toUpdate, toCreate, err := r.diff(ctx, ds, pods.Items, listeners.Items)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
 	for _, listener := range toUpdate {
 		if err := r.Update(ctx, listener); err != nil {
+			return ctrl.Result{}, err
+		}
+	}
+	for protocol, num := range toCreate {
+		log.Info("create new listener", "protocol", protocol, "num", num)
+		if err := r.allocateNewListener(ctx, log, ds, protocol, num); err != nil {
 			return ctrl.Result{}, err
 		}
 	}
@@ -127,7 +133,7 @@ func (r *DedicatedCLBServiceReconciler) diff(
 	ctx context.Context, ds *networkingv1alpha1.DedicatedCLBService,
 	pods []corev1.Pod, listeners []networkingv1alpha1.DedicatedCLBListener,
 ) (
-	toUpdate []*networkingv1alpha1.DedicatedCLBListener,
+	toUpdate []*networkingv1alpha1.DedicatedCLBListener, toCreate map[string]int,
 	err error,
 ) {
 	log := log.FromContext(ctx)
@@ -173,7 +179,7 @@ func (r *DedicatedCLBServiceReconciler) diff(
 			log.V(7).Info("found allocatable listeners", "protocol", protocol, "listeners", len(listeners))
 		}
 	}
-	listenersNeedCreate := make(map[string]int)
+	toCreate = make(map[string]int)
 	for _, bind := range binds {
 		listeners := allocatableListeners[bind.Protocol]
 		if len(listeners) > 0 { // 还有可被分配的监听器
@@ -189,56 +195,35 @@ func (r *DedicatedCLBServiceReconciler) diff(
 				"lbPort", listener.Spec.LbPort,
 			)
 		} else { // 没有可被分配的监听器，新建一个
-			listenersNeedCreate[bind.Protocol]++
-		}
-	}
-	if len(listenersNeedCreate) > 0 {
-		for protocol, num := range listenersNeedCreate {
-			log.Info("create new listener", "protocol", protocol, "num", num)
-		}
-		if err = r.allocateNewListener(ctx, log, ds, listenersNeedCreate); err != nil {
-			return
+			toCreate[bind.Protocol]++
 		}
 	}
 	return
 }
 
-func (r *DedicatedCLBServiceReconciler) allocateNewListener(ctx context.Context, log logr.Logger, ds *networkingv1alpha1.DedicatedCLBService, num map[string]int) error {
+func (r *DedicatedCLBServiceReconciler) allocateNewListener(ctx context.Context, log logr.Logger, ds *networkingv1alpha1.DedicatedCLBService, protocol string, num int) error {
 	if len(ds.Status.LbList) == 0 {
 		return errors.New("no clb found")
-	}
-	needNewListener := func() (protocol string, need bool) {
-		for protocol, n := range num {
-			n--
-			if n <= 0 { // 后续已不再需要该协议的监听器，删除对应的计数器
-				delete(num, protocol)
-			} else {
-				num[protocol] = n
-			}
-			// 本次需要该协议的监听器
-			return protocol, true
-		}
-		return "", false // 计数器已全部清空，不再需要任何监听器
 	}
 	created := false
 	var err error
 	lbIndex := 0
 OUTER_LOOP:
-	for {
-		protocol, need := needNewListener()
-		if !need {
-			break
-		}
-		for lbIndex < len(ds.Status.LbList) {
-			lb := ds.Status.LbList[lbIndex]
-			if lb.MaxPort == 0 {
-				lb.MaxPort = ds.Spec.MinPort - 1
+	for n := num; n > 0; n-- { // 每个n个端口的循环
+		for { // 分配单个lb端口的循环
+			if lbIndex >= len(ds.Status.LbList) {
+				log.Info("lb is not enough, stop trying allocate new listener")
+				break OUTER_LOOP
 			}
-			if lb.MaxPort >= ds.Spec.MaxPort { // 该lb已分配完所有端口，尝试下一个lb
+			lb := ds.Status.LbList[lbIndex]
+			port := lb.MaxPort + 1
+			if port < ds.Spec.MinPort {
+				port = ds.Spec.MinPort
+			}
+			if port > ds.Spec.MaxPort { // 该lb已分配完所有端口，尝试下一个lb
 				lbIndex++
 				continue
 			}
-			port := lb.MaxPort + 1
 			name := strings.ToLower(fmt.Sprintf("%s-%d-%s", ds.Name, port, protocol))
 			lis := &networkingv1alpha1.DedicatedCLBListener{}
 
@@ -268,23 +253,13 @@ OUTER_LOOP:
 			if err = r.Create(ctx, lis); err != nil {
 				break OUTER_LOOP
 			}
-			log.Info("create new DedicatedCLBListener succeed", "name", lis.Name, "lbId", lis.Spec.LbId)
 			lb.MaxPort = port
 			ds.Status.LbList[lbIndex] = lb
 			created = true
-			if lb.MaxPort >= ds.Spec.MaxPort { // 该lb已分配完所有端口，继续尝试下一个lb
-				lbIndex++
-			}
-
-			// 监听器创建成功，如果还有lb分配，就继续判断是否需要创建，如果耗尽，就不再判断
-			if lbIndex < len(ds.Status.LbList) { // 还有lb，跳出循环，继续判断是否还需要监听器 TODO: 换更优雅的判断代码
-				break
-			} else { // 所有 lb 和端口耗尽，不再尝试
-				log.Info("lb is not enough, stop trying allocate new listener")
-				break OUTER_LOOP
-			}
+			break // 创建成功，跳出本次端口分配的循环
 		}
 	}
+
 	if created { // 有成功创建过，更新status
 		log.V(5).Info("update lbList status", "lbList", ds.Status.LbList)
 		if statusErr := r.Status().Update(ctx, ds); statusErr != nil {
