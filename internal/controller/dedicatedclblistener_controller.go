@@ -205,25 +205,32 @@ func getDedicatedCLBListenerPodFinalizerName(lis *networkingv1alpha1.DedicatedCL
 	return "dedicatedclblistener.networking.cloud.tencent.com/" + lis.Name
 }
 
+func (r *DedicatedCLBListenerReconciler) setState(ctx context.Context, lis *networkingv1alpha1.DedicatedCLBListener, state string) error {
+	if lis.Status.State != state {
+		log.FromContext(ctx).V(5).Info("set listener state", "state", state)
+		lis.Status.State = state
+		if err := r.Status().Update(ctx, lis); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func (r *DedicatedCLBListenerReconciler) ensureBackendPod(ctx context.Context, log logr.Logger, lis *networkingv1alpha1.DedicatedCLBListener) error {
 	// 到这一步 listenerId 一定不为空
 	log = log.WithValues("listenerId", lis.Status.ListenerId)
 	// 没配置后端 pod，确保后端rs全被解绑，并且状态为 Available
 	backendPod := lis.Spec.BackendPod
 	if backendPod == nil {
-		if lis.Status.State == networkingv1alpha1.DedicatedCLBListenerStateOccupied { // 但监听器状态是已占用，需要解绑
+		if lis.Status.State == networkingv1alpha1.DedicatedCLBListenerStateBound { // 但监听器状态是已占用，需要解绑
 			log.V(6).Info("no backend pod configured, try to deregister all targets")
 			// 解绑所有后端
 			if err := clb.DeregisterAllTargets(ctx, lis.Spec.LbRegion, lis.Spec.LbId, lis.Status.ListenerId); err != nil {
 				return err
 			}
 			// 更新监听器状态
-			if lis.Status.State != networkingv1alpha1.DedicatedCLBListenerStateAvailable {
-				log.V(5).Info("reset listener state to available")
-				lis.Status.State = networkingv1alpha1.DedicatedCLBListenerStateAvailable
-				if err := r.Status().Update(ctx, lis); err != nil {
-					return err
-				}
+			if err := r.setState(ctx, lis, networkingv1alpha1.DedicatedCLBListenerStateAvailable); err != nil {
+				return err
 			}
 		}
 		return nil
@@ -305,8 +312,8 @@ func (r *DedicatedCLBListenerReconciler) ensureBackendPod(ctx context.Context, l
 			return err
 		}
 		// 更新监听器状态
-		log.V(6).Info("set listener state to occupied")
-		lis.Status.State = networkingv1alpha1.DedicatedCLBListenerStateOccupied
+		log.V(6).Info("set listener state to bound")
+		lis.Status.State = networkingv1alpha1.DedicatedCLBListenerStateBound
 		return r.Status().Update(ctx, lis)
 	}
 
@@ -324,9 +331,7 @@ func (r *DedicatedCLBListenerReconciler) ensureBackendPod(ctx context.Context, l
 		return err
 	}
 	// 更新 DedicatedCLBListener
-	log.V(6).Info("reset listener state to available")
-	lis.Status.State = networkingv1alpha1.DedicatedCLBListenerStateAvailable
-	return r.Status().Update(ctx, lis)
+	return r.setState(ctx, lis, networkingv1alpha1.DedicatedCLBListenerStateAvailable)
 }
 
 func (r *DedicatedCLBListenerReconciler) ensureListener(ctx context.Context, log logr.Logger, lis *networkingv1alpha1.DedicatedCLBListener) error {
@@ -335,6 +340,7 @@ func (r *DedicatedCLBListenerReconciler) ensureListener(ctx context.Context, log
 		log.V(5).Info("listener is pending, try to create")
 		return r.createListener(ctx, log, lis)
 	}
+	// 监听器已创建，检查监听器
 	listenerId := lis.Status.ListenerId
 	if listenerId == "" { // 不应该没有监听器ID，重建监听器
 		log.Info("listener id not found from status, try to recreate", "state", lis.Status.State)

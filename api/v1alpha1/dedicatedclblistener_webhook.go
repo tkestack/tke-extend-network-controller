@@ -51,6 +51,7 @@ var _ webhook.Defaulter = &DedicatedCLBListener{}
 func (r *DedicatedCLBListener) Default() {
 	dedicatedclblistenerlog.Info("default", "name", r.Name)
 	r.Spec.LbRegion = clb.DefaultRegion()
+	r.Status.State = DedicatedCLBListenerStatePending
 }
 
 func validateLbPort(lis *DedicatedCLBListener) error {

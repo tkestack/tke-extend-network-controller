@@ -53,7 +53,7 @@ type DedicatedCLBListenerStatus struct {
 }
 
 const (
-	DedicatedCLBListenerStateOccupied  = "Occupied"
+	DedicatedCLBListenerStateBound     = "Bound"
 	DedicatedCLBListenerStateAvailable = "Available"
 	DedicatedCLBListenerStatePending   = "Pending"
 	DedicatedCLBListenerStateDeleting  = "Deleting"
