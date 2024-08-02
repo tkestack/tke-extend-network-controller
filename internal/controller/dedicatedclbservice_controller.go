@@ -20,10 +20,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"strings"
 
 	corev1 "k8s.io/api/core/v1"
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -209,6 +207,7 @@ func (r *DedicatedCLBServiceReconciler) allocateNewListener(ctx context.Context,
 	updateStatus := false
 	var err error
 	lbIndex := 0
+	generateName := ds.Name + "-"
 OUTER_LOOP:
 	for n := num; n > 0; n-- { // 每个n个端口的循环
 		log.Info("outer loop start")
@@ -227,29 +226,15 @@ OUTER_LOOP:
 				lbIndex++
 				continue
 			}
-			name := strings.ToLower(fmt.Sprintf("%s-%s-%d-%s", ds.Name, lb.LbId, port, protocol))
-			lis := &networkingv1alpha1.DedicatedCLBListener{}
-
-			getErr := r.Get(ctx, client.ObjectKey{Namespace: ds.Namespace, Name: name}, lis)
-			if getErr == nil { // 存在同名监听器，跳过
-				log.V(5).Info("ignore creating listener with existed name", "name", name)
-				lb.MaxPort++
-				ds.Status.LbList[lbIndex] = lb
-				updateStatus = true
-				continue
-			}
-			if !apierrors.IsNotFound(getErr) { // 其它错误，直接返回
-				err = getErr
-				break OUTER_LOOP
-			}
 			// 没有同名监听器，新建
+			lis := &networkingv1alpha1.DedicatedCLBListener{}
 			lis.Spec.LbId = lb.LbId
 			lis.Spec.LbPort = port
 			lis.Spec.Protocol = protocol
 			lis.Spec.ListenerConfig = ds.Spec.ListenerConfig
 			lis.Spec.LbRegion = ds.Spec.LbRegion
 			lis.Namespace = ds.Namespace
-			lis.Name = name
+			lis.GenerateName = generateName
 			lis.Labels = map[string]string{
 				labelKeyDedicatedCLBServiceName: ds.Name,
 			}
