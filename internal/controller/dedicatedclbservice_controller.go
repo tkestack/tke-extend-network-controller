@@ -148,11 +148,11 @@ func (r *DedicatedCLBServiceReconciler) ensurePodAnnotation(ctx context.Context,
 		return nil
 	}
 	for _, port := range ds.Spec.Ports {
-		if port.AddressAnnotation == "" {
+		if port.AddressPodAnnotation == "" {
 			continue
 		}
 		for _, pod := range pods {
-			addr := pod.Annotations[port.AddressAnnotation]
+			addr := pod.Annotations[port.AddressPodAnnotation]
 			realAddr, err := r.getAddr(ctx, ds, port.TargetPort, port.Protocol, &pod)
 			if err != nil {
 				return err
@@ -165,7 +165,7 @@ func (r *DedicatedCLBServiceReconciler) ensurePodAnnotation(ctx context.Context,
 					"protocol", port.Protocol,
 					"oldAddr", addr, "realAddr", realAddr,
 				)
-				if err := kube.SetPodAnnotation(ctx, &pod, port.AddressAnnotation, realAddr); err != nil {
+				if err := kube.SetPodAnnotation(ctx, &pod, port.AddressPodAnnotation, realAddr); err != nil {
 					return err
 				}
 			}
