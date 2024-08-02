@@ -323,8 +323,8 @@ func (r *DedicatedCLBListenerReconciler) ensureBackendPod(ctx context.Context, l
 		if err != nil {
 			return err
 		}
-		log.V(6).Info("set external address to status", "address", addr)
 		addr = fmt.Sprintf("%s:%d", addr, lis.Spec.LbPort)
+		log.V(6).Info("set external address to status", "address", addr)
 		lis.Status.Address = addr
 		return r.Status().Update(ctx, lis)
 	}
