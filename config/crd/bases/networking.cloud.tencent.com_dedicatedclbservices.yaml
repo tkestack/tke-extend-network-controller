@@ -57,6 +57,8 @@ spec:
               ports:
                 items:
                   properties:
+                    addressPodAnnotation:
+                      type: string
                     protocol:
                       type: string
                     targetPort:

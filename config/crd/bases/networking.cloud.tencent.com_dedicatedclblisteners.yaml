@@ -99,6 +99,8 @@ spec:
             description: DedicatedCLBListenerStatus defines the observed state of
               DedicatedCLBListener
             properties:
+              address:
+                type: string
               listenerId:
                 type: string
               state:

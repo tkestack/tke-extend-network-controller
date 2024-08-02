@@ -130,7 +130,8 @@ func (r *DedicatedCLBServiceReconciler) getAddr(ctx context.Context, ds *network
 		return
 	}
 	if len(list.Items) > 1 {
-		err = fmt.Errorf("found more than 1 DedicatedCLBListener for backend pod", "pod", pod.Name, "port", port, "protocol", protocol, "num", len(list.Items))
+		err = fmt.Errorf("found %d DedicatedCLBListener for backend pod", len(list.Items))
+		log.FromContext(ctx).Error(err, "pod", pod.Name, "port", port, "protocol", protocol)
 		return
 	}
 	lis := list.Items[0]
