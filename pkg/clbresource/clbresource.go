@@ -18,7 +18,7 @@ func GetClbResource(ctx context.Context, c client.Client, lbId, region string) (
 	)
 	if err != nil {
 		if apierrors.IsNotFound(err) { // cr 不能存在，检查clb是否存在
-			_, err := clb.GetClb(lbId, region) // 如果clb存在，自动创建对应cr
+			_, err := clb.GetClb(ctx, lbId, region) // 如果clb存在，自动创建对应cr
 			if err != nil {
 				return nil, err
 			}

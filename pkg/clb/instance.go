@@ -1,6 +1,7 @@
 package clb
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"time"
@@ -9,11 +10,27 @@ import (
 	"github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common"
 )
 
-func GetClb(lbId, region string) (instance *clb.LoadBalancer, err error) {
+func GetClbExternalAddress(ctx context.Context, lbId, region string) (address string, err error) {
+	lb, err := GetClb(ctx, lbId, region)
+	if err != nil {
+		return
+	}
+	if lb.LoadBalancerDomain != nil {
+		address = *lb.LoadBalancerDomain
+		return
+	}
+	if len(lb.LoadBalancerVips) > 0 {
+		address = *lb.LoadBalancerVips[0]
+	}
+	err = fmt.Errorf("no external address found for clb %s", lbId)
+	return
+}
+
+func GetClb(ctx context.Context, lbId, region string) (instance *clb.LoadBalancer, err error) {
 	client := GetClient(region)
 	req := clb.NewDescribeLoadBalancersRequest()
 	req.LoadBalancerIds = []*string{&lbId}
-	resp, err := client.DescribeLoadBalancers(req)
+	resp, err := client.DescribeLoadBalancersWithContext(ctx, req)
 	if err != nil {
 		return
 	}
@@ -28,7 +45,7 @@ func GetClb(lbId, region string) (instance *clb.LoadBalancer, err error) {
 	return
 }
 
-func Create(region, vpcId, name string) (lbId string, err error) {
+func Create(ctx context.Context, region, vpcId, name string) (lbId string, err error) {
 	if vpcId == "" {
 		vpcId = defaultVpcId
 	}
@@ -51,7 +68,7 @@ func Create(region, vpcId, name string) (lbId string, err error) {
 	}
 	lbId = *ids[0]
 	for {
-		lb, err := GetClb(lbId, region)
+		lb, err := GetClb(ctx, lbId, region)
 		if err != nil {
 			return "", err
 		}

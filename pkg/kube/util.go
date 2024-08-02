@@ -47,6 +47,7 @@ func StripPodUnusedFields(obj any) (any, error) {
 		newMeta.Finalizers = pod.Finalizers
 		newMeta.ResourceVersion = pod.ResourceVersion
 		newMeta.Labels = pod.Labels
+		newMeta.Annotations = pod.Annotations
 		pod.ObjectMeta = newMeta
 	}
 

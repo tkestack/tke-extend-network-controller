@@ -9,6 +9,7 @@ import (
 
 const (
 	backendPodNameField = "spec.backendPod.podName"
+	backendPortField    = "spec.backendPod.port"
 	lbPortField         = "spec.lbPort"
 	lbIdField           = "spec.lbId"
 	protocolField       = "spec.protocol"
@@ -22,6 +23,18 @@ func indexFieldForDedicatedCLBListener(indexer client.FieldIndexer) error {
 			backendPod := o.(*DedicatedCLBListener).Spec.BackendPod
 			if backendPod != nil {
 				return []string{backendPod.PodName}
+			}
+			return nil
+		},
+	); err != nil {
+		return err
+	}
+	if err := indexer.IndexField(
+		context.TODO(), &DedicatedCLBListener{}, backendPortField,
+		func(o client.Object) []string {
+			backendPod := o.(*DedicatedCLBListener).Spec.BackendPod
+			if backendPod != nil {
+				return []string{strconv.Itoa(int(backendPod.Port))}
 			}
 			return nil
 		},

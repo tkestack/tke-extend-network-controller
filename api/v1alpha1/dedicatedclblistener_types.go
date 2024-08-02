@@ -50,6 +50,7 @@ type BackendPod struct {
 type DedicatedCLBListenerStatus struct {
 	ListenerId string `json:"listenerId,omitempty"`
 	State      string `json:"state,omitempty"`
+	Address    string `json:"address,omitempty"`
 }
 
 const (

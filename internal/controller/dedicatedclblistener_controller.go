@@ -19,6 +19,7 @@ package controller
 import (
 	"context"
 	"errors"
+	"fmt"
 
 	corev1 "k8s.io/api/core/v1"
 
@@ -314,6 +315,17 @@ func (r *DedicatedCLBListenerReconciler) ensureBackendPod(ctx context.Context, l
 		// 更新监听器状态
 		log.V(6).Info("set listener state to bound")
 		lis.Status.State = networkingv1alpha1.DedicatedCLBListenerStateBound
+		if err := r.Status().Update(ctx, lis); err != nil {
+			return err
+		}
+		// 更新Pod注解
+		addr, err := clb.GetClbExternalAddress(ctx, lis.Spec.LbId, lis.Spec.LbRegion)
+		if err != nil {
+			return err
+		}
+		log.V(6).Info("set external address to status", "address", addr)
+		addr = fmt.Sprintf("%s:%d", addr, lis.Spec.LbPort)
+		lis.Status.Address = addr
 		return r.Status().Update(ctx, lis)
 	}
 

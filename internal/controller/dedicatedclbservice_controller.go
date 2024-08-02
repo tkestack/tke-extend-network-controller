@@ -20,6 +20,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strconv"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/labels"
@@ -33,6 +34,7 @@ import (
 
 	"github.com/go-logr/logr"
 	networkingv1alpha1 "github.com/imroc/tke-extend-network-controller/api/v1alpha1"
+	"github.com/imroc/tke-extend-network-controller/pkg/kube"
 )
 
 // DedicatedCLBServiceReconciler reconciles a DedicatedCLBService object
@@ -103,7 +105,65 @@ func (r *DedicatedCLBServiceReconciler) Reconcile(ctx context.Context, req ctrl.
 		}
 		log.Info("create new listener succeed", "protocol", protocol, "num", num)
 	}
+	if err := r.ensurePodAnnotation(ctx, ds, pods.Items); err != nil {
+		return ctrl.Result{}, err
+	}
 	return ctrl.Result{}, nil
+}
+
+func (r *DedicatedCLBServiceReconciler) getAddr(ctx context.Context, ds *networkingv1alpha1.DedicatedCLBService, port int64, protocol string, pod *corev1.Pod) (addr string, err error) {
+	list := &networkingv1alpha1.DedicatedCLBListenerList{}
+	if err = r.List(
+		ctx, list,
+		client.InNamespace(ds.Namespace),
+		client.MatchingLabels{labelKeyDedicatedCLBServiceName: ds.Name},
+		client.MatchingFields{
+			"spec.backendPod.podName": pod.Name,
+			"spec.backendPod.port":    strconv.Itoa(int(port)),
+			"spec.protocol":           protocol,
+			"status.state":            networkingv1alpha1.DedicatedCLBListenerStateBound,
+		},
+	); err != nil {
+		return
+	}
+	if len(list.Items) == 0 { // 没有已绑定的监听器，忽略
+		return
+	}
+	if len(list.Items) > 1 {
+		err = fmt.Errorf("found more than 1 DedicatedCLBListener for backend pod", "pod", pod.Name, "port", port, "protocol", protocol, "num", len(list.Items))
+		return
+	}
+	lis := list.Items[0]
+	if lis.Status.Address == "" {
+		log.FromContext(ctx).Info("bound listener without external address", "listener", lis.Name)
+		return
+	}
+	addr = lis.Status.Address
+	return
+}
+
+func (r *DedicatedCLBServiceReconciler) ensurePodAnnotation(ctx context.Context, ds *networkingv1alpha1.DedicatedCLBService, pods []corev1.Pod) error {
+	if len(pods) == 0 {
+		return nil
+	}
+	for _, port := range ds.Spec.Ports {
+		if port.AddressAnnotation == "" {
+			continue
+		}
+		for _, pod := range pods {
+			addr := pod.Annotations[port.AddressAnnotation]
+			realAddr, err := r.getAddr(ctx, ds, port.TargetPort, port.Protocol, &pod)
+			if err != nil {
+				return err
+			}
+			if realAddr != "" && realAddr != addr {
+				if err := kube.SetPodAnnotation(ctx, &pod, port.AddressAnnotation, realAddr); err != nil {
+					return err
+				}
+			}
+		}
+	}
+	return nil
 }
 
 func (r *DedicatedCLBServiceReconciler) ensureStatus(ctx context.Context, ds *networkingv1alpha1.DedicatedCLBService) error {
@@ -210,9 +270,7 @@ func (r *DedicatedCLBServiceReconciler) allocateNewListener(ctx context.Context,
 	generateName := ds.Name + "-"
 OUTER_LOOP:
 	for n := num; n > 0; n-- { // 每个n个端口的循环
-		log.Info("outer loop start")
 		for { // 分配单个lb端口的循环
-			log.Info("inner loop start")
 			if lbIndex >= len(ds.Status.LbList) {
 				log.Info("lb is not enough, stop trying allocate new listener")
 				break OUTER_LOOP

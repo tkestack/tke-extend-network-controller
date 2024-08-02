@@ -8,6 +8,18 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
+func SetPodAnnotation(ctx context.Context, cachedPod client.Object, name, value string) error {
+	pod := &corev1.Pod{}
+	if err := apiReader.Get(ctx, client.ObjectKeyFromObject(cachedPod), pod); err != nil {
+		return err
+	}
+	if pod.Annotations == nil {
+		pod.Annotations = make(map[string]string)
+	}
+	pod.Annotations[name] = value
+	return apiClient.Update(ctx, pod)
+}
+
 func AddPodFinalizer(ctx context.Context, pod client.Object, finalizerName string) error {
 	return updatePodFinalizer(ctx, pod, finalizerName, true)
 }
