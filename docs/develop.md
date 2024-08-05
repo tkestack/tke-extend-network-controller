@@ -2,7 +2,7 @@
 
 ## 使用 kubebuilder 生成
 
-本项目的控制器代码使用 `kubebuilder` 生成，基于 [https://github.com/kubernetes-sigs/controller-runtime](https://github.com/kubernetes-sigs/controller-runtime) 框架，具体请参考 [kubebuilder 官方文档](https://book.kubebuilder.io/quick-start.html)。
+本项目的控制器代码使用 `kubebuilder` 生成，基于 [controller-runtime](https://github.com/kubernetes-sigs/controller-runtime) 框架，具体请参考 [kubebuilder 官方文档](https://book.kubebuilder.io/quick-start.html)。
 
 ## Pod 缓存
 
