@@ -38,7 +38,16 @@ type DedicatedCLBServiceSpec struct {
 	// +optional
 	ListenerConfig string `json:"listenerConfig,omitempty"`
 	// +optional
-	ExistedLbIds []string `json:"existedLbIds"`
+	ExistedLbIds []string `json:"existedLbIds,omitempty"`
+	// +optional
+	LbAutoCreate LbAutoCreate `json:"lbAutoCreate,omitempty"`
+}
+
+type LbAutoCreate struct {
+	// +optional
+	Enable bool `json:"enable,omitempty"`
+	// +optional
+	ConfigJson string `json:"configJson,omitempty"`
 }
 
 type DedicatedCLBServicePort struct {
@@ -56,7 +65,8 @@ type DedicatedCLBServiceStatus struct {
 type DedicatedCLBInfo struct {
 	LbId string `json:"lbId"`
 	// +optional
-	MaxPort int64 `json:"maxPort"`
+	MaxPort    int64 `json:"maxPort"`
+	AutoCreate bool  `json:"autoCreate"`
 }
 
 // +kubebuilder:object:root=true

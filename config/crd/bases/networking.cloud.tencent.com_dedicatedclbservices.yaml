@@ -44,6 +44,13 @@ spec:
                 items:
                   type: string
                 type: array
+              lbAutoCreate:
+                properties:
+                  configJson:
+                    type: string
+                  enable:
+                    type: boolean
+                type: object
               lbRegion:
                 type: string
               listenerConfig:
@@ -87,12 +94,15 @@ spec:
               lbList:
                 items:
                   properties:
+                    autoCreate:
+                      type: boolean
                     lbId:
                       type: string
                     maxPort:
                       format: int64
                       type: integer
                   required:
+                  - autoCreate
                   - lbId
                   type: object
                 type: array
