@@ -1,0 +1,20 @@
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  labels:
+    app.kubernetes.io/component: certificate
+    app.kubernetes.io/created-by: tke-extend-network-controller
+    app.kubernetes.io/instance: serving-cert
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/name: certificate
+    app.kubernetes.io/part-of: tke-extend-network-controller
+  name: tke-extend-network-controller-serving-cert
+  namespace: kube-system
+spec:
+  dnsNames:
+  - tke-extend-network-controller-webhook-service.kube-system.svc
+  - tke-extend-network-controller-webhook-service.kube-system.svc.cluster.local
+  issuerRef:
+    kind: Issuer
+    name: tke-extend-network-controller-selfsigned-issuer
+  secretName: tke-extend-network-controller-webhook-server-cert
