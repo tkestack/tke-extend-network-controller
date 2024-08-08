@@ -186,7 +186,7 @@ func (r *DedicatedCLBServiceReconciler) ensureStatus(ctx context.Context, ds *ne
 			needUpdate = true
 		}
 	}
-	if needUpdate {
+	if needUpdate { // 有新增已有CLB，加进待分配LB列表
 		return r.Status().Update(ctx, ds)
 	}
 	return nil
@@ -277,7 +277,7 @@ func (r *DedicatedCLBServiceReconciler) allocateNewListener(ctx context.Context,
 	lbIndex := 0
 	generateName := ds.Name + "-"
 OUTER_LOOP:
-	for n := num; n > 0; n-- { // 每个n个端口的循环
+	for ; num > 0; num-- { // 每个n个端口的循环
 		for { // 分配单个lb端口的循环
 			if lbIndex >= len(ds.Status.LbList) {
 				log.Info("lb is not enough, stop trying allocate new listener")
@@ -316,6 +316,10 @@ OUTER_LOOP:
 			updateStatus = true
 			break // 创建成功，跳出本次端口分配的循环
 		}
+	}
+
+	if num > 0 { // 空闲监听器不够
+		log.V(5).Info("idle listener is not enough", "gapNum", num)
 	}
 
 	if updateStatus { // 有成功创建过，更新status
