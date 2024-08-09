@@ -35,14 +35,12 @@ const (
 	secretKey              = "secret-key"
 	region                 = "region"
 	vpcId                  = "vpcid"
-	clusterId              = "clusterid"
+	clusterId              = "cluster-id"
 )
 
 var (
 	envReplacer = strings.NewReplacer("-", "_")
-	zapOptions  = &zap.Options{
-		Development: true,
-	}
+	zapOptions  = &zap.Options{}
 )
 
 func init() {
