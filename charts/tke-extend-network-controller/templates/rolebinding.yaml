@@ -3,15 +3,15 @@ kind: RoleBinding
 metadata:
   labels:
     {{- include "tke-extend-network-controller.labels" . | nindent 4 }}
-  name: {{- include "tke-extend-network-controller.labels" . | nindent 4 }}-leader-election-rolebinding
+  name: {{ include "tke-extend-network-controller.fullname" . }}-leader-election-rolebinding
   namespace: {{ .Release.Namespace | quote }}
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: Role
-  name: {{- include "tke-extend-network-controller.labels" . | nindent 4 }}-leader-election-role
+  name: {{ include "tke-extend-network-controller.fullname" . }}-leader-election-role
 subjects:
 - kind: ServiceAccount
-  name: {{- include "tke-extend-network-controller.labels" . | nindent 4 }}
+  name: {{ include "tke-extend-network-controller.fullname" . }}
   namespace: {{ .Release.Namespace | quote }}
 ---
 apiVersion: rbac.authorization.k8s.io/v1
