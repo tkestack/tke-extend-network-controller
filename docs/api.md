@@ -229,6 +229,7 @@ _Appears in:_
 | --- | --- | --- | --- |
 | `lbId` _string_ |  |  |  |
 | `maxPort` _integer_ |  |  |  |
+| `autoCreate` _boolean_ |  |  |  |
 
 
 #### DedicatedCLBListener
@@ -351,6 +352,7 @@ _Appears in:_
 | `ports` _[DedicatedCLBServicePort](#dedicatedclbserviceport) array_ |  |  |  |
 | `listenerConfig` _string_ |  |  |  |
 | `existedLbIds` _string array_ |  |  |  |
+| `lbAutoCreate` _[LbAutoCreate](#lbautocreate)_ |  |  |  |
 
 
 #### DedicatedCLBServiceStatus
@@ -417,6 +419,23 @@ DedicatedNatgwServiceStatus defines the observed state of DedicatedNatgwService
 _Appears in:_
 - [DedicatedNatgwService](#dedicatednatgwservice)
 
+
+
+#### LbAutoCreate
+
+
+
+
+
+
+
+_Appears in:_
+- [DedicatedCLBServiceSpec](#dedicatedclbservicespec)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `enable` _boolean_ |  |  |  |
+| `configJson` _string_ |  |  |  |
 
 
 #### MultiCertInfo
