@@ -75,7 +75,8 @@ helm upgrade --install -f values.yaml \
   tke-extend-network-controller tke-extend-network-controller/tke-extend-network-controller
 ```
 
-> 后续升级版本或更新配置时，都只需执行上面相同命令即可。
+> 1. 如果要升级版本，先执行 `helm repo update`，再重复执行上面的安装命令即可。
+> 2. 如果要更改配置，直接修改 `values.yaml`，再重复执行上面的安装命令即可。
 
 ## 使用 CLB 为 Pod 分配公网地址映射
 
