@@ -26,6 +26,7 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/tools/record"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -47,6 +48,7 @@ type DedicatedCLBListenerReconciler struct {
 	client.Client
 	Scheme    *runtime.Scheme
 	APIReader client.Reader
+	Recorder  record.EventRecorder
 }
 
 // +kubebuilder:rbac:groups=networking.cloud.tencent.com,resources=dedicatedclblisteners,verbs=get;list;watch;create;update;patch;delete
@@ -76,6 +78,7 @@ func (r *DedicatedCLBListenerReconciler) Reconcile(ctx context.Context, req ctrl
 		lis.Status.State = networkingv1alpha1.DedicatedCLBListenerStatePending
 		if err := r.Status().Update(ctx, lis); err != nil {
 			log.Error(err, "failed to update status to Pending")
+			r.Recorder.Event(lis, corev1.EventTypeWarning, "UpdateStatusFailed", err.Error())
 			return ctrl.Result{}, err
 		}
 	}
@@ -86,6 +89,7 @@ func (r *DedicatedCLBListenerReconciler) Reconcile(ctx context.Context, req ctrl
 		if !controllerutil.ContainsFinalizer(lis, finalizerName) && controllerutil.AddFinalizer(lis, finalizerName) {
 			if err := r.Update(ctx, lis); err != nil {
 				log.Error(err, "failed to add finalizer")
+				r.Recorder.Event(lis, corev1.EventTypeWarning, "AddFinalizerFailed", err.Error())
 			}
 		}
 		if err := r.sync(ctx, log, lis); err != nil {
@@ -355,9 +359,12 @@ func (r *DedicatedCLBListenerReconciler) ensureListener(ctx context.Context, log
 	// 监听器已创建，检查监听器
 	listenerId := lis.Status.ListenerId
 	if listenerId == "" { // 不应该没有监听器ID，重建监听器
-		log.Info("listener id not found from status, try to recreate", "state", lis.Status.State)
+		msg := fmt.Sprintf("listener is %s state but no id not found in status, try to recreate", lis.Status.State)
+		log.Info(msg)
+		r.Recorder.Event(lis, corev1.EventTypeWarning, "ListenerIDNotFound", msg)
 		lis.Status.State = networkingv1alpha1.DedicatedCLBListenerStatePending
 		if err := r.Status().Update(ctx, lis); err != nil {
+			r.Recorder.Event(lis, corev1.EventTypeWarning, "UpdateStatusFailed", err.Error())
 			return err
 		}
 		return r.createListener(ctx, log, lis)
@@ -366,16 +373,22 @@ func (r *DedicatedCLBListenerReconciler) ensureListener(ctx context.Context, log
 	log.V(5).Info("ensure listener", "listenerId", listenerId)
 	listener, err := clb.GetListenerByPort(ctx, lis.Spec.LbRegion, lis.Spec.LbId, lis.Spec.LbPort, lis.Spec.Protocol)
 	if err != nil {
+		r.Recorder.Event(lis, corev1.EventTypeWarning, "GetListenerByPort", err.Error())
 		return err
 	}
 	if listener == nil { // 监听器不存在，重建监听器
-		log.Info("listener not found, try to recreate", "listenerId", listenerId)
+		msg := "listener not found, try to recreate"
+		log.Info(msg, "listenerId", listenerId)
+		r.Recorder.Event(lis, corev1.EventTypeWarning, "ListenerNotFound", msg)
 		return r.createListener(ctx, log, lis)
 	}
 	if listener.ListenerId != listenerId { // 监听器ID不匹配，更新监听器ID
-		log.Info("listener id not match, update listenerId in status", "realListenerId", listener.ListenerId)
+		msg := fmt.Sprintf("listener id from status (%s) is not equal with the real listener id (%s)", listenerId, listener.ListenerId)
+		log.Info(msg)
+		r.Recorder.Event(lis, corev1.EventTypeWarning, "ListenerIdNotMatch", msg)
 		lis.Status.ListenerId = listener.ListenerId
 		if err := r.Status().Update(ctx, lis); err != nil {
+			r.Recorder.Event(lis, corev1.EventTypeWarning, "UpdateStatusFailed", err.Error())
 			return err
 		}
 	}
@@ -390,12 +403,14 @@ func (r *DedicatedCLBListenerReconciler) createListener(ctx context.Context, log
 			if apierrors.IsNotFound(err) {
 				config = nil
 			} else {
+				r.Recorder.Event(lis, corev1.EventTypeWarning, "CreateListener", err.Error())
 				return err
 			}
 		}
 	}
 	existedLis, err := clb.GetListenerByPort(ctx, lis.Spec.LbRegion, lis.Spec.LbId, lis.Spec.LbPort, lis.Spec.Protocol)
 	if err != nil {
+		r.Recorder.Event(lis, corev1.EventTypeWarning, "CreateListener", err.Error())
 		return err
 	}
 	var listenerId string
@@ -403,23 +418,31 @@ func (r *DedicatedCLBListenerReconciler) createListener(ctx context.Context, log
 		log = log.WithValues("listenerId", existedLis.ListenerId, "port", lis.Spec.LbPort, "protocol", lis.Spec.Protocol)
 		log.Info("lb port already existed", "listenerName", existedLis.ListenerName)
 		if existedLis.ListenerName == clb.TkePodListenerName { // 已经创建了，直接复用
-			log.Info("reuse already existed listener")
+			msg := "reuse already existed listener"
+			log.Info(msg)
+			r.Recorder.Event(lis, corev1.EventTypeNormal, "CreateListener", msg)
 			listenerId = existedLis.ListenerId
 		} else {
 			err = errors.New("lb port already existed, but not created by tke, please confirm and delete the conficted listener manually")
 			log.Error(err, "listenerName", existedLis.ListenerName)
+			r.Recorder.Event(lis, corev1.EventTypeWarning, "CreateListener", err.Error())
 			return err
 		}
 	} else { // 没有端口冲突，创建监听器
 		log.V(5).Info("try to create listener")
 		id, err := clb.CreateListener(ctx, lis.Spec.LbRegion, config.Spec.CreateListenerRequest(lis.Spec.LbId, lis.Spec.LbPort, lis.Spec.Protocol))
 		if err != nil {
+			r.Recorder.Event(lis, corev1.EventTypeWarning, "CreateListener", err.Error())
 			return err
 		}
+		msg := "listener successfully created"
 		log.V(5).Info("listener successfully created", "listenerId", id)
+		r.Recorder.Event(lis, corev1.EventTypeNormal, "CreateListener", msg)
 		listenerId = id
 	}
-	log.V(5).Info("listener ready, set state to available")
+	msg := "listener ready, set state to available"
+	log.V(5).Info(msg)
+	r.Recorder.Event(lis, corev1.EventTypeNormal, "UpdateStatus", msg)
 	lis.Status.State = networkingv1alpha1.DedicatedCLBListenerStateAvailable
 	lis.Status.ListenerId = listenerId
 	return r.Status().Update(ctx, lis)

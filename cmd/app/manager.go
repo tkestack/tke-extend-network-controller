@@ -68,6 +68,7 @@ func runManager() {
 		Client:    mgr.GetClient(),
 		Scheme:    mgr.GetScheme(),
 		APIReader: mgr.GetAPIReader(),
+		Recorder:  mgr.GetEventRecorderFor("dedicatedclblistener-controller"),
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "CLBListenerReconciler")
 		os.Exit(1)
