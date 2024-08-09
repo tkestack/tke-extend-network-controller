@@ -293,10 +293,9 @@ func (r *DedicatedCLBListenerReconciler) ensureBackendPod(ctx context.Context, l
 			return nil
 		}
 		// 绑定rs
-		r.Recorder.Event(lis, corev1.EventTypeNormal, "DeregisterPod", "deregister pod "+pod.Name)
 		targets, err := clb.DescribeTargets(ctx, lis.Spec.LbRegion, lis.Spec.LbId, lis.Status.ListenerId)
 		if err != nil {
-			r.Recorder.Event(lis, corev1.EventTypeWarning, "DeregisterPod", err.Error())
+			r.Recorder.Event(lis, corev1.EventTypeWarning, "DescribeTargets", err.Error())
 			return err
 		}
 		toDel := []clb.Target{}
