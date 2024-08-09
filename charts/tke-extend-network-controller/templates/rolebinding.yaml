@@ -2,45 +2,44 @@ apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
 metadata:
   labels:
-    app.kubernetes.io/managed-by: kustomize
-    app.kubernetes.io/name: tke-extend-network-controller
-  name: leader-election-rolebinding
-  namespace: kube-system
+    {{- include "tke-extend-network-controller.labels" . | nindent 4 }}
+  name: {{- include "tke-extend-network-controller.labels" . | nindent 4 }}-leader-election-rolebinding
+  namespace: {{ .Release.Namespace | quote }}
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: Role
-  name: leader-election-role
+  name: {{- include "tke-extend-network-controller.labels" . | nindent 4 }}-leader-election-role
 subjects:
 - kind: ServiceAccount
-  name: tke-extend-network-controller
-  namespace: kube-system
+  name: {{- include "tke-extend-network-controller.labels" . | nindent 4 }}
+  namespace: {{ .Release.Namespace | quote }}
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
-  name: metrics-auth-rolebinding
+  name: {{ include "tke-extend-network-controller.fullname" . }}-metrics-auth-rolebinding
+  labels:
+    {{- include "tke-extend-network-controller.labels" . | nindent 4 }}
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
-  name: metrics-auth-role
+  name: {{ include "tke-extend-network-controller.fullname" . }}-metrics-auth-role
 subjects:
 - kind: ServiceAccount
-  name: tke-extend-network-controller
-  namespace: kube-system
+  name: {{ include "tke-extend-network-controller.fullname" . }}
+  namespace: {{ .Release.Namespace | quote }}
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
   labels:
-    app.kubernetes.io/managed-by: kustomize
-    app.kubernetes.io/name: tke-extend-network-controller
-  name: tke-extend-network-controller-rolebinding
+    {{- include "tke-extend-network-controller.labels" . | nindent 4 }}
+  name: {{ include "tke-extend-network-controller.fullname" . }}-rolebinding
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
-  name: tke-extend-network-controller-role
+  name: {{ include "tke-extend-network-controller.fullname" . }}-role
 subjects:
 - kind: ServiceAccount
-  name: tke-extend-network-controller
-  namespace: kube-system
-
+  name: {{ include "tke-extend-network-controller.fullname" . }}
+  namespace: {{ .Release.Namespace | quote }}

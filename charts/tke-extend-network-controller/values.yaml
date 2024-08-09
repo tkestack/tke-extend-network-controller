@@ -8,9 +8,12 @@ region: ""
 vpcID: ""
 secretID: ""
 secretKey: ""
+log:
+  level: "info" # be one of 'debug', 'info', 'error', or any integer value > 0 which corresponds to custom debug levels of increasing verbosity
+  encoder: "json" # json or console
 
 image:
-  repository: nginx
+  repository: imroc/tke-extend-network-controller
   pullPolicy: IfNotPresent
   # Overrides the image tag whose default is the chart appVersion.
   tag: ""
@@ -82,12 +85,17 @@ resources:
 
 livenessProbe:
   httpGet:
-    path: /
-    port: http
+    path: /healthz
+    port: 8081
+  initialDelaySeconds: 15
+  periodSeconds: 20
+
 readinessProbe:
   httpGet:
-    path: /
-    port: http
+    path: /readyz
+    port: 8081
+  initialDelaySeconds: 5
+  periodSeconds: 10
 
 autoscaling:
   enabled: false

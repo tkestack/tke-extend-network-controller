@@ -2,59 +2,45 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   labels:
-    app.kubernetes.io/managed-by: kustomize
-    app.kubernetes.io/name: tke-extend-network-controller
-    control-plane: tke-extend-network-controller
-  name: tke-extend-network-controller
-  namespace: kube-system
+    {{- include "tke-extend-network-controller.labels" . | nindent 4 }}
+  name: {{ include "tke-extend-network-controller.fullname" . }}
+  namespace: {{ .Release.Namespace | quote }}
 spec:
   replicas: 1
   selector:
     matchLabels:
-      control-plane: tke-extend-network-controller
+      {{- include "tke-extend-network-controller.selectorLabels" . | nindent 6 }}
   template:
     metadata:
       annotations:
         kubectl.kubernetes.io/default-container: controller
       labels:
-        control-plane: tke-extend-network-controller
+        {{- include "tke-extend-network-controller.labels" . | nindent 8 }}
     spec:
       containers:
       - args:
         - --metrics-bind-address=:8443
         - --leader-elect
         - --health-probe-bind-address=:8081
-        - --zap-log-level=10
+        - --zap-log-level={{ .Values.log.level }}
+        - --zap-encoder={{ .Values.log.encoder }}
         command:
         - /tke-extend-network-controller
         envFrom:
         - secretRef:
-            name: tke-extend-network-controller-env-t5d6b72m25
-        image: imroc/tke-extend-network-controller:latest
-        livenessProbe:
-          httpGet:
-            path: /healthz
-            port: 8081
-          initialDelaySeconds: 15
-          periodSeconds: 20
+            name: {{ include "tke-extend-network-controller.fullname" . }}-env
+        image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
         name: controller
         ports:
         - containerPort: 9443
           name: webhook-server
           protocol: TCP
+        livenessProbe:
+          {{- toYaml .Values.livenessProbe | nindent 10 }}
         readinessProbe:
-          httpGet:
-            path: /readyz
-            port: 8081
-          initialDelaySeconds: 5
-          periodSeconds: 10
+          {{- toYaml .Values.readinessProbe | nindent 10 }}
         resources:
-          limits:
-            cpu: 500m
-            memory: 128Mi
-          requests:
-            cpu: 10m
-            memory: 64Mi
+          {{- toYaml .Values.resources | nindent 10 }}
         securityContext:
           allowPrivilegeEscalation: false
           capabilities:
@@ -66,11 +52,11 @@ spec:
           readOnly: true
       securityContext:
         runAsNonRoot: true
-      serviceAccountName: tke-extend-network-controller
+      serviceAccountName: {{ include "tke-extend-network-controller.fullname" . }}
       terminationGracePeriodSeconds: 10
       volumes:
       - name: cert
         secret:
           defaultMode: 420
-          secretName: tke-extend-network-controller-webhook-server-cert
+          secretName: {{ include "tke-extend-network-controller.fullname" . }}-webhook-server-cert
 
