@@ -59,6 +59,6 @@ type DedicatedNatgwServiceList struct {
 	Items           []DedicatedNatgwService `json:"items"`
 }
 
-func init() {
-	SchemeBuilder.Register(&DedicatedNatgwService{}, &DedicatedNatgwServiceList{})
-}
+// func init() {
+// 	SchemeBuilder.Register(&DedicatedNatgwService{}, &DedicatedNatgwServiceList{})
+// }
