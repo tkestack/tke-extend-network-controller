@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"sync"
 
 	clb "github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/clb/v20180317"
 	"github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common"
@@ -64,22 +63,6 @@ func GetListenerByPort(ctx context.Context, region, lbId string, port int64, pro
 }
 
 const TkePodListenerName = "TKE-DEDICATED-POD"
-
-var (
-	lock      sync.Mutex
-	lbLockMap = make(map[string]*sync.Mutex)
-)
-
-func getLbLock(lbId string) *sync.Mutex {
-	lock.Lock()
-	defer lock.Unlock()
-	mux, ok := lbLockMap[lbId]
-	if !ok {
-		mux = &sync.Mutex{}
-		lbLockMap[lbId] = mux
-	}
-	return mux
-}
 
 func CreateListener(ctx context.Context, region string, req *clb.CreateListenerRequest) (id string, err error) {
 	req.ListenerNames = []*string{common.StringPtr(TkePodListenerName)}

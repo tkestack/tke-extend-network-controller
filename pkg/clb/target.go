@@ -103,6 +103,9 @@ func (t Target) String() string {
 }
 
 func DeregisterAllTargets(ctx context.Context, region, lbId, listenerId string) error {
+	mux := getLbLock(lbId)
+	mux.Lock()
+	defer mux.Unlock()
 	queryReq := clb.NewDescribeTargetsRequest()
 	queryReq.LoadBalancerId = &lbId
 	queryReq.ListenerIds = []*string{&listenerId}
@@ -129,6 +132,9 @@ func DeregisterAllTargets(ctx context.Context, region, lbId, listenerId string) 
 }
 
 func DeregisterTargetsForListener(ctx context.Context, region, lbId, listenerId string, targets ...Target) error {
+	mux := getLbLock(lbId)
+	mux.Lock()
+	defer mux.Unlock()
 	clbTargets := getClbTargets(targets)
 	req := clb.NewDeregisterTargetsRequest()
 	req.LoadBalancerId = &lbId
@@ -153,6 +159,9 @@ func getClbTargets(targets []Target) (clbTargets []*clb.Target) {
 }
 
 func RegisterTargets(ctx context.Context, region, lbId, listenerId string, targets ...Target) error {
+	mux := getLbLock(lbId)
+	mux.Lock()
+	defer mux.Unlock()
 	clbTargets := getClbTargets(targets)
 	req := clb.NewRegisterTargetsRequest()
 	req.LoadBalancerId = &lbId
