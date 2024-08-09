@@ -8,9 +8,9 @@ import (
 
 var credential *common.Credential
 
-var defaultRegion, defaultVpcId string
+var defaultRegion, defaultVpcId, clusterId string
 
-func Init(secretId, secretKey, region, vpcId string) {
+func Init(secretId, secretKey, region, vpcId, clusterID string) {
 	if secretId == "" || secretKey == "" {
 		panic("secretId and secretKey are required")
 	}
@@ -23,6 +23,7 @@ func Init(secretId, secretKey, region, vpcId string) {
 	}
 	defaultRegion = region
 	defaultVpcId = vpcId
+	clusterId = clusterID
 }
 
 func DefaultRegion() string {

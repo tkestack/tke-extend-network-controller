@@ -16,7 +16,13 @@ var RootCommand = cobra.Command{
 	Use:   "tke-extend-network-controller",
 	Short: "A network controller for TKE",
 	Run: func(cmd *cobra.Command, args []string) {
-		clb.Init(viper.GetString(secretId), viper.GetString(secretKey), viper.GetString(region), viper.GetString(vpcId))
+		clb.Init(
+			viper.GetString(secretId),
+			viper.GetString(secretKey),
+			viper.GetString(region),
+			viper.GetString(vpcId),
+			viper.GetString(clusterId),
+		)
 		runManager()
 	},
 }
@@ -29,6 +35,7 @@ const (
 	secretKey              = "secret-key"
 	region                 = "region"
 	vpcId                  = "vpcid"
+	clusterId              = "clusterid"
 )
 
 var (

@@ -53,6 +53,16 @@ func Create(ctx context.Context, region, vpcId, name string) (lbId string, err e
 	req := clb.NewCreateLoadBalancerRequest()
 	req.LoadBalancerType = common.StringPtr("OPEN")
 	req.VpcId = &vpcId
+	req.Tags = append(req.Tags,
+		&clb.TagInfo{
+			TagKey:   common.StringPtr("tke-clusterId"), // 与集群关联
+			TagValue: common.StringPtr(clusterId),
+		},
+		&clb.TagInfo{
+			TagKey:   common.StringPtr("tke-createdBy-flag"), // 用于删除集群时自动清理集群关联的自动创建的 CLB
+			TagValue: common.StringPtr("yes"),
+		},
+	)
 	client := GetClient(region)
 	resp, err := client.CreateLoadBalancer(req)
 	if err != nil {
