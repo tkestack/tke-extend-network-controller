@@ -23,7 +23,7 @@ func Init(secretId, secretKey, region, vpcId, clusterID string) {
 	}
 	defaultRegion = region
 	defaultVpcId = vpcId
-	if cluster == "" {
+	if clusterID == "" {
 		panic("clusterId is required")
 	}
 	clusterId = clusterID
