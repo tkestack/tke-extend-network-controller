@@ -12,7 +12,7 @@ spec:
     protocol: TCP
     targetPort: 8443
   selector:
-    control-plane: tke-extend-network-controller
+    {{- include "tke-extend-network-controller.selectorLabels" . | nindent 4 }}
 ---
 apiVersion: v1
 kind: Service
@@ -26,5 +26,5 @@ spec:
     protocol: TCP
     targetPort: 9443
   selector:
-    control-plane: tke-extend-network-controller
+    {{- include "tke-extend-network-controller.selectorLabels" . | nindent 4 }}
 
