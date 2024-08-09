@@ -229,15 +229,18 @@ func (r *DedicatedCLBListenerReconciler) ensureBackendPod(ctx context.Context, l
 	backendPod := lis.Spec.BackendPod
 	if backendPod == nil {
 		if lis.Status.State == networkingv1alpha1.DedicatedCLBListenerStateBound { // 但监听器状态是已占用，需要解绑
-			log.V(6).Info("no backend pod configured, try to deregister all targets")
+			r.Recorder.Event(lis, corev1.EventTypeNormal, "PodChangeToNil", "no backend pod configured, try to deregister all targets")
 			// 解绑所有后端
 			if err := clb.DeregisterAllTargets(ctx, lis.Spec.LbRegion, lis.Spec.LbId, lis.Status.ListenerId); err != nil {
+				r.Recorder.Event(lis, corev1.EventTypeWarning, "Deregister", err.Error())
 				return err
 			}
 			// 更新监听器状态
 			if err := r.setState(ctx, lis, networkingv1alpha1.DedicatedCLBListenerStateAvailable); err != nil {
+				r.Recorder.Event(lis, corev1.EventTypeWarning, "UpdateStatusFailed", err.Error())
 				return err
 			}
+			r.Recorder.Event(lis, corev1.EventTypeNormal, "UpdateStatus", "listener available again")
 		}
 		return nil
 	}
@@ -258,9 +261,11 @@ func (r *DedicatedCLBListenerReconciler) ensureBackendPod(ctx context.Context, l
 			log.V(5).Info("configured pod not found, ignore reconcile the pod")
 			// 后端pod不存在，确保状态为 Available
 			if lis.Status.State != networkingv1alpha1.DedicatedCLBListenerStateAvailable {
-				log.V(5).Info("configured pod not found but state is not available, reset state to available", "oldState", lis.Status.State)
+				msg := fmt.Sprintf("configured pod not found but state is %q, reset state to available", lis.Status.State)
+				r.Recorder.Event(lis, corev1.EventTypeNormal, "UpdateStatus", msg)
 				lis.Status.State = networkingv1alpha1.DedicatedCLBListenerStateAvailable
 				if err := r.Status().Update(ctx, lis); err != nil {
+					r.Recorder.Event(lis, corev1.EventTypeWarning, "UpdateStatusFailed", err.Error())
 					return err
 				}
 				return nil
@@ -277,8 +282,9 @@ func (r *DedicatedCLBListenerReconciler) ensureBackendPod(ctx context.Context, l
 				"add pod finalizer",
 				"finalizerName", podFinalizerName,
 			)
+			r.Recorder.Event(lis, corev1.EventTypeNormal, "AddPodFinalizer", "add finalizer to pod "+pod.Name)
 			if err := kube.AddPodFinalizer(ctx, pod, podFinalizerName); err != nil {
-				log.Error(err, "failed to add pod finalizer")
+				r.Recorder.Event(lis, corev1.EventTypeWarning, "AddPodFinalizer", err.Error())
 				return err
 			}
 		}
@@ -287,8 +293,10 @@ func (r *DedicatedCLBListenerReconciler) ensureBackendPod(ctx context.Context, l
 			return nil
 		}
 		// 绑定rs
+		r.Recorder.Event(lis, corev1.EventTypeNormal, "DeregisterPod", "deregister pod "+pod.Name)
 		targets, err := clb.DescribeTargets(ctx, lis.Spec.LbRegion, lis.Spec.LbId, lis.Status.ListenerId)
 		if err != nil {
+			r.Recorder.Event(lis, corev1.EventTypeWarning, "DeregisterPod", err.Error())
 			return err
 		}
 		toDel := []clb.Target{}
@@ -301,8 +309,10 @@ func (r *DedicatedCLBListenerReconciler) ensureBackendPod(ctx context.Context, l
 			}
 		}
 		if len(toDel) > 0 {
+			r.Recorder.Event(lis, corev1.EventTypeNormal, "DeregisterExtra", fmt.Sprintf("deregister extra rs %v", toDel))
 			log.Info("deregister extra rs", "extraRs", toDel)
 			if err := clb.DeregisterTargetsForListener(ctx, lis.Spec.LbRegion, lis.Spec.LbId, lis.Status.ListenerId, toDel...); err != nil {
+				r.Recorder.Event(lis, corev1.EventTypeWarning, "DeregisterExtra", err.Error())
 				return err
 			}
 		}
@@ -310,33 +320,45 @@ func (r *DedicatedCLBListenerReconciler) ensureBackendPod(ctx context.Context, l
 			log.V(6).Info("backend pod already registered", "podIP", pod.Status.PodIP)
 			return nil
 		}
-		log.V(6).Info("register backend pod", "podIP", pod.Status.PodIP)
+		r.Recorder.Event(
+			lis, corev1.EventTypeNormal, "RegisterPod",
+			fmt.Sprintf("register pod %s/%s:%d", pod.Name, pod.Status.PodIP, backendPod.Port),
+		)
 		if err := clb.RegisterTargets(
 			ctx, lis.Spec.LbRegion, lis.Spec.LbId, lis.Status.ListenerId,
 			clb.Target{TargetIP: pod.Status.PodIP, TargetPort: backendPod.Port},
 		); err != nil {
+			r.Recorder.Event(lis, corev1.EventTypeWarning, "RegisterPod", err.Error())
 			return err
 		}
 		// 更新监听器状态
 		log.V(6).Info("set listener state to bound")
 		lis.Status.State = networkingv1alpha1.DedicatedCLBListenerStateBound
+		r.Recorder.Event(lis, corev1.EventTypeNormal, "UpdateStatus", "listener bound")
 		if err := r.Status().Update(ctx, lis); err != nil {
+			r.Recorder.Event(lis, corev1.EventTypeWarning, "UpdateStatusFailed", err.Error())
 			return err
 		}
 		// 更新Pod注解
 		addr, err := clb.GetClbExternalAddress(ctx, lis.Spec.LbId, lis.Spec.LbRegion)
 		if err != nil {
+			r.Recorder.Event(lis, corev1.EventTypeWarning, "GetClbExternalAddress", err.Error())
 			return err
 		}
 		addr = fmt.Sprintf("%s:%d", addr, lis.Spec.LbPort)
-		log.V(6).Info("set external address to status", "address", addr)
 		lis.Status.Address = addr
-		return r.Status().Update(ctx, lis)
+		r.Recorder.Event(lis, corev1.EventTypeNormal, "UpdateStatus", "set external address to "+addr)
+		if err := r.Status().Update(ctx, lis); err != nil {
+			r.Recorder.Event(lis, corev1.EventTypeWarning, "UpdateStatusFailed", err.Error())
+			return err
+		}
+		return nil
 	}
 
 	// pod 正在删除,清理rs
-	log.V(6).Info("pod deleting, try to deregister all targets")
+	r.Recorder.Event(lis, corev1.EventTypeNormal, "PodDeleting", "try to deregister all targets")
 	if err := clb.DeregisterAllTargets(ctx, lis.Spec.LbRegion, lis.Spec.LbId, lis.Status.ListenerId); err != nil {
+		r.Recorder.Event(lis, corev1.EventTypeWarning, "DeregisterFailed", err.Error())
 		return err
 	}
 	// 清理成功，删除 pod finalizer
@@ -345,10 +367,16 @@ func (r *DedicatedCLBListenerReconciler) ensureBackendPod(ctx context.Context, l
 		"finalizerName", podFinalizerName,
 	)
 	if err := kube.RemovePodFinalizer(ctx, pod, podFinalizerName); err != nil {
+		r.Recorder.Event(lis, corev1.EventTypeWarning, "RemovePodFinalizerFailed", err.Error())
 		return err
 	}
 	// 更新 DedicatedCLBListener
-	return r.setState(ctx, lis, networkingv1alpha1.DedicatedCLBListenerStateAvailable)
+	r.Recorder.Event(lis, corev1.EventTypeNormal, "UpdateStatus", "listener available")
+	if err := r.setState(ctx, lis, networkingv1alpha1.DedicatedCLBListenerStateAvailable); err != nil {
+		r.Recorder.Event(lis, corev1.EventTypeNormal, "UpdateStatusFailed", err.Error())
+		return err
+	}
+	return nil
 }
 
 func (r *DedicatedCLBListenerReconciler) ensureListener(ctx context.Context, log logr.Logger, lis *networkingv1alpha1.DedicatedCLBListener) error {
