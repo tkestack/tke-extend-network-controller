@@ -20,6 +20,13 @@ rules:
   verbs:
   - get
 - apiGroups:
+  - ""
+  resources:
+  - events
+  verbs:
+  - create
+  - patch
+- apiGroups:
   - networking.cloud.tencent.com
   resources:
   - dedicatedclblisteners

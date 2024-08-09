@@ -117,6 +117,13 @@ rules:
   - patch
   - update
 - apiGroups:
+  - ""
+  resources:
+  - events
+  verbs:
+  - create
+  - patch
+- apiGroups:
   - networking.cloud.tencent.com
   resources:
   - dedicatedclbservices
