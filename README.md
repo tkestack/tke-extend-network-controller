@@ -2,11 +2,70 @@
 
 针对 TKE 集群一些特殊场景的的网络控制器。
 
+目前主要支持会议、游戏战斗服等房间类场景，每个 Pod 都需要一个独立的公网地址，而 TKE 集群默认不提供这个能力，可通过安装此插件来实现为每个 Pod 的某个端口都分配一个独立的公网地址映射(公网IP:Port到Pod内网IP:Port的映射)。
+
 [API 参考](docs/api.md)
 
-## 房间类场景
+## 前提条件
 
-类似会议、游戏战斗服等房间类场景，每个 Pod 都需要一个独立的公网地址 (IP:Port)，而 TKE 集群默认不提供这个能力，可通过安装此插件来实现为每个 Pod 的某个端口都分配一个独立的公网地址映射。
+安装 `tke-extend-network-controller` 前请确保满足以下前提条件：
+1. 创建了 [TKE](https://cloud.tencent.com/product/tke) 集群，且集群版本大于等于 1.18。
+2. 本地安装了 [helm](https://helm.sh) 命令，且能通过 helm 命令操作 TKE 集群（参考[本地 Helm 客户端连接集群](https://cloud.tencent.com/document/product/457/32731)）。
+3. 需要一个腾讯云子账号的访问密钥(SecretID、SecretKey)，参考[子账号访问密钥管理](https://cloud.tencent.com/document/product/598/37140)，要求账号至少具有以下权限：
+    ```json
+    {
+        "version": "2.0",
+        "statement": [
+            {
+                "effect": "allow",
+                "action": [
+                    "clb:DescribeLoadBalancerBackends",
+                    "clb:DescribeLoadBalancerListeners",
+                    "clb:DescribeLoadBalancers",
+                    "clb:CreateLoadBalancer",
+                    "clb:DescribeTargets",
+                    "clb:DeleteLoadBalancer",
+                    "clb:DeleteLoadBalancerListeners",
+                    "clb:BatchDeregisterTargets",
+                    "clb:BatchRegisterTargets",
+                    "clb:DeregisterTargets",
+                    "clb:CreateLoadBalancerListeners",
+                    "clb:CreateListener",
+                    "clb:RegisterTargets",
+                    "clb:DeleteLoadBalancers",
+                    "clb:DescribeLoadBalancersDetail"
+                ],
+                "resource": [
+                    "*"
+                ]
+            }
+        ]
+    }
+    ```
+
+## 使用 helm 安装
+
+1. 添加 helm repo:
+
+```bash
+helm repo add tke-extend-network-controller https://imroc.github.io/tke-extend-network-controller
+```
+
+2. 创建 `values.yaml` 并配置:
+
+```yaml
+region: "" # TKE 集群所在地域，如 ap-guangzhou。全部地域列表参考: https://cloud.tencent.com/document/product/213/6091
+vpcID: "" # TKE 集群所在 VPC ID，如 vpc-xxxx
+secretID: "" # 腾讯云子账号的 SecretID
+secretKey: "" # 腾讯云子账号的 SecretKey
+```
+
+3. 安装到 TKE 集群：
+```bash
+helm upgrade --install -f values.yaml \
+  --namespace tke-extend-network-controller --create-namespace \
+  tke-extend-network-controller tke-extend-network-controller/tke-extend-network-controller
+```
 
 ## 使用 CLB 为 Pod 分配公网地址映射
 
@@ -70,4 +129,4 @@ TODO
 
 ### 为什么不直接用 EIP，TKE 本身支持，每个 Pod 绑一个 EIP 就行了?
 
-技术上可行，但EIP资源有限，不仅有数量限制，还有每日申请的数量限制，稍微上点规模，或频繁扩缩容更换EIP，可能很容易触达限制，如果保留EIP，在EIP没被绑定前，又会收取闲置费。
+技术上可行，但 EIP 资源有限，不仅有数量限制，还有每日申请的数量限制，稍微上点规模，或频繁扩缩容更换EIP，可能很容易触达限制，如果保留 EIP，在 EIP 没被绑定前，又会收取闲置费。
