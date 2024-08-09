@@ -68,6 +68,8 @@ helm upgrade --install -f values.yaml \
   tke-extend-network-controller tke-extend-network-controller/tke-extend-network-controller
 ```
 
+> 后续升级版本或更新配置时，都只需执行上面相同命令即可。
+
 ## 使用 CLB 为 Pod 分配公网地址映射
 
 通过自动为 CLB 创建监听器并绑定单个 Pod 来实现为 Pod 分配独立的公网地址：
