@@ -10,10 +10,10 @@ var (
 func getLbLock(lbId string) *sync.Mutex {
 	lock.Lock()
 	defer lock.Unlock()
-	mux, ok := lbLockMap[lbId]
+	mu, ok := lbLockMap[lbId]
 	if !ok {
-		mux = &sync.Mutex{}
-		lbLockMap[lbId] = mux
+		mu = &sync.Mutex{}
+		lbLockMap[lbId] = mu
 	}
-	return mux
+	return mu
 }

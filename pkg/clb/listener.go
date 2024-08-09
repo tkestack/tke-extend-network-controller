@@ -68,9 +68,9 @@ func CreateListener(ctx context.Context, region string, req *clb.CreateListenerR
 	req.ListenerNames = []*string{common.StringPtr(TkePodListenerName)}
 	client := GetClient(region)
 	lbId := *req.LoadBalancerId
-	mux := getLbLock(lbId)
-	mux.Lock()
-	defer mux.Unlock()
+	mu := getLbLock(lbId)
+	mu.Lock()
+	defer mu.Unlock()
 	resp, err := client.CreateListenerWithContext(ctx, req)
 	if err != nil {
 		return
@@ -109,9 +109,9 @@ func DeleteListener(ctx context.Context, region, lbId, listenerId string) error 
 	req.LoadBalancerId = &lbId
 	req.ListenerId = &listenerId
 	client := GetClient(region)
-	mux := getLbLock(lbId)
-	mux.Lock()
-	defer mux.Unlock()
+	mu := getLbLock(lbId)
+	mu.Lock()
+	defer mu.Unlock()
 	resp, err := client.DeleteListenerWithContext(ctx, req)
 	if err != nil {
 		return err
