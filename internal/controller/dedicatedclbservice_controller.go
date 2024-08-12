@@ -25,6 +25,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/client-go/tools/record"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
@@ -40,7 +41,8 @@ import (
 // DedicatedCLBServiceReconciler reconciles a DedicatedCLBService object
 type DedicatedCLBServiceReconciler struct {
 	client.Client
-	Scheme *runtime.Scheme
+	Scheme   *runtime.Scheme
+	Recorder record.EventRecorder
 }
 
 // +kubebuilder:rbac:groups=networking.cloud.tencent.com,resources=dedicatedclbservices,verbs=get;list;watch;create;update;patch;delete
@@ -100,11 +102,12 @@ func (r *DedicatedCLBServiceReconciler) Reconcile(ctx context.Context, req ctrl.
 		}
 	}
 	for protocol, num := range toCreate {
-		log.Info("create new listener", "protocol", protocol, "num", num)
 		if err := r.allocateNewListener(ctx, log, ds, protocol, num); err != nil {
+			r.Recorder.Event(ds, corev1.EventTypeWarning, "CreateListener", fmt.Sprintf("failed to create %d listeners with %s protocol: %s", num, protocol, err.Error()))
 			return ctrl.Result{}, err
+		} else {
+			r.Recorder.Event(ds, corev1.EventTypeNormal, "CreateListener", fmt.Sprintf("successfully created %d listeners with %s protocol", num, protocol))
 		}
-		log.Info("create new listener succeed", "protocol", protocol, "num", num)
 	}
 	if err := r.ensurePodAnnotation(ctx, ds, pods.Items); err != nil {
 		return ctrl.Result{}, err
@@ -167,7 +170,10 @@ func (r *DedicatedCLBServiceReconciler) ensurePodAnnotation(ctx context.Context,
 					"oldAddr", addr, "realAddr", realAddr,
 				)
 				if err := kube.SetPodAnnotation(ctx, &pod, port.AddressPodAnnotation, realAddr); err != nil {
+					r.Recorder.Event(ds, corev1.EventTypeWarning, "UpdatePodAnnotation", fmt.Sprintf("update pod %s's annotation (%s: %s): %s", pod.Name, port.AddressPodAnnotation, realAddr, err.Error()))
 					return err
+				} else {
+					r.Recorder.Event(ds, corev1.EventTypeNormal, "UpdatePodAnnotation", fmt.Sprintf("update pod %s's annotation (%s: %s)", pod.Name, port.AddressPodAnnotation, realAddr))
 				}
 			}
 		}
@@ -255,11 +261,13 @@ func (r *DedicatedCLBServiceReconciler) diff(
 			listener.Spec.TargetPod = bind.BackendPod
 			toUpdate = append(toUpdate, listener)
 			allocatableListeners[bind.Protocol] = allocatableListeners[bind.Protocol][1:]
+			r.Recorder.Event(ds, corev1.EventTypeNormal, "BindPod", "bind pod "+bind.BackendPod.PodName+" to listener "+listener.Name)
 			log.V(5).Info(
 				"bind pod to listener",
 				"listener", listener.Name,
-				"pod", bind.BackendPod.PodName, "backendPort",
-				bind.BackendPod.TargetPort, "lbId", listener.Spec.LbId,
+				"pod", bind.BackendPod.PodName,
+				"targetPort", bind.BackendPod.TargetPort,
+				"lbId", listener.Spec.LbId,
 				"lbPort", listener.Spec.LbPort,
 			)
 		} else { // 没有可被分配的监听器，新建一个
@@ -308,7 +316,6 @@ OUTER_LOOP:
 			if err = controllerutil.SetControllerReference(ds, lis, r.Scheme); err != nil {
 				break OUTER_LOOP
 			}
-			log.Info("create new DedicatedCLBListener", "name", lis.Name, "lbId", lis.Spec.LbId)
 			if err = r.Create(ctx, lis); err != nil {
 				break OUTER_LOOP
 			}
