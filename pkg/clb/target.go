@@ -103,9 +103,6 @@ func (t Target) String() string {
 }
 
 func DeregisterAllTargets(ctx context.Context, region, lbId, listenerId string) error {
-	mu := getLbLock(lbId)
-	mu.Lock()
-	defer mu.Unlock()
 	queryReq := clb.NewDescribeTargetsRequest()
 	queryReq.LoadBalancerId = &lbId
 	queryReq.ListenerIds = []*string{&listenerId}
@@ -159,20 +156,20 @@ func getClbTargets(targets []Target) (clbTargets []*clb.Target) {
 }
 
 func RegisterTargets(ctx context.Context, region, lbId, listenerId string, targets ...Target) error {
-	mu := getLbLock(lbId)
-	mu.Lock()
-	defer mu.Unlock()
 	clbTargets := getClbTargets(targets)
 	req := clb.NewRegisterTargetsRequest()
 	req.LoadBalancerId = &lbId
 	req.ListenerId = &listenerId
 	req.Targets = clbTargets
 	client := GetClient(region)
-	_, err := client.RegisterTargetsWithContext(ctx, req)
+	mu := getLbLock(lbId)
+	mu.Lock()
+	defer mu.Unlock()
+	resp, err := client.RegisterTargetsWithContext(ctx, req)
 	if err != nil {
 		return err
 	}
-	return nil
+	return Wait(ctx, region, *resp.Response.RequestId)
 }
 
 func DescribeTargets(ctx context.Context, region, lbId, listenerId string) (targets []Target, err error) {

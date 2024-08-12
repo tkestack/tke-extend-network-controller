@@ -31,6 +31,7 @@ func GetClb(ctx context.Context, lbId, region string) (instance *clb.LoadBalance
 	client := GetClient(region)
 	req := clb.NewDescribeLoadBalancersRequest()
 	req.LoadBalancerIds = []*string{&lbId}
+
 	resp, err := client.DescribeLoadBalancersWithContext(ctx, req)
 	if err != nil {
 		return

@@ -116,8 +116,5 @@ func DeleteListener(ctx context.Context, region, lbId, listenerId string) error 
 	if err != nil {
 		return err
 	}
-	if err := Wait(ctx, region, *resp.Response.RequestId); err != nil {
-		return err
-	}
-	return err
+	return Wait(ctx, region, *resp.Response.RequestId)
 }
