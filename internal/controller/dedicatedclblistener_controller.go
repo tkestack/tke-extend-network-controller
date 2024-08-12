@@ -108,18 +108,18 @@ func (r *DedicatedCLBListenerReconciler) Reconcile(ctx context.Context, req ctrl
 }
 
 func (r *DedicatedCLBListenerReconciler) cleanPodFinalizer(ctx context.Context, log logr.Logger, lis *networkingv1alpha1.DedicatedCLBListener) error {
-	backend := lis.Spec.BackendPod
-	if backend == nil {
+	target := lis.Spec.TargetPod
+	if target == nil {
 		return nil
 	}
-	log = log.WithValues("pod", backend.PodName)
+	log = log.WithValues("pod", target.PodName)
 	log.V(5).Info("clean pod finalizer before delete DedicatedCLBListener")
 	pod := &corev1.Pod{}
 	err := r.Get(
 		ctx,
 		client.ObjectKey{
 			Namespace: lis.Namespace,
-			Name:      backend.PodName,
+			Name:      target.PodName,
 		},
 		pod,
 	)
@@ -233,8 +233,8 @@ func (r *DedicatedCLBListenerReconciler) ensureBackendPod(ctx context.Context, l
 	// 到这一步 listenerId 一定不为空
 	log = log.WithValues("listenerId", lis.Status.ListenerId)
 	// 没配置后端 pod，确保后端rs全被解绑，并且状态为 Available
-	backendPod := lis.Spec.BackendPod
-	if backendPod == nil {
+	targetPod := lis.Spec.TargetPod
+	if targetPod == nil {
 		if lis.Status.State == networkingv1alpha1.DedicatedCLBListenerStateBound { // 但监听器状态是已占用，需要解绑
 			r.Recorder.Event(lis, corev1.EventTypeNormal, "PodChangeToNil", "no backend pod configured, try to deregister all targets")
 			// 解绑所有后端
@@ -252,14 +252,14 @@ func (r *DedicatedCLBListenerReconciler) ensureBackendPod(ctx context.Context, l
 		return nil
 	}
 	// 有配置后端 pod，对pod对账
-	log = log.WithValues("pod", backendPod.PodName, "port", backendPod.Port)
+	log = log.WithValues("pod", targetPod.PodName, "port", targetPod.TargetPort)
 	log.V(6).Info("ensure backend pod")
 	pod := &corev1.Pod{}
 	err := r.Get(
 		ctx,
 		client.ObjectKey{
 			Namespace: lis.Namespace,
-			Name:      backendPod.PodName,
+			Name:      targetPod.PodName,
 		},
 		pod,
 	)
@@ -306,7 +306,7 @@ func (r *DedicatedCLBListenerReconciler) ensureBackendPod(ctx context.Context, l
 		toDel := []clb.Target{}
 		needAdd := true
 		for _, target := range targets {
-			if target.TargetIP == pod.Status.PodIP && target.TargetPort == backendPod.Port {
+			if target.TargetIP == pod.Status.PodIP && target.TargetPort == targetPod.TargetPort {
 				needAdd = false
 			} else {
 				toDel = append(toDel, target)
@@ -326,11 +326,11 @@ func (r *DedicatedCLBListenerReconciler) ensureBackendPod(ctx context.Context, l
 		}
 		r.Recorder.Event(
 			lis, corev1.EventTypeNormal, "RegisterPod",
-			fmt.Sprintf("register pod %s/%s:%d", pod.Name, pod.Status.PodIP, backendPod.Port),
+			fmt.Sprintf("register pod %s/%s:%d", pod.Name, pod.Status.PodIP, targetPod.TargetPort),
 		)
 		if err := clb.RegisterTargets(
 			ctx, lis.Spec.LbRegion, lis.Spec.LbId, lis.Status.ListenerId,
-			clb.Target{TargetIP: pod.Status.PodIP, TargetPort: backendPod.Port},
+			clb.Target{TargetIP: pod.Status.PodIP, TargetPort: targetPod.TargetPort},
 		); err != nil {
 			r.Recorder.Event(lis, corev1.EventTypeWarning, "RegisterPod", err.Error())
 			return err

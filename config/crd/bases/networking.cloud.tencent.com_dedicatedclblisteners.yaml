@@ -53,17 +53,6 @@ spec:
           spec:
             description: DedicatedCLBListenerSpec defines the desired state of DedicatedCLBListener
             properties:
-              backendPod:
-                properties:
-                  podName:
-                    type: string
-                  port:
-                    format: int64
-                    type: integer
-                required:
-                - podName
-                - port
-                type: object
               lbId:
                 type: string
                 x-kubernetes-validations:
@@ -90,6 +79,17 @@ spec:
                 x-kubernetes-validations:
                 - message: Value is immutable
                   rule: self == oldSelf
+              targetPod:
+                properties:
+                  podName:
+                    type: string
+                  targetPort:
+                    format: int64
+                    type: integer
+                required:
+                - podName
+                - targetPort
+                type: object
             required:
             - lbId
             - lbPort

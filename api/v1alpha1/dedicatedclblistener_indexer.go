@@ -20,9 +20,9 @@ func indexFieldForDedicatedCLBListener(indexer client.FieldIndexer) error {
 	if err := indexer.IndexField(
 		context.TODO(), &DedicatedCLBListener{}, backendPodNameField,
 		func(o client.Object) []string {
-			backendPod := o.(*DedicatedCLBListener).Spec.BackendPod
-			if backendPod != nil {
-				return []string{backendPod.PodName}
+			targetPod := o.(*DedicatedCLBListener).Spec.TargetPod
+			if targetPod != nil {
+				return []string{targetPod.PodName}
 			}
 			return nil
 		},
@@ -32,9 +32,9 @@ func indexFieldForDedicatedCLBListener(indexer client.FieldIndexer) error {
 	if err := indexer.IndexField(
 		context.TODO(), &DedicatedCLBListener{}, backendPortField,
 		func(o client.Object) []string {
-			backendPod := o.(*DedicatedCLBListener).Spec.BackendPod
-			if backendPod != nil {
-				return []string{strconv.Itoa(int(backendPod.Port))}
+			targetPod := o.(*DedicatedCLBListener).Spec.TargetPod
+			if targetPod != nil {
+				return []string{strconv.Itoa(int(targetPod.TargetPort))}
 			}
 			return nil
 		},

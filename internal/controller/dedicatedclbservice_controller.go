@@ -208,15 +208,15 @@ func (r *DedicatedCLBServiceReconciler) diff(
 	usedListeners := make(map[string]*networkingv1alpha1.DedicatedCLBListener)          // pod-port-protocol --> listener
 	allocatableListeners := make(map[string][]*networkingv1alpha1.DedicatedCLBListener) // protocol --> listeners
 	for _, listener := range listeners {
-		backendPod := listener.Spec.BackendPod
-		if backendPod == nil {
+		targetPod := listener.Spec.TargetPod
+		if targetPod == nil {
 			allocatableListeners[listener.Spec.Protocol] = append(allocatableListeners[listener.Spec.Protocol], &listener)
 		} else {
-			usedListeners[getListenerKey(backendPod.PodName, backendPod.Port, listener.Spec.Protocol)] = &listener
+			usedListeners[getListenerKey(targetPod.PodName, targetPod.TargetPort, listener.Spec.Protocol)] = &listener
 		}
 	}
 	type bind struct {
-		BackendPod *networkingv1alpha1.BackendPod
+		BackendPod *networkingv1alpha1.TargetPod
 		Protocol   string
 	}
 	binds := []bind{}
@@ -229,7 +229,7 @@ func (r *DedicatedCLBServiceReconciler) diff(
 				continue
 			}
 			// 没绑定到监听器，尝试找一个
-			binds = append(binds, bind{Protocol: port.Protocol, BackendPod: &networkingv1alpha1.BackendPod{PodName: pod.Name, Port: port.TargetPort}})
+			binds = append(binds, bind{Protocol: port.Protocol, BackendPod: &networkingv1alpha1.TargetPod{PodName: pod.Name, TargetPort: port.TargetPort}})
 		}
 	}
 	// 所有pod都绑定了，直接返回
@@ -252,14 +252,14 @@ func (r *DedicatedCLBServiceReconciler) diff(
 		listeners := allocatableListeners[bind.Protocol]
 		if len(listeners) > 0 { // 还有可被分配的监听器
 			listener := listeners[0]
-			listener.Spec.BackendPod = bind.BackendPod
+			listener.Spec.TargetPod = bind.BackendPod
 			toUpdate = append(toUpdate, listener)
 			allocatableListeners[bind.Protocol] = allocatableListeners[bind.Protocol][1:]
 			log.V(5).Info(
 				"bind pod to listener",
 				"listener", listener.Name,
 				"pod", bind.BackendPod.PodName, "backendPort",
-				bind.BackendPod.Port, "lbId", listener.Spec.LbId,
+				bind.BackendPod.TargetPort, "lbId", listener.Spec.LbId,
 				"lbPort", listener.Spec.LbPort,
 			)
 		} else { // 没有可被分配的监听器，新建一个
