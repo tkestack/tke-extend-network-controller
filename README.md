@@ -108,7 +108,7 @@ spec:
   # 暂未实现：extensiveParameters: '{"VipIsp":"CTCC"}' # 如果自动创建CLB，指定购买CLB接口的参数: https://cloud.tencent.com/document/product/214/30692
 ```
 
-controller 会自动为关联的所有 Pod 自动创建 `DedicatedCLBListener`:
+controller 会自动为关联的所有 Pod 自动创建并绑定 `DedicatedCLBListener`:
 
 ```yaml
 apiVersion: networking.cloud.tencent.com/v1alpha1
