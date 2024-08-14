@@ -83,7 +83,7 @@ helm upgrade --install -f values.yaml \
 通过自动为 CLB 创建监听器并绑定单个 Pod 来实现为 Pod 分配独立的公网地址：
 
 ```yaml
-apiVersion: networking.cloud.tencent.com/v1apha1
+apiVersion: networking.cloud.tencent.com/v1alpha1
 kind: DedicatedCLBService
 metadata:
   namespace: demo
