@@ -23,6 +23,7 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 
+	sdkerror "github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common/errors"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
@@ -154,7 +155,15 @@ func (r *DedicatedCLBListenerReconciler) cleanListener(ctx context.Context, log 
 	log.V(5).Info("delete listener")
 	listenerId, err := clb.DeleteListenerByPort(ctx, lis.Spec.LbRegion, lis.Spec.LbId, lis.Spec.LbPort, lis.Spec.Protocol)
 	if err != nil {
-		return err
+		if serr, ok := err.(*sdkerror.TencentCloudSDKError); ok {
+			if serr.Code == "InvalidParameter.LBIdNotFound" {
+				r.Recorder.Event(lis, corev1.EventTypeWarning, "DeleteListener", fmt.Sprintf("lbId %s not found", lis.Spec.LbId))
+			} else {
+				return err
+			}
+		} else {
+			return err
+		}
 	}
 	if listenerId != lis.Status.ListenerId {
 		log.Info(
