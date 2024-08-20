@@ -51,7 +51,7 @@ func init() {
 	flags := RootCommand.Flags()
 	zapOptions.BindFlags(flag.CommandLine)
 	flags.AddGoFlagSet(flag.CommandLine)
-	addIntFlag(flags, workerCount, 1, "The worker count of each controller. Defaults to 1")
+	addIntFlag(flags, workerCount, 1, "The worker count of each controller.")
 	addStringFlag(flags, metricsBindAddress, "0", "The address the metrics endpoint binds to. Use :8443 for HTTPS or :8080 for HTTP, or leave as 0 to disable the metrics service.")
 	addStringFlag(flags, healthProbeBindAddress, ":8081", "The address the probe endpoint binds to.")
 	addBoolFlag(flags, leaderElect, false, "Enable leader election for controller manager. Enabling this will ensure there is only one active controller manager.")
@@ -78,5 +78,5 @@ func addBoolFlag(flags *pflag.FlagSet, name string, value bool, usage string) {
 
 func wrapUsage(name, usage string) string {
 	envName := strings.ToUpper(envReplacer.Replace(name))
-	return fmt.Sprintf("%s (ENV: %s)", usage, envName)
+	return fmt.Sprintf("%s (Env: %s)", usage, envName)
 }
