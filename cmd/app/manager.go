@@ -38,6 +38,10 @@ func runManager() {
 	metricsAddr := viper.GetString(metricsBindAddress)
 	probeAddr := viper.GetString(healthProbeBindAddress)
 	enableLeaderElection := viper.GetBool(leaderElect)
+	workers := viper.GetInt(workerCount)
+	if workers <= 0 {
+		workers = 1
+	}
 
 	ctrl.SetLogger(zap.New(zap.UseFlagOptions(zapOptions)))
 
@@ -54,7 +58,7 @@ func runManager() {
 		Client:   mgr.GetClient(),
 		Scheme:   mgr.GetScheme(),
 		Recorder: mgr.GetEventRecorderFor("dedicatedclbservice-controller"),
-	}).SetupWithManager(mgr); err != nil {
+	}).SetupWithManager(mgr, workers); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "DedicatedCLBService")
 		os.Exit(1)
 	}
@@ -70,7 +74,7 @@ func runManager() {
 		Scheme:    mgr.GetScheme(),
 		APIReader: mgr.GetAPIReader(),
 		Recorder:  mgr.GetEventRecorderFor("dedicatedclblistener-controller"),
-	}).SetupWithManager(mgr); err != nil {
+	}).SetupWithManager(mgr, workers); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "CLBListenerReconciler")
 		os.Exit(1)
 	}

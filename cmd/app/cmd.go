@@ -36,6 +36,7 @@ const (
 	region                 = "region"
 	vpcId                  = "vpcid"
 	clusterId              = "cluster-id"
+	workerCount            = "worker-count"
 )
 
 var (
@@ -50,6 +51,7 @@ func init() {
 	flags := RootCommand.Flags()
 	zapOptions.BindFlags(flag.CommandLine)
 	flags.AddGoFlagSet(flag.CommandLine)
+	addIntFlag(flags, workerCount, 1, "The worker count of each controller. Defaults to 1")
 	addStringFlag(flags, metricsBindAddress, "0", "The address the metrics endpoint binds to. Use :8443 for HTTPS or :8080 for HTTP, or leave as 0 to disable the metrics service.")
 	addStringFlag(flags, healthProbeBindAddress, ":8081", "The address the probe endpoint binds to.")
 	addBoolFlag(flags, leaderElect, false, "Enable leader election for controller manager. Enabling this will ensure there is only one active controller manager.")
@@ -61,6 +63,11 @@ func init() {
 
 func addStringFlag(flags *pflag.FlagSet, name, value, usage string) {
 	flags.String(name, value, wrapUsage(name, usage))
+	viper.BindPFlag(name, flags.Lookup(name))
+}
+
+func addIntFlag(flags *pflag.FlagSet, name string, value int, usage string) {
+	flags.Int(name, value, wrapUsage(name, usage))
 	viper.BindPFlag(name, flags.Lookup(name))
 }
 

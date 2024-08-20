@@ -28,6 +28,7 @@ import (
 	"k8s.io/client-go/tools/record"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/log"
@@ -361,7 +362,12 @@ func (r *DedicatedCLBServiceReconciler) findObjectsForPod(ctx context.Context, p
 	for _, ds := range list.Items {
 		podSelector := labels.Set(ds.Spec.Selector).AsSelector()
 		if podSelector.Matches(podLabels) {
-			log.V(5).Info("pod matched dedicatedclbservice's selector, trigger reconcile", "pod", pod.GetName(), "dedicatedclbservice", ds.Name, "namespace", ds.Namespace)
+			log.V(5).Info(
+				"pod matched dedicatedclbservice's selector, trigger reconcile",
+				"pod", pod.GetName(),
+				"dedicatedclbservice", ds.Name,
+				"namespace", ds.Namespace,
+			)
 			requests = append(
 				requests,
 				reconcile.Request{
@@ -376,10 +382,13 @@ func (r *DedicatedCLBServiceReconciler) findObjectsForPod(ctx context.Context, p
 const labelKeyDedicatedCLBServiceName = "networking.cloud.tencent.com/dedicatedclbservice-name"
 
 // SetupWithManager sets up the controller with the Manager.
-func (r *DedicatedCLBServiceReconciler) SetupWithManager(mgr ctrl.Manager) error {
+func (r *DedicatedCLBServiceReconciler) SetupWithManager(mgr ctrl.Manager, workers int) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&networkingv1alpha1.DedicatedCLBService{}).
 		Owns(&networkingv1alpha1.DedicatedCLBListener{}).
+		WithOptions(controller.Options{
+			MaxConcurrentReconciles: workers,
+		}).
 		Watches( // TODO: 只关注创建，删除待考虑
 			&corev1.Pod{},
 			handler.EnqueueRequestsFromMapFunc(r.findObjectsForPod),
