@@ -139,7 +139,7 @@ func (r *DedicatedCLBListenerReconciler) cleanPodFinalizer(ctx context.Context, 
 		}
 		log.V(5).Info("remove pod finalizer success")
 	} else {
-		log.V(5).Info("pod finalizer not found, ignore remove pod finalizer")
+		log.Info("pod finalizer not found, ignore remove pod finalizer")
 	}
 	return nil
 }
@@ -151,7 +151,7 @@ func (r *DedicatedCLBListenerReconciler) cleanListener(ctx context.Context, log 
 	log = log.WithValues("listenerId", lis.Status.ListenerId, "port", lis.Spec.LbPort, "protocol", lis.Spec.Protocol)
 	// 删除监听器
 	log.V(5).Info("delete listener")
-	listenerId, err := clb.DeleteListenerByPort(ctx, lis.Spec.LbRegion, lis.Spec.LbId, lis.Spec.LbPort, lis.Spec.Protocol)
+	_, err := clb.DeleteListenerByPort(ctx, lis.Spec.LbRegion, lis.Spec.LbId, lis.Spec.LbPort, lis.Spec.Protocol)
 	if err != nil {
 		r.Recorder.Event(lis, corev1.EventTypeWarning, "DeleteListener", err.Error())
 		if serr, ok := err.(*sdkerror.TencentCloudSDKError); ok && serr.Code == "InvalidParameter.LBIdNotFound" {
@@ -161,15 +161,10 @@ func (r *DedicatedCLBListenerReconciler) cleanListener(ctx context.Context, log 
 			return err
 		}
 	}
-	if listenerId != lis.Status.ListenerId {
-		log.Info(
-			"deleted clb port's listenerId is not equal to listenerId in status",
-			"deletedListenerId", listenerId,
-		)
-	}
 	log.V(7).Info("listener deleted, remove listenerId from status")
 	lis.Status.ListenerId = ""
 	if err := r.Status().Update(ctx, lis); err != nil {
+		r.Recorder.Event(lis, corev1.EventTypeWarning, "UpdateStatus", fmt.Sprintf("failed to remove listenerId from status: %s", err.Error()))
 		return err
 	}
 	return nil
