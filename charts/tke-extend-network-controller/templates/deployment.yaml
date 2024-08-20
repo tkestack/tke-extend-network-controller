@@ -26,6 +26,7 @@ spec:
         - --metrics-bind-address=:8443
         - --leader-elect
         - --health-probe-bind-address=:8081
+        - --worker-count={{ .Values.workerCount }}
         - --zap-log-level={{ .Values.log.level }}
         - --zap-encoder={{ .Values.log.encoder }}
         command:

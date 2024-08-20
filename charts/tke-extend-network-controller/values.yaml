@@ -10,6 +10,8 @@ secretID: ""
 secretKey: ""
 clusterID: ""
 
+workerCount: 3
+
 log:
   level: "info" # be one of 'debug', 'info', 'error', or any integer value > 0 which corresponds to custom debug levels of increasing verbosity
   encoder: "json" # json or console
