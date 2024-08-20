@@ -149,19 +149,15 @@ func (r *DedicatedCLBListenerReconciler) cleanListener(ctx context.Context, log 
 		return nil
 	}
 	log = log.WithValues("listenerId", lis.Status.ListenerId, "port", lis.Spec.LbPort, "protocol", lis.Spec.Protocol)
-	log.V(5).Info("start cleanListener")
-	defer log.V(5).Info("end cleanListener")
 	// 删除监听器
 	log.V(5).Info("delete listener")
 	listenerId, err := clb.DeleteListenerByPort(ctx, lis.Spec.LbRegion, lis.Spec.LbId, lis.Spec.LbPort, lis.Spec.Protocol)
 	if err != nil {
-		if serr, ok := err.(*sdkerror.TencentCloudSDKError); ok {
-			if serr.Code == "InvalidParameter.LBIdNotFound" {
-				r.Recorder.Event(lis, corev1.EventTypeWarning, "DeleteListener", fmt.Sprintf("lbId %s not found", lis.Spec.LbId))
-			} else {
-				return err
-			}
+		r.Recorder.Event(lis, corev1.EventTypeWarning, "DeleteListener", err.Error())
+		if serr, ok := err.(*sdkerror.TencentCloudSDKError); ok && serr.Code == "InvalidParameter.LBIdNotFound" {
+			log.V(5).Info("lbId not found when delete listener, ignore", "lbId", lis.Spec.LbId)
 		} else {
+			r.Recorder.Event(lis, corev1.EventTypeWarning, "DeleteListener", err.Error())
 			return err
 		}
 	}
