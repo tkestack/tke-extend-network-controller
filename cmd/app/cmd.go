@@ -77,6 +77,6 @@ func addBoolFlag(flags *pflag.FlagSet, name string, value bool, usage string) {
 }
 
 func wrapUsage(name, usage string) string {
-	envName := envReplacer.Replace(name)
+	envName := strings.ToUpper(envReplacer.Replace(name))
 	return fmt.Sprintf("%s (ENV: %s)", usage, envName)
 }
