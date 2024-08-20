@@ -51,7 +51,11 @@ var _ = Describe("DedicatedCLBListener Controller", func() {
 						Name:      resourceName,
 						Namespace: "default",
 					},
-					// TODO(user): Specify other spec details if needed.
+					Spec: networkingv1alpha1.DedicatedCLBListenerSpec{
+						LbId:     "lb-xxx",
+						LbPort:   8899,
+						Protocol: "TCP",
+					},
 				}
 				Expect(k8sClient.Create(ctx, resource)).To(Succeed())
 			}

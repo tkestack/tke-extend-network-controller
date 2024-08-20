@@ -51,7 +51,17 @@ var _ = Describe("DedicatedCLBService Controller", func() {
 						Name:      resourceName,
 						Namespace: "default",
 					},
-					// TODO(user): Specify other spec details if needed.
+					Spec: networkingv1alpha1.DedicatedCLBServiceSpec{
+						Selector: map[string]string{
+							"app": "nginx",
+						},
+						Ports: []networkingv1alpha1.DedicatedCLBServicePort{
+							{
+								Protocol:   "TCP",
+								TargetPort: 80,
+							},
+						},
+					},
 				}
 				Expect(k8sClient.Create(ctx, resource)).To(Succeed())
 			}
