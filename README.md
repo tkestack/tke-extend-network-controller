@@ -2,8 +2,6 @@
 
 针对 TKE 集群一些特殊场景的的网络控制器。
 
-[API 参考](docs/api.md)
-
 ## 支持房间类场景
 
 目前主要支持会议、游戏战斗服等房间类场景的网络，即要求每个 Pod 都需要独立的公网地址，TKE 集群默认只支持 EIP 方案，但 EIP 资源有限，不仅是数量的限制，还有每日申请的数量限制，稍微上点规模，或频繁扩缩容更换EIP，可能很容易触达限制导致 EIP 分配失败；而如果保留 EIP，在 EIP 没被绑定前，又会收取额外的闲置费。
@@ -132,9 +130,13 @@ status:
 
 然后 controller 根据 `DedicatedCLBListener` 进行对账，自动将 Pod 绑定到对应的 CLB 监听器上。
 
-## 使用 NAT 网关为 Pod 分配公网地址映射
+## 更多
 
-TODO
+* [CRD 字段说明](docs/crd.md)
+* [API 参考](docs/api.md)
+* [Roadmap](docs/roadmap.md)
+* [贡献指南](docs/contributing.md)
+* [技术亮点](docs/inside.md)
 
 ## 项目状态与版本说明
 
