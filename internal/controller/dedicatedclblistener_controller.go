@@ -164,7 +164,6 @@ func (r *DedicatedCLBListenerReconciler) cleanListener(ctx context.Context, log 
 	log.V(7).Info("listener deleted, remove listenerId from status")
 	lis.Status.ListenerId = ""
 	if err := r.Status().Update(ctx, lis); err != nil {
-		r.Recorder.Event(lis, corev1.EventTypeWarning, "UpdateStatus", fmt.Sprintf("failed to remove listenerId from status: %s", err.Error()))
 		return err
 	}
 	return nil
@@ -210,7 +209,6 @@ func getDedicatedCLBListenerPodFinalizerName(lis *networkingv1alpha1.DedicatedCL
 func (r *DedicatedCLBListenerReconciler) updateState(ctx context.Context, lis *networkingv1alpha1.DedicatedCLBListener, state string) error {
 	lis.Status.State = state
 	if err := r.Status().Update(ctx, lis); err != nil {
-		r.Recorder.Event(lis, corev1.EventTypeWarning, "UpdateStatus", fmt.Sprintf("failed to set listener %s: %s", state, err.Error()))
 		return err
 	} else {
 		r.Recorder.Event(lis, corev1.EventTypeNormal, "UpdateStatus", fmt.Sprintf("listener %s", state))
@@ -349,7 +347,6 @@ func (r *DedicatedCLBListenerReconciler) ensureBackendPod(ctx context.Context, l
 		addr = fmt.Sprintf("%s:%d", addr, lis.Spec.LbPort)
 		lis.Status.Address = addr
 		if err := r.Status().Update(ctx, lis); err != nil {
-			r.Recorder.Event(lis, corev1.EventTypeWarning, "UpdateStatus", fmt.Sprintf("failed to set external address %s: %s", addr, err.Error()))
 			return err
 		} else {
 			r.Recorder.Event(lis, corev1.EventTypeNormal, "UpdateStatus", "external address: "+addr)
@@ -417,7 +414,6 @@ func (r *DedicatedCLBListenerReconciler) ensureListener(ctx context.Context, log
 		r.Recorder.Event(lis, corev1.EventTypeWarning, "ListenerIdNotMatch", msg)
 		lis.Status.ListenerId = listener.ListenerId
 		if err := r.Status().Update(ctx, lis); err != nil {
-			r.Recorder.Event(lis, corev1.EventTypeWarning, "UpdateStatus", fmt.Sprintf("failed set listenerId %s: %s", listener.ListenerId, err.Error()))
 			return err
 		}
 	}
