@@ -291,7 +291,6 @@ func (r *DedicatedCLBListenerReconciler) ensureBackendPod(ctx context.Context, l
 		)
 		r.Recorder.Event(lis, corev1.EventTypeNormal, "AddPodFinalizer", "add finalizer to pod "+pod.Name)
 		if err := kube.AddPodFinalizer(ctx, pod, podFinalizerName); err != nil {
-			r.Recorder.Event(lis, corev1.EventTypeWarning, "AddPodFinalizer", err.Error())
 			return err
 		}
 	}
@@ -361,7 +360,7 @@ func (r *DedicatedCLBListenerReconciler) ensureBackendPod(ctx context.Context, l
 }
 
 func (r *DedicatedCLBListenerReconciler) syncPodDelete(ctx context.Context, log logr.Logger, lis *networkingv1alpha1.DedicatedCLBListener, podFinalizerName string, pod *corev1.Pod) error {
-	r.Recorder.Event(lis, corev1.EventTypeNormal, "PodDeleting", "try to deregister all targets")
+	r.Recorder.Event(lis, corev1.EventTypeNormal, "PodDeleting", "deregister all targets")
 	if err := clb.DeregisterAllTargets(ctx, lis.Spec.LbRegion, lis.Spec.LbId, lis.Status.ListenerId); err != nil {
 		r.Recorder.Event(lis, corev1.EventTypeWarning, "DeregisterFailed", err.Error())
 		return err
@@ -416,7 +415,6 @@ func (r *DedicatedCLBListenerReconciler) ensureListener(ctx context.Context, log
 	}
 	if listener.ListenerId != listenerId { // 监听器ID不匹配，更新监听器ID
 		msg := fmt.Sprintf("listener id from status (%s) is not equal with the real listener id (%s), will override to the real listener id", listenerId, listener.ListenerId)
-		log.Info(msg)
 		r.Recorder.Event(lis, corev1.EventTypeWarning, "ListenerIdNotMatch", msg)
 		lis.Status.ListenerId = listener.ListenerId
 		if err := r.Status().Update(ctx, lis); err != nil {
