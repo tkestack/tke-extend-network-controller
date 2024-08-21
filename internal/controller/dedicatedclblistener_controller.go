@@ -477,21 +477,13 @@ func (r *DedicatedCLBListenerReconciler) createListener(ctx context.Context, log
 // SetupWithManager sets up the controller with the Manager.
 func (r *DedicatedCLBListenerReconciler) SetupWithManager(mgr ctrl.Manager, workers int) error {
 	return ctrl.NewControllerManagedBy(mgr).
-		// Named("dedicatedclblistener").
 		For(&networkingv1alpha1.DedicatedCLBListener{}).
 		WithOptions(controller.Options{
 			MaxConcurrentReconciles: workers,
 		}).
-		// WithEventFilter(predicate.GenerationChangedPredicate{}).
-		// Watches(
-		// 	&networkingv1alpha1.DedicatedCLBListener{},
-		// 	&handler.EnqueueRequestForObject{},
-		// 	builder.WithPredicates(predicate.GenerationChangedPredicate{}),
-		// ).
 		Watches(
 			&corev1.Pod{},
 			handler.EnqueueRequestsFromMapFunc(r.findObjectsForPod),
-			// builder.WithPredicates(predicate.ResourceVersionChangedPredicate{}),
 		).
 		Complete(r)
 }
