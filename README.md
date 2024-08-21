@@ -103,32 +103,7 @@ spec:
     - lb-xxx
     - lb-yyy
     - lb-zzz
-  # 暂未实现：extensiveParameters: '{"VipIsp":"CTCC"}' # 如果自动创建CLB，指定购买CLB接口的参数: https://cloud.tencent.com/document/product/214/30692
 ```
-
-controller 会自动为关联的所有 Pod 自动创建并绑定 `DedicatedCLBListener`:
-
-```yaml
-apiVersion: networking.cloud.tencent.com/v1alpha1
-kind: DedicatedCLBListener
-metadata:
-  name: gameserver-0
-spec:
-  lbId: lb-xxx # 必选，CLB 的实例 ID
-  lbRegion: ap-chengdu # 可选，CLB 所在地域，默认为集群所在地域
-  lbPort: 8088 # 必选，监听器端口
-  protocol: TCP # 必选，监听器协议。TCP | UDP
-  listenerConfig: clblistenerconfig-sample # 可选，创建监听器的配置
-  targetPod: # 可选，需绑定的后端Pod
-    podName: gameserver-0 # 指定 targetPod 时必选，后端 Pod 名称
-    targetPort: 80 # 指定 targetPod 时必选，后端 Pod 监听的端口
-status:
-  listenerId: lbl-ku486mr3 # 监听器 ID
-  state: Bound # 监听器状态，Pending (监听器创建中) | Bound (监听器已绑定Pod) | Available (监听器已创建但还未绑定Pod) | Deleting (监听器删除中)
-  address: 139.135.64.53:8088 # 公网地址
-```
-
-然后 controller 根据 `DedicatedCLBListener` 进行对账，自动将 Pod 绑定到对应的 CLB 监听器上。
 
 ## 更多
 

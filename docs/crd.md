@@ -6,7 +6,7 @@
 
 ## DedicatedCLBService
 
-为选中的每个 Pod 分配一个独立的 CLB 地址映射 (基于 `DedicatedCLBListener`):
+为选中的每个 Pod 分配一个独立的 CLB 地址映射 (会将 `selector` 选中的所有 Pod 自动关联一个 `DedicatedCLBListener`，以实现为每个 Pod 绑定一个 CLB 监听器):
 
 ```yaml
 apiVersion: networking.cloud.tencent.com/v1apha1
@@ -31,12 +31,11 @@ spec:
     - lb-xxx
     - lb-yyy
     - lb-zzz
-  # 暂未实现：extensiveParameters: '{"VipIsp":"CTCC"}' # 如果自动创建CLB，指定购买CLB接口的参数: https://cloud.tencent.com/document/product/214/30692
 ```
 
 ## DedicatedCLBListener
 
-为指定 Pod 分配一个独立的 CLB 地址映射:
+为指定单个 Pod 分配一个独立的 CLB 地址映射:
 
 ```yaml
 apiVersion: networking.cloud.tencent.com/v1alpha1
@@ -54,7 +53,7 @@ spec:
     port: 80 # 指定 backendPod 时必选，后端 Pod 监听的端口
 status:
   listenerId: lbl-ku486mr3 # 监听器 ID
-  state: Bound # 监听器状态，Pending (监听器创建中) | Bound (监听器已绑定Pod) | Available (监听器已创建但还未绑定Pod) | Deleting (监听器删除中)
+  state: Bound # 监听器状态，Pending (监听器创建中) | Bound (监听器已绑定Pod) | Available (监听器已创建但还未绑定Pod) | Deleting (监听器删除中) | Failed （失败）
   address: 139.135.64.53:8088 # 公网地址
 ```
 
