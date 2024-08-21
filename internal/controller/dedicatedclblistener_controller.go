@@ -327,7 +327,11 @@ func (r *DedicatedCLBListenerReconciler) ensureBackendPod(ctx context.Context, l
 		}
 	}
 	if !needAdd {
-		log.V(6).Info("backend pod already registered", "podIP", pod.Status.PodIP)
+		if lis.Status.State != networkingv1alpha1.DedicatedCLBListenerStateBound { // pod 已被绑定但状态不是bound，更新下状态
+			if err := r.changeState(ctx, lis, networkingv1alpha1.DedicatedCLBListenerStateBound); err != nil {
+				return err
+			}
+		}
 		return nil
 	}
 	r.Recorder.Event(
