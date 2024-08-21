@@ -370,8 +370,9 @@ func (r *DedicatedCLBListenerReconciler) syncPodDelete(ctx context.Context, log 
 		"pod deregisterd, remove pod finalizer",
 		"finalizerName", podFinalizerName,
 	)
+
+	r.Recorder.Event(lis, corev1.EventTypeNormal, "RemovePodFinalizer", "remove finalizer from pod "+pod.Name)
 	if err := kube.RemovePodFinalizer(ctx, pod, podFinalizerName); err != nil {
-		r.Recorder.Event(lis, corev1.EventTypeWarning, "RemovePodFinalizerFailed", err.Error())
 		return err
 	}
 	// 更新 DedicatedCLBListener
