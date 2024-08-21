@@ -141,7 +141,6 @@ func (r *DedicatedCLBServiceReconciler) getAddr(ctx context.Context, ds *network
 	}
 	lis := list.Items[0]
 	if lis.Status.Address == "" {
-		log.FromContext(ctx).Info("bound listener without external address", "listener", lis.Name)
 		return
 	}
 	addr = lis.Status.Address
