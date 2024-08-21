@@ -72,47 +72,68 @@ type DedicatedCLBListenerReconciler struct {
 // For more details, check Reconcile and its Result here:
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.18.4/pkg/reconcile
 func (r *DedicatedCLBListenerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
+	result := ctrl.Result{}
+	err := r.reconcile(ctx, req)
+	if err != nil && apierrors.IsConflict(err) { // 有冲突，重试
+		result.Requeue = true
+		log.FromContext(ctx).Info("retry on conflict")
+		return result, nil
+	}
+	return result, err
+}
+
+func (r *DedicatedCLBListenerReconciler) reconcile(ctx context.Context, req ctrl.Request) error {
 	log := log.FromContext(ctx)
 
 	lis := &networkingv1alpha1.DedicatedCLBListener{}
 	if err := r.Get(ctx, req.NamespacedName, lis); err != nil {
-		return ctrl.Result{}, client.IgnoreNotFound(err)
+		return client.IgnoreNotFound(err)
 	}
 	if lis.Status.State == "" {
-		if err := r.update(ctx, lis, true, func(lis *networkingv1alpha1.DedicatedCLBListener) {
-			lis.Status.State = networkingv1alpha1.DedicatedCLBListenerStatePending
-		}); err != nil {
-			return ctrl.Result{}, err
+		if err := r.changeState(ctx, lis, networkingv1alpha1.DedicatedCLBListenerStatePending); err != nil {
+			return err
 		}
 	}
 
 	if !lis.DeletionTimestamp.IsZero() { // 正在删除
 		if err := r.syncDelete(ctx, log, lis); err != nil { // 清理
-			return ctrl.Result{}, err
+			return err
 		}
 		// 监听器删除成功后再删除 finalizer
-		if controllerutil.ContainsFinalizer(lis, dedicatedCLBListenerFinalizer) {
-			if err := r.update(ctx, lis, false, func(lis *networkingv1alpha1.DedicatedCLBListener) {
-				controllerutil.RemoveFinalizer(lis, dedicatedCLBListenerFinalizer)
-			}); err != nil {
-				r.Recorder.Event(lis, corev1.EventTypeWarning, "RemoveFinalizerFailed", err.Error())
-				return ctrl.Result{}, err
+		if controllerutil.ContainsFinalizer(lis, dedicatedCLBListenerFinalizer) && controllerutil.RemoveFinalizer(lis, dedicatedCLBListenerFinalizer) {
+			if err := r.Update(ctx, lis); err != nil {
+				return err
 			}
 		}
-		return ctrl.Result{}, nil
+		return nil
 	}
 
 	// 确保 finalizers 存在
-	if !controllerutil.ContainsFinalizer(lis, dedicatedCLBListenerFinalizer) {
-		if err := r.update(ctx, lis, false, func(lis *networkingv1alpha1.DedicatedCLBListener) {
-			controllerutil.AddFinalizer(lis, dedicatedCLBListenerFinalizer)
-		}); err != nil {
-			r.Recorder.Event(lis, corev1.EventTypeWarning, "AddFinalizerFailed", err.Error())
-			return ctrl.Result{}, err
+	if !controllerutil.ContainsFinalizer(lis, dedicatedCLBListenerFinalizer) && controllerutil.AddFinalizer(lis, dedicatedCLBListenerFinalizer) {
+		if err := r.Update(ctx, lis); err != nil {
+			return err
 		}
 	}
 
-	return ctrl.Result{}, r.sync(ctx, log, lis)
+	return r.sync(ctx, log, lis)
+}
+
+func (r *DedicatedCLBListenerReconciler) changeState(ctx context.Context, lis *networkingv1alpha1.DedicatedCLBListener, state string) error {
+	oldState := lis.Status.State
+	newState := state
+	if newState == oldState {
+		return errors.New("state not changed")
+	}
+	lis.Status.State = newState
+	if err := r.Status().Update(ctx, lis); err != nil {
+		return err
+	}
+	if oldState != "" {
+		r.Recorder.Event(lis, corev1.EventTypeNormal, "UpdateStatus", fmt.Sprintf("listener %s -> %s", oldState, newState))
+	} else {
+		r.Recorder.Event(lis, corev1.EventTypeNormal, "UpdateStatus", fmt.Sprintf("listener %s", newState))
+	}
+	return nil
 }
 
 func (r *DedicatedCLBListenerReconciler) cleanPodFinalizer(ctx context.Context, log logr.Logger, lis *networkingv1alpha1.DedicatedCLBListener) error {
@@ -169,9 +190,8 @@ func (r *DedicatedCLBListenerReconciler) cleanListener(ctx context.Context, log 
 		}
 	}
 	log.V(7).Info("listener deleted, remove listenerId from status")
-	return r.update(ctx, lis, true, func(lis *networkingv1alpha1.DedicatedCLBListener) {
-		lis.Status.ListenerId = ""
-	})
+	lis.Status.ListenerId = ""
+	return r.Status().Update(ctx, lis)
 }
 
 func (r *DedicatedCLBListenerReconciler) syncDelete(ctx context.Context, log logr.Logger, lis *networkingv1alpha1.DedicatedCLBListener) error {
@@ -184,9 +204,7 @@ func (r *DedicatedCLBListenerReconciler) syncDelete(ctx context.Context, log log
 
 	// 确保处于删除状态，避免重入
 	if state != networkingv1alpha1.DedicatedCLBListenerStateDeleting {
-		if err := r.update(ctx, lis, true, func(lis *networkingv1alpha1.DedicatedCLBListener) {
-			lis.Status.State = networkingv1alpha1.DedicatedCLBListenerStateDeleting
-		}); err != nil {
+		if err := r.changeState(ctx, lis, networkingv1alpha1.DedicatedCLBListenerStateDeleting); err != nil {
 			return err
 		}
 	}
@@ -212,34 +230,6 @@ func getDedicatedCLBListenerPodFinalizerName(lis *networkingv1alpha1.DedicatedCL
 	return "dedicatedclblistener.networking.cloud.tencent.com/" + lis.Name
 }
 
-func (r *DedicatedCLBListenerReconciler) update(ctx context.Context, oldLis *networkingv1alpha1.DedicatedCLBListener, updateStatus bool, updateFn func(lis *networkingv1alpha1.DedicatedCLBListener)) error {
-	lis := &networkingv1alpha1.DedicatedCLBListener{}
-	if err := r.Get(ctx, client.ObjectKeyFromObject(oldLis), lis); err != nil {
-		return err
-	}
-	oldState := lis.Status.State
-	updateFn(lis)
-	*oldLis = *lis
-	if updateStatus {
-		if err := r.Status().Update(ctx, lis); err != nil {
-			r.Recorder.Event(lis, corev1.EventTypeWarning, "UpdateStatus", fmt.Sprintf("failed to update status: %s", err.Error()))
-			return err
-		} else {
-			newState := lis.Status.State
-			if newState != oldState {
-				if oldState != "" {
-					r.Recorder.Event(lis, corev1.EventTypeNormal, "UpdateStatus", fmt.Sprintf("listener %s -> %s", oldState, newState))
-				} else {
-					r.Recorder.Event(lis, corev1.EventTypeNormal, "UpdateStatus", fmt.Sprintf("listener %s", newState))
-				}
-			}
-		}
-	} else {
-		return r.Update(ctx, lis)
-	}
-	return nil
-}
-
 func (r *DedicatedCLBListenerReconciler) ensureBackendPod(ctx context.Context, log logr.Logger, lis *networkingv1alpha1.DedicatedCLBListener) error {
 	// 到这一步 listenerId 一定不为空
 	log = log.WithValues("listenerId", lis.Status.ListenerId)
@@ -255,9 +245,7 @@ func (r *DedicatedCLBListenerReconciler) ensureBackendPod(ctx context.Context, l
 			}
 			// 更新监听器状态
 			if lis.Status.State != networkingv1alpha1.DedicatedCLBListenerStateAvailable {
-				if err := r.update(ctx, lis, true, func(lis *networkingv1alpha1.DedicatedCLBListener) {
-					lis.Status.State = networkingv1alpha1.DedicatedCLBListenerStateAvailable
-				}); err != nil {
+				if err := r.changeState(ctx, lis, networkingv1alpha1.DedicatedCLBListenerStateAvailable); err != nil {
 					return err
 				}
 			}
@@ -283,9 +271,7 @@ func (r *DedicatedCLBListenerReconciler) ensureBackendPod(ctx context.Context, l
 			if lis.Status.State != networkingv1alpha1.DedicatedCLBListenerStateAvailable {
 				msg := fmt.Sprintf("configured pod not found but state is %q, reset state to available", lis.Status.State)
 				r.Recorder.Event(lis, corev1.EventTypeNormal, "UpdateStatus", msg)
-				if err := r.update(ctx, lis, true, func(lis *networkingv1alpha1.DedicatedCLBListener) {
-					lis.Status.State = networkingv1alpha1.DedicatedCLBListenerStateAvailable
-				}); err != nil {
+				if err := r.changeState(ctx, lis, networkingv1alpha1.DedicatedCLBListenerStateAvailable); err != nil {
 					return err
 				}
 				return nil
@@ -356,9 +342,7 @@ func (r *DedicatedCLBListenerReconciler) ensureBackendPod(ctx context.Context, l
 		return err
 	}
 	// 更新监听器状态
-	if err := r.update(ctx, lis, true, func(lis *networkingv1alpha1.DedicatedCLBListener) {
-		lis.Status.State = networkingv1alpha1.DedicatedCLBListenerStateBound
-	}); err != nil {
+	if err := r.changeState(ctx, lis, networkingv1alpha1.DedicatedCLBListenerStateBound); err != nil {
 		return err
 	}
 	// 更新Pod注解
@@ -368,13 +352,11 @@ func (r *DedicatedCLBListenerReconciler) ensureBackendPod(ctx context.Context, l
 		return err
 	}
 	addr = fmt.Sprintf("%s:%d", addr, lis.Spec.LbPort)
-	if err := r.update(ctx, lis, true, func(lis *networkingv1alpha1.DedicatedCLBListener) {
-		lis.Status.Address = addr
-	}); err != nil {
+	lis.Status.Address = addr
+	if err := r.Status().Update(ctx, lis); err != nil {
 		return err
-	} else {
-		r.Recorder.Event(lis, corev1.EventTypeNormal, "UpdateStatus", "got external address "+addr)
 	}
+	r.Recorder.Event(lis, corev1.EventTypeNormal, "UpdateStatus", "got external address "+addr)
 	return nil
 }
 
@@ -395,9 +377,7 @@ func (r *DedicatedCLBListenerReconciler) syncPodDelete(ctx context.Context, log 
 	}
 	// 更新 DedicatedCLBListener
 	if lis.Status.State != networkingv1alpha1.DedicatedCLBListenerStateAvailable {
-		if err := r.update(ctx, lis, true, func(lis *networkingv1alpha1.DedicatedCLBListener) {
-			lis.Status.State = networkingv1alpha1.DedicatedCLBListenerStateAvailable
-		}); err != nil {
+		if err := r.changeState(ctx, lis, networkingv1alpha1.DedicatedCLBListenerStateAvailable); err != nil {
 			return err
 		}
 	}
@@ -416,9 +396,7 @@ func (r *DedicatedCLBListenerReconciler) ensureListener(ctx context.Context, log
 		msg := fmt.Sprintf("listener is %s state but no id not found in status, try to recreate", lis.Status.State)
 		log.Info(msg)
 		r.Recorder.Event(lis, corev1.EventTypeWarning, "ListenerIDNotFound", msg)
-		if err := r.update(ctx, lis, true, func(lis *networkingv1alpha1.DedicatedCLBListener) {
-			lis.Status.State = networkingv1alpha1.DedicatedCLBListenerStatePending
-		}); err != nil {
+		if err := r.changeState(ctx, lis, networkingv1alpha1.DedicatedCLBListenerStatePending); err != nil {
 			return err
 		}
 		return r.createListener(ctx, log, lis)
@@ -437,12 +415,11 @@ func (r *DedicatedCLBListenerReconciler) ensureListener(ctx context.Context, log
 		return r.createListener(ctx, log, lis)
 	}
 	if listener.ListenerId != listenerId { // 监听器ID不匹配，更新监听器ID
-		msg := fmt.Sprintf("listener id from status (%s) is not equal with the real listener id (%s)", listenerId, listener.ListenerId)
+		msg := fmt.Sprintf("listener id from status (%s) is not equal with the real listener id (%s), will override to the real listener id", listenerId, listener.ListenerId)
 		log.Info(msg)
 		r.Recorder.Event(lis, corev1.EventTypeWarning, "ListenerIdNotMatch", msg)
-		if err := r.update(ctx, lis, true, func(lis *networkingv1alpha1.DedicatedCLBListener) {
-			lis.Status.ListenerId = listener.ListenerId
-		}); err != nil {
+		lis.Status.ListenerId = listener.ListenerId
+		if err := r.Status().Update(ctx, lis); err != nil {
 			return err
 		}
 	}
@@ -494,10 +471,8 @@ func (r *DedicatedCLBListenerReconciler) createListener(ctx context.Context, log
 		r.Recorder.Event(lis, corev1.EventTypeNormal, "CreateListener", msg)
 		listenerId = id
 	}
-	return r.update(ctx, lis, true, func(lis *networkingv1alpha1.DedicatedCLBListener) {
-		lis.Status.ListenerId = listenerId
-		lis.Status.State = networkingv1alpha1.DedicatedCLBListenerStateAvailable
-	})
+	lis.Status.ListenerId = listenerId
+	return r.changeState(ctx, lis, networkingv1alpha1.DedicatedCLBListenerStateAvailable)
 }
 
 // SetupWithManager sets up the controller with the Manager.
