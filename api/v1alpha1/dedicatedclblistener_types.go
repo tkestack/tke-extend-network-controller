@@ -57,6 +57,7 @@ const (
 	DedicatedCLBListenerStateBound     = "Bound"
 	DedicatedCLBListenerStateAvailable = "Available"
 	DedicatedCLBListenerStatePending   = "Pending"
+	DedicatedCLBListenerStateFailed    = "Failed"
 	DedicatedCLBListenerStateDeleting  = "Deleting"
 )
 

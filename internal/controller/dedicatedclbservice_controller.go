@@ -20,7 +20,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"strconv"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/labels"
@@ -37,6 +36,7 @@ import (
 	"github.com/go-logr/logr"
 	networkingv1alpha1 "github.com/imroc/tke-extend-network-controller/api/v1alpha1"
 	"github.com/imroc/tke-extend-network-controller/pkg/kube"
+	"github.com/imroc/tke-extend-network-controller/pkg/util"
 )
 
 // DedicatedCLBServiceReconciler reconciles a DedicatedCLBService object
@@ -63,91 +63,69 @@ type DedicatedCLBServiceReconciler struct {
 // For more details, check Reconcile and its Result here:
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.18.4/pkg/reconcile
 func (r *DedicatedCLBServiceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	log := log.FromContext(ctx)
 	ds := &networkingv1alpha1.DedicatedCLBService{}
 	if err := r.Get(ctx, req.NamespacedName, ds); err != nil {
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
+	return util.RequeueIfConflict(r.reconcile(ctx, ds))
+}
+
+func (r *DedicatedCLBServiceReconciler) reconcile(ctx context.Context, ds *networkingv1alpha1.DedicatedCLBService) error {
 	if err := r.ensureStatus(ctx, ds); err != nil {
-		return ctrl.Result{}, err
+		return err
 	}
-	log.V(7).Info("list related pods", "podNamespace", req.Namespace, "podSelector", ds.Spec.Selector)
+	log := log.FromContext(ctx)
+	log.V(7).Info("list related pods", "podNamespace", ds.Namespace, "podSelector", ds.Spec.Selector)
 	pods := &corev1.PodList{}
 	if err := r.List(
 		ctx, pods,
-		client.InNamespace(req.Namespace),
+		client.InNamespace(ds.Namespace),
 		client.MatchingLabels(ds.Spec.Selector),
 	); err != nil {
-		return ctrl.Result{}, err
+		return err
 	}
 	if len(pods.Items) == 0 {
-		log.Info("no pods matches the selector")
-		return ctrl.Result{}, nil
+		log.V(5).Info("no pods matches the selector")
+		return nil
 	}
 	listeners := &networkingv1alpha1.DedicatedCLBListenerList{}
 	if err := r.List(
 		ctx, listeners,
-		client.InNamespace(req.Namespace),
-		client.MatchingLabels{labelKeyDedicatedCLBServiceName: req.Name},
+		client.InNamespace(ds.Namespace),
+		client.MatchingLabels{labelKeyDedicatedCLBServiceName: ds.Name},
 	); err != nil {
-		return ctrl.Result{}, err
+		return err
 	}
-	log.V(5).Info("find related pods and listeners", "pods", len(pods.Items), "listeners", len(listeners.Items), "podSelector", ds.Spec.Selector)
-	toUpdate, toCreate, err := r.diff(ctx, ds, pods.Items, listeners.Items)
+	log.V(5).Info(
+		"find related pods and listeners",
+		"pods", len(pods.Items),
+		"listeners", len(listeners.Items),
+		"podSelector", ds.Spec.Selector,
+	)
+	toUpdate, toCreate, boundListeners, err := r.diff(ctx, ds, pods.Items, listeners.Items)
 	if err != nil {
-		return ctrl.Result{}, err
+		return err
 	}
 	for _, listener := range toUpdate {
 		if err := r.Update(ctx, listener); err != nil {
-			return ctrl.Result{}, err
+			return err
 		}
 	}
 	for protocol, num := range toCreate {
 		if err := r.allocateNewListener(ctx, log, ds, protocol, num); err != nil {
 			r.Recorder.Event(ds, corev1.EventTypeWarning, "CreateListener", fmt.Sprintf("failed to create %d listeners with %s protocol: %s", num, protocol, err.Error()))
-			return ctrl.Result{}, err
+			return err
 		} else {
 			r.Recorder.Event(ds, corev1.EventTypeNormal, "CreateListener", fmt.Sprintf("successfully created %d listeners with %s protocol", num, protocol))
 		}
 	}
-	if err := r.ensurePodAnnotation(ctx, ds, pods.Items); err != nil {
-		return ctrl.Result{}, err
+	if err := r.ensurePodAnnotation(ctx, ds, pods.Items, boundListeners); err != nil {
+		return err
 	}
-	return ctrl.Result{}, nil
+	return nil
 }
 
-func (r *DedicatedCLBServiceReconciler) getAddr(ctx context.Context, ds *networkingv1alpha1.DedicatedCLBService, port int64, protocol string, pod *corev1.Pod) (addr string, err error) {
-	list := &networkingv1alpha1.DedicatedCLBListenerList{}
-	if err = r.List(
-		ctx, list,
-		client.InNamespace(ds.Namespace),
-		client.MatchingLabels{labelKeyDedicatedCLBServiceName: ds.Name},
-		client.MatchingFields{
-			"spec.backendPod.podName": pod.Name,
-			"spec.backendPod.port":    strconv.Itoa(int(port)),
-			"spec.protocol":           protocol,
-			"status.state":            networkingv1alpha1.DedicatedCLBListenerStateBound,
-		},
-	); err != nil {
-		return
-	}
-	if len(list.Items) == 0 { // 没有已绑定的监听器，忽略
-		return
-	}
-	if len(list.Items) > 1 {
-		err = fmt.Errorf("found %d DedicatedCLBListener for backend pod", len(list.Items))
-		log.FromContext(ctx).Error(err, "pod", pod.Name, "port", port, "protocol", protocol)
-		return
-	}
-	lis := list.Items[0]
-	if lis.Status.Address == "" {
-		return
-	}
-	addr = lis.Status.Address
-	return
-}
-
-func (r *DedicatedCLBServiceReconciler) ensurePodAnnotation(ctx context.Context, ds *networkingv1alpha1.DedicatedCLBService, pods []corev1.Pod) error {
+func (r *DedicatedCLBServiceReconciler) ensurePodAnnotation(ctx context.Context, ds *networkingv1alpha1.DedicatedCLBService, pods []corev1.Pod, boundListeners map[string]*networkingv1alpha1.DedicatedCLBListener) error {
 	if len(pods) == 0 {
 		return nil
 	}
@@ -156,25 +134,28 @@ func (r *DedicatedCLBServiceReconciler) ensurePodAnnotation(ctx context.Context,
 			continue
 		}
 		for _, pod := range pods {
-			addr := pod.Annotations[port.AddressPodAnnotation]
-			realAddr, err := r.getAddr(ctx, ds, port.TargetPort, port.Protocol, &pod)
-			if err != nil {
-				return err
+			key := getListenerKey(pod.Name, port.TargetPort, port.Protocol)
+			lis, ok := boundListeners[key]
+			if !ok || lis.Status.Address == "" {
+				continue
 			}
-			if realAddr != "" && realAddr != addr {
-				log.FromContext(ctx).V(5).Info(
-					"set external address to pod annotation",
-					"pod", pod.Name,
-					"port", port.TargetPort,
-					"protocol", port.Protocol,
-					"oldAddr", addr, "realAddr", realAddr,
-				)
-				if err := kube.SetPodAnnotation(ctx, &pod, port.AddressPodAnnotation, realAddr); err != nil {
-					r.Recorder.Event(ds, corev1.EventTypeWarning, "UpdatePodAnnotation", fmt.Sprintf("update pod %s's annotation (%s: %s): %s", pod.Name, port.AddressPodAnnotation, realAddr, err.Error()))
-					return err
-				} else {
-					r.Recorder.Event(ds, corev1.EventTypeNormal, "UpdatePodAnnotation", fmt.Sprintf("update pod %s's annotation (%s: %s)", pod.Name, port.AddressPodAnnotation, realAddr))
-				}
+			realAddr := lis.Status.Address
+			currentAddr := pod.Annotations[port.AddressPodAnnotation]
+			if realAddr == currentAddr {
+				continue
+			}
+			log.FromContext(ctx).V(5).Info(
+				"set external address to pod annotation",
+				"pod", pod.Name,
+				"port", port.TargetPort,
+				"protocol", port.Protocol,
+				"oldAddr", currentAddr, "realAddr", realAddr,
+			)
+			if err := kube.SetPodAnnotation(ctx, &pod, port.AddressPodAnnotation, realAddr); err != nil {
+				r.Recorder.Event(ds, corev1.EventTypeWarning, "UpdatePodAnnotation", fmt.Sprintf("set pod %s's annotation (%s: %s): %s", pod.Name, port.AddressPodAnnotation, realAddr, err.Error()))
+				return err
+			} else {
+				r.Recorder.Event(ds, corev1.EventTypeNormal, "UpdatePodAnnotation", fmt.Sprintf("set pod %s's annotation (%s: %s)", pod.Name, port.AddressPodAnnotation, realAddr))
 			}
 		}
 	}
@@ -208,11 +189,13 @@ func (r *DedicatedCLBServiceReconciler) diff(
 	pods []corev1.Pod, listeners []networkingv1alpha1.DedicatedCLBListener,
 ) (
 	toUpdate []*networkingv1alpha1.DedicatedCLBListener, toCreate map[string]int,
-	err error,
+	boundListeners map[string]*networkingv1alpha1.DedicatedCLBListener, err error,
 ) {
 	log := log.FromContext(ctx)
 	usedListeners := make(map[string]*networkingv1alpha1.DedicatedCLBListener)          // pod-port-protocol --> listener
 	allocatableListeners := make(map[string][]*networkingv1alpha1.DedicatedCLBListener) // protocol --> listeners
+	boundListeners = make(map[string]*networkingv1alpha1.DedicatedCLBListener)          // pod-port-protocol --> listener
+
 	for _, listener := range listeners {
 		targetPod := listener.Spec.TargetPod
 		if targetPod == nil {
@@ -222,20 +205,21 @@ func (r *DedicatedCLBServiceReconciler) diff(
 		}
 	}
 	type bind struct {
-		BackendPod *networkingv1alpha1.TargetPod
-		Protocol   string
+		*networkingv1alpha1.TargetPod
+		Protocol string
 	}
 	binds := []bind{}
 	for _, pod := range pods {
 		for _, port := range ds.Spec.Ports {
 			key := getListenerKey(pod.Name, port.TargetPort, port.Protocol)
-			_, ok := usedListeners[key]
+			listener, ok := usedListeners[key]
 			if ok { // pod 已绑定到监听器
 				delete(usedListeners, key)
+				boundListeners[key] = listener
 				continue
 			}
 			// 没绑定到监听器，尝试找一个
-			binds = append(binds, bind{Protocol: port.Protocol, BackendPod: &networkingv1alpha1.TargetPod{PodName: pod.Name, TargetPort: port.TargetPort}})
+			binds = append(binds, bind{Protocol: port.Protocol, TargetPod: &networkingv1alpha1.TargetPod{PodName: pod.Name, TargetPort: port.TargetPort}})
 		}
 	}
 	// 所有pod都绑定了，直接返回
@@ -258,15 +242,15 @@ func (r *DedicatedCLBServiceReconciler) diff(
 		listeners := allocatableListeners[bind.Protocol]
 		if len(listeners) > 0 { // 还有可被分配的监听器
 			listener := listeners[0]
-			listener.Spec.TargetPod = bind.BackendPod
+			listener.Spec.TargetPod = bind.TargetPod
 			toUpdate = append(toUpdate, listener)
 			allocatableListeners[bind.Protocol] = allocatableListeners[bind.Protocol][1:]
-			r.Recorder.Event(ds, corev1.EventTypeNormal, "BindPod", "bind pod "+bind.BackendPod.PodName+" to listener "+listener.Name)
+			r.Recorder.Event(ds, corev1.EventTypeNormal, "BindPod", "bind pod "+bind.PodName+" to listener "+listener.Name)
 			log.V(5).Info(
 				"bind pod to listener",
 				"listener", listener.Name,
-				"pod", bind.BackendPod.PodName,
-				"targetPort", bind.BackendPod.TargetPort,
+				"pod", bind.PodName,
+				"targetPort", bind.TargetPort,
 				"lbId", listener.Spec.LbId,
 				"lbPort", listener.Spec.LbPort,
 			)
