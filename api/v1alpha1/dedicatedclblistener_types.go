@@ -50,6 +50,7 @@ type TargetPod struct {
 type DedicatedCLBListenerStatus struct {
 	ListenerId string `json:"listenerId,omitempty"`
 	State      string `json:"state,omitempty"`
+	Message    string `json:"message,omitempty"`
 	Address    string `json:"address,omitempty"`
 }
 

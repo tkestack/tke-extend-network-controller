@@ -103,6 +103,8 @@ spec:
                 type: string
               listenerId:
                 type: string
+              message:
+                type: string
               state:
                 type: string
             type: object
