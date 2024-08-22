@@ -67,7 +67,7 @@ spec:
 
 如何确定 CLB 是域名化还是非域名化呢？在 CLB 实例的详情页就可以看出来：
 
-![](./images/clb-domain.png)
+![](./images/clb-domain.png) ![](./images/clb-vip.png)
 
 ## 注意事项
 
