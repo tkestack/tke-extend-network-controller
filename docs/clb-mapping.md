@@ -1,8 +1,15 @@
 # 使用 CLB 为 Pod 分配公网地址映射
 
+下面介绍如何为 Pod 分配独立的 CLB 公网地址映射。
+
 ## 创建 DedicatedCLBService
 
-通过自动为 CLB 创建监听器并绑定单个 Pod 来实现为 Pod 分配独立的公网地址：
+为应用创建 `DedicatedCLBService`:
+1. `selector` 选中目标应用 Pod 的 labels，
+2. `existedLbIds` 传入用于为 Pod 分配公网映射的 CLB 实例 ID 列表。
+3. `minPort` 和 `maxPort` 为 CLB 自动创建监听器的端口范围，每个端口只绑定一个 Pod。
+4. `ports` 为 Pod 监听的端口列表，通常一个房间进程只监听一个端口。其中 `addressPodAnnotation` 用于 CLB 绑定 Pod 后，自动将其 CLB 外部映射地址自动注入到指定的 pod annotation 中，可结合 Kubernetes 的 Downward API 将外部地址挂载进容器内，以便让应用能够感知到自身的公网地址。
+
 
 ```yaml
 apiVersion: networking.cloud.tencent.com/v1alpha1
