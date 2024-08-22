@@ -16,14 +16,14 @@ metadata:
   name: gameserver
 spec:
   lbRegion: ap-chengdu # 可选，CLB 所在地域，默认为集群所在地域
-  minPort: 501 # 在CLB自动创建监听器，每个Pod占用一个端口，端口号范围在 501-600
+  minPort: 501 # 在 CLB 自动创建监听器，每个 Pod 占用一个端口，端口号范围在 501-600
   maxPort: 600
   selector:
     app: gameserver
   ports:
-  - protocol: TCP # CLB 监听器协议（TCP/UDP）
+  - protocol: TCP # 端口监听的协议（TCP/UDP）
     targetPort: 9000 # 容器监听的端口
-    addressPodAnnotation: networking.cloud.tencent.com/external-address-9000 # 可选，将外部地址注入到pod的annotation中
+    addressPodAnnotation: networking.cloud.tencent.com/external-address-9000 # 可选，将外部地址自动注入到指定的 pod annotation 中
   - protocol: UDP
     targetPort: 8000
     addressPodAnnotation: networking.cloud.tencent.com/external-address-8080
