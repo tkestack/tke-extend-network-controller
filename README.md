@@ -12,13 +12,13 @@
 
 ## 文档
 
-- [安装 tke-extend-network-controller 到 TKE 集群](./docs/install.md)
+- [安装](./docs/install.md)
 - [使用 CLB 为 Pod 分配公网地址映射](./docs/clb-mapping.md)
-* [CRD 字段说明](docs/crd.md)
-* [API 参考](docs/api.md)
-* [Roadmap](docs/roadmap.md)
-* [贡献指南](docs/contributing.md)
-* [技术亮点](docs/inside.md)
+- [CRD 字段说明](docs/crd.md)
+- [API 参考](docs/api.md)
+- [Roadmap](docs/roadmap.md)
+- [贡献指南](docs/contributing.md)
+- [技术亮点](docs/inside.md)
 
 ## 项目状态与版本说明
 

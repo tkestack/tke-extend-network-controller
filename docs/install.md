@@ -1,4 +1,4 @@
-# 安装 tke-extend-network-controller 到 TKE 集群
+# 安装
 
 ## 前提条件
 
