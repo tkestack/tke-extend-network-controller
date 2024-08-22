@@ -18,6 +18,7 @@ spec:
   lbRegion: ap-chengdu # 可选，CLB 所在地域，默认为集群所在地域
   minPort: 501 # 在 CLB 自动创建监听器，每个 Pod 占用一个端口，端口号范围在 501-600
   maxPort: 600
+  listenerConfig: "clblistenerconfig-sample" # 可选，指定监听器配置，引用 CLBListenerConfig。
   selector:
     app: gameserver
   ports:
@@ -47,7 +48,7 @@ spec:
   lbRegion: ap-chengdu # 可选，CLB 所在地域，默认为集群所在地域
   lbPort: 8088 # 必选，监听器端口
   protocol: TCP # 必选，监听器协议。TCP | UDP
-  listenerConfig: clblistenerconfig-sample # 可选，创建监听器的配置
+  listenerConfig: "clblistenerconfig-sample" # 可选，指定监听器配置，引用 CLBListenerConfig。
   backendPod: # 可选，需绑定的后端Pod
     podName: gameserver-0 # 指定 backendPod 时必选，后端 Pod 名称
     port: 80 # 指定 backendPod 时必选，后端 Pod 监听的端口
@@ -57,7 +58,6 @@ status:
   address: 139.135.64.53:8088 # 公网地址
 ```
 
-
 ## CLBListenerConfig
 
 CLB 监听器配置，可被 `DedicatedCLBListener` 或 `DedicatedCLBService` 引用:
@@ -66,9 +66,6 @@ CLB 监听器配置，可被 `DedicatedCLBListener` 或 `DedicatedCLBService` �
 apiVersion: networking.cloud.tencent.com/v1alpha1
 kind: CLBListenerConfig
 metadata:
-  labels:
-    app.kubernetes.io/name: tke-extend-network-controller
-    app.kubernetes.io/managed-by: kustomize
   name: clblistenerconfig-sample
 spec:
   healthcheck: # 可选，健康检查配置。 CLB API 文档: https://cloud.tencent.com/document/api/214/30694#HealthCheck
