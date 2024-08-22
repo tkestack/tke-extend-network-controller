@@ -2,6 +2,16 @@ apiVersion: v1
 entries:
   tke-extend-network-controller:
   - apiVersion: v2
+    appVersion: 0.1.11
+    created: "2024-08-22T09:31:34.707215107Z"
+    description: A Network Controller for TKE
+    digest: df04eaa1b11a55d4f3c1d1888de204b6db4cdc103201a80dc409368fe0616e21
+    name: tke-extend-network-controller
+    type: application
+    urls:
+    - https://github.com/imroc/tke-extend-network-controller/releases/download/tke-extend-network-controller-0.1.11/tke-extend-network-controller-0.1.11.tgz
+    version: 0.1.11
+  - apiVersion: v2
     appVersion: 0.1.10
     created: "2024-08-21T08:01:11.464655884Z"
     description: A Network Controller for TKE
@@ -91,4 +101,4 @@ entries:
     urls:
     - https://github.com/imroc/tke-extend-network-controller/releases/download/tke-extend-network-controller-0.1.1/tke-extend-network-controller-0.1.1.tgz
     version: 0.1.1
-generated: "2024-08-21T08:01:11.464689817Z"
+generated: "2024-08-22T09:31:34.707252868Z"
