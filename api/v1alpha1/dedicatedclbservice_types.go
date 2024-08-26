@@ -47,7 +47,7 @@ type LbAutoCreate struct {
 	// +optional
 	Enable bool `json:"enable,omitempty"`
 	// +optional
-	ConfigJson string `json:"configJson,omitempty"`
+	ExtensiveParameters string `json:"extensiveParameters,omitempty"`
 }
 
 type DedicatedCLBServicePort struct {

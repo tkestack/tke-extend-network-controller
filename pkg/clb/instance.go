@@ -50,7 +50,7 @@ func GetClb(ctx context.Context, lbId, region string) (instance *clb.LoadBalance
 }
 
 // TODO: 支持部分成功
-func Create(ctx context.Context, region, vpcId, configJson string, num int) (ids []string, err error) {
+func Create(ctx context.Context, region, vpcId, extensiveParameters string, num int) (ids []string, err error) {
 	if vpcId == "" {
 		vpcId = defaultVpcId
 	}
@@ -68,8 +68,8 @@ func Create(ctx context.Context, region, vpcId, configJson string, num int) (ids
 			TagValue: common.StringPtr("yes"),
 		},
 	)
-	if configJson != "" {
-		err = json.Unmarshal([]byte(configJson), req)
+	if extensiveParameters != "" {
+		err = json.Unmarshal([]byte(extensiveParameters), req)
 		if err != nil {
 			return
 		}

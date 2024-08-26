@@ -186,7 +186,7 @@ func (r *DedicatedCLBServiceReconciler) sync(ctx context.Context, ds *networking
 }
 
 func (r *DedicatedCLBServiceReconciler) allocateNewCLB(ctx context.Context, ds *networkingv1alpha1.DedicatedCLBService, num int) error {
-	ids, err := clb.Create(ctx, ds.Spec.LbRegion, ds.Spec.VpcId, ds.Spec.LbAutoCreate.ConfigJson, num)
+	ids, err := clb.Create(ctx, ds.Spec.LbRegion, ds.Spec.VpcId, ds.Spec.LbAutoCreate.ExtensiveParameters, num)
 	if err != nil {
 		return err
 	}

@@ -46,10 +46,10 @@ spec:
                 type: array
               lbAutoCreate:
                 properties:
-                  configJson:
-                    type: string
                   enable:
                     type: boolean
+                  extensiveParameters:
+                    type: string
                 type: object
               lbRegion:
                 type: string

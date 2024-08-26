@@ -27,10 +27,19 @@ spec:
   - protocol: UDP # 端口监听的协议（TCP/UDP）
     targetPort: 9000 # 容器监听的端口 (游戏战斗服、会议等进程监听的端口)
     addressPodAnnotation: networking.cloud.tencent.com/external-address # 可选，将外部地址自动注入到指定的 pod annotation 中
-  existedLbIds: # 如果复用已有的 CLB 实例，指定 CLB 实例 ID 的列表
+  existedLbIds: # 复用已有的 CLB 实例，指定 CLB 实例 ID 的列表
     - lb-xxx
     - lb-yyy
     - lb-zzz
+  lbAutoCreate:
+    enable: true # 当 CLB 不足时，自动创建 CLB
+    extensiveParameters: | # 购买 CLB 时的参数(JSON 字符串格式)：按流量计费，带宽上限 2048 Mbps （完整参数列表参考 CreateLoadBalancer 接口 https://cloud.tencent.com/document/api/214/30692）
+      {
+        "InternetAccessible": {
+          "InternetChargeType": "TRAFFIC_POSTPAID_BY_HOUR",
+          "InternetMaxBandwidthOut": 2048
+        }
+      }
 ```
 
 ## 将 CLB 映射的外部地址注入到 Pod 注解中
