@@ -394,13 +394,16 @@ OUTER_LOOP:
 		}
 	}
 
-	// if createdNum > 0 { // 空闲监听器不够
-	// 	log.V(5).Info("idle listener is not enough", "gapNum", num)
-	// }
-
 	if updateStatus { // 有成功创建过，更新status
-		log.V(5).Info("update lbList status", "lbList", ds.Status.LbList)
-		if statusErr := r.Status().Update(ctx, ds); statusErr != nil {
+		lbList := ds.Status.LbList
+		log.V(5).Info("update lbList status", "lbList", lbList)
+		if statusErr := util.RetryIfPossible(func() error {
+			if err := r.APIReader.Get(ctx, client.ObjectKeyFromObject(ds), ds); err != nil {
+				return err
+			}
+			ds.Status.LbList = lbList
+			return r.Status().Update(ctx, ds)
+		}); statusErr != nil {
 			return createdNum, statusErr // TODO: 两个err可能同时发生，出现err覆盖
 		}
 		return createdNum, err
