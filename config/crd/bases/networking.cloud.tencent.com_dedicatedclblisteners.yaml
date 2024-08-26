@@ -23,6 +23,10 @@ spec:
       jsonPath: .spec.lbPort
       name: LbPort
       type: integer
+    - description: Pod name of target pod
+      jsonPath: .spec.targetPod.podName
+      name: Pod
+      type: string
     - description: State of the dedicated clb listener
       jsonPath: .status.state
       name: State
