@@ -1,5 +1,10 @@
 # 版本说明
 
+## v0.1.12 (2024-08-26)
+
+* clb 接口改为内网调用(以支持 controller 调度到没有公网的节点或超级节点)。
+* 展示 DedicatedCLBListener 时增加 Pod 列（增加可读性）。
+
 ## v0.1.11 (2024-08-22)
 
 * 完善和优化文档。
@@ -12,7 +17,7 @@
 ## v0.1.9 (2024-08-19)
 
 修复：
-* 修复 clb 不存在时无法删除 DedicatedCLBListener (#1)。
+* 修复 clb 不存在时无法删除 DedicatedCLBListener ([#1](https://github.com/imroc/tke-extend-network-controller/issues/1))。
  
 优化：
 * 一些文档优化。
