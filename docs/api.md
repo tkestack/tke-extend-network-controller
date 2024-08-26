@@ -16,23 +16,6 @@
 
 
 
-#### BackendPod
-
-
-
-
-
-
-
-_Appears in:_
-- [DedicatedCLBListenerSpec](#dedicatedclblistenerspec)
-
-| Field | Description | Default | Validation |
-| --- | --- | --- | --- |
-| `podName` _string_ |  |  |  |
-| `port` _integer_ |  |  |  |
-
-
 #### CLB
 
 
@@ -271,7 +254,7 @@ _Appears in:_
 | `lbPort` _integer_ |  |  |  |
 | `protocol` _string_ |  |  | Enum: [TCP UDP] <br /> |
 | `listenerConfig` _string_ |  |  |  |
-| `backendPod` _[BackendPod](#backendpod)_ |  |  |  |
+| `targetPod` _[TargetPod](#targetpod)_ |  |  |  |
 
 
 #### DedicatedCLBListenerStatus
@@ -289,6 +272,7 @@ _Appears in:_
 | --- | --- | --- | --- |
 | `listenerId` _string_ |  |  |  |
 | `state` _string_ |  |  |  |
+| `message` _string_ |  |  |  |
 | `address` _string_ |  |  |  |
 
 
@@ -435,7 +419,7 @@ _Appears in:_
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
 | `enable` _boolean_ |  |  |  |
-| `configJson` _string_ |  |  |  |
+| `extensiveParameters` _string_ |  |  |  |
 
 
 #### MultiCertInfo
@@ -453,5 +437,22 @@ _Appears in:_
 | --- | --- | --- | --- |
 | `sslMode` _string_ |  |  |  |
 | `certList` _[CertInfo](#certinfo) array_ |  |  |  |
+
+
+#### TargetPod
+
+
+
+
+
+
+
+_Appears in:_
+- [DedicatedCLBListenerSpec](#dedicatedclblistenerspec)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `podName` _string_ |  |  |  |
+| `targetPort` _integer_ |  |  |  |
 
 
