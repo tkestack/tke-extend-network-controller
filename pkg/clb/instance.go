@@ -110,7 +110,6 @@ func Delete(ctx context.Context, region string, lbIds ...string) error {
 	client := GetClient(region)
 	resp, err := client.DeleteLoadBalancerWithContext(ctx, req)
 	if err != nil {
-		fmt.Printf("inspect TencentCloudSDKError: %+#v\n", err)
 		if serr, ok := err.(*sdkerror.TencentCloudSDKError); ok && serr.Code == "InvalidParameter.LBIdNotFound" {
 			if len(lbIds) == 1 { // lb 已全部删除，忽略
 				return nil
