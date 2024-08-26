@@ -195,7 +195,9 @@ func (r *DedicatedCLBServiceReconciler) allocateNewCLB(ctx context.Context, ds *
 			AutoCreate: true,
 		})
 	}
-	return r.Status().Update(ctx, ds)
+	return util.RetryIfTooManyRequests(func() error { // 确保lb列表写入成功，避免lb泄露
+		return r.Status().Update(ctx, ds)
+	})
 }
 
 func (r *DedicatedCLBServiceReconciler) ensurePodAnnotation(ctx context.Context, ds *networkingv1alpha1.DedicatedCLBService, pods []corev1.Pod, boundListeners map[string]*networkingv1alpha1.DedicatedCLBListener) error {
