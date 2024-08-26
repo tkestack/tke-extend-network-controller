@@ -27,3 +27,17 @@ func RetryIfTooManyRequests(fn func() error) error {
 		return err
 	}
 }
+
+func RetryIfPossible(fn func() error) error {
+	for {
+		err := fn()
+		if err == nil {
+			return nil
+		}
+		if apierrors.IsTooManyRequests(err) || apierrors.IsConflict(err) { // API限速或资源冲突时，尝试重试
+			time.Sleep(time.Second)
+			continue
+		}
+		return err
+	}
+}

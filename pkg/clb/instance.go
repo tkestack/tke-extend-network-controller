@@ -3,15 +3,13 @@ package clb
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"time"
-
-	sdkerror "github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common/errors"
 
 	"github.com/imroc/tke-extend-network-controller/pkg/util"
 	clb "github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/clb/v20180317"
 	"github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common"
+	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 func GetClbExternalAddress(ctx context.Context, lbId, region string) (address string, err error) {
@@ -83,8 +81,13 @@ func Create(ctx context.Context, region, vpcId, configJson string, num int) (ids
 	}
 	ids = util.ConvertStringPointSlice(resp.Response.LoadBalancerIds)
 	if len(ids) == 0 {
-		err = errors.New("no loadbalancer created")
-		return
+		ids, err = Wait(ctx, region, *resp.Response.RequestId)
+		if err != nil {
+			return nil, err
+		}
+	}
+	if len(ids) == 0 {
+		return nil, fmt.Errorf("no loadbalancer created")
 	}
 	for _, lbId := range ids {
 		for {
@@ -93,6 +96,7 @@ func Create(ctx context.Context, region, vpcId, configJson string, num int) (ids
 				return nil, err
 			}
 			if *lb.Status == 0 { // 创建中，等待一下
+				log.FromContext(ctx).Info("lb is still creating", "lbId", lbId)
 				time.Sleep(time.Second * 3)
 				continue
 			}
@@ -110,7 +114,7 @@ func Delete(ctx context.Context, region string, lbIds ...string) error {
 	client := GetClient(region)
 	resp, err := client.DeleteLoadBalancerWithContext(ctx, req)
 	if err != nil {
-		if serr, ok := err.(*sdkerror.TencentCloudSDKError); ok && serr.Code == "InvalidParameter.LBIdNotFound" {
+		if IsLbIdNotFoundError(err) {
 			if len(lbIds) == 1 { // lb 已全部删除，忽略
 				return nil
 			} else { // lb 可能全部删除，也可能部分删除，挨个尝试一下
@@ -124,5 +128,6 @@ func Delete(ctx context.Context, region string, lbIds ...string) error {
 		}
 		return err
 	}
-	return Wait(ctx, region, *resp.Response.RequestId)
+	_, err = Wait(ctx, region, *resp.Response.RequestId)
+	return err
 }

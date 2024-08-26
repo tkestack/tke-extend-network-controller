@@ -142,7 +142,8 @@ func DeregisterTargetsForListener(ctx context.Context, region, lbId, listenerId 
 	if err != nil {
 		return err
 	}
-	return Wait(ctx, region, *resp.Response.RequestId)
+	_, err = Wait(ctx, region, *resp.Response.RequestId)
+	return err
 }
 
 func getClbTargets(targets []Target) (clbTargets []*clb.Target) {
@@ -169,7 +170,8 @@ func RegisterTargets(ctx context.Context, region, lbId, listenerId string, targe
 	if err != nil {
 		return err
 	}
-	return Wait(ctx, region, *resp.Response.RequestId)
+	_, err = Wait(ctx, region, *resp.Response.RequestId)
+	return err
 }
 
 func DescribeTargets(ctx context.Context, region, lbId, listenerId string) (targets []Target, err error) {

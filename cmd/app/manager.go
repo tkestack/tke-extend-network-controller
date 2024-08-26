@@ -55,9 +55,10 @@ func runManager() {
 	}
 
 	if err = (&controller.DedicatedCLBServiceReconciler{
-		Client:   mgr.GetClient(),
-		Scheme:   mgr.GetScheme(),
-		Recorder: mgr.GetEventRecorderFor("dedicatedclbservice-controller"),
+		Client:    mgr.GetClient(),
+		Scheme:    mgr.GetScheme(),
+		APIReader: mgr.GetAPIReader(),
+		Recorder:  mgr.GetEventRecorderFor("dedicatedclbservice-controller"),
 	}).SetupWithManager(mgr, workers); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "DedicatedCLBService")
 		os.Exit(1)

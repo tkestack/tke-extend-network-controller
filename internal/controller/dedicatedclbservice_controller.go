@@ -44,8 +44,9 @@ import (
 // DedicatedCLBServiceReconciler reconciles a DedicatedCLBService object
 type DedicatedCLBServiceReconciler struct {
 	client.Client
-	Scheme   *runtime.Scheme
-	Recorder record.EventRecorder
+	APIReader client.Reader
+	Scheme    *runtime.Scheme
+	Recorder  record.EventRecorder
 }
 
 // +kubebuilder:rbac:groups=networking.cloud.tencent.com,resources=dedicatedclbservices,verbs=get;list;watch;create;update;patch;delete
@@ -189,14 +190,21 @@ func (r *DedicatedCLBServiceReconciler) allocateNewCLB(ctx context.Context, ds *
 	if err != nil {
 		return err
 	}
-	for _, lbId := range ids {
-		ds.Status.LbList = append(ds.Status.LbList, networkingv1alpha1.DedicatedCLBInfo{
-			LbId:       lbId,
-			AutoCreate: true,
-		})
-	}
-	return util.RetryIfTooManyRequests(func() error { // 确保lb列表写入成功，避免lb泄露
-		return r.Status().Update(ctx, ds)
+	log.FromContext(ctx).Info("successfully created clb instance", "lbIds", ids)
+	return util.RetryIfPossible(func() error { // 确保lb列表写入成功，避免lb泄露
+		if err := r.APIReader.Get(ctx, client.ObjectKeyFromObject(ds), ds); err != nil {
+			return err
+		}
+		for _, lbId := range ids {
+			ds.Status.LbList = append(ds.Status.LbList, networkingv1alpha1.DedicatedCLBInfo{
+				LbId:       lbId,
+				AutoCreate: true,
+			})
+		}
+		if err := r.Status().Update(ctx, ds); err != nil {
+			return err
+		}
+		return nil
 	})
 }
 

@@ -83,7 +83,7 @@ func CreateListener(ctx context.Context, region string, req *clb.CreateListenerR
 		err = fmt.Errorf("found %d listeners created", len(resp.Response.ListenerIds))
 		return
 	}
-	err = Wait(ctx, region, *resp.Response.RequestId)
+	_, err = Wait(ctx, region, *resp.Response.RequestId)
 	if err != nil {
 		return
 	}
@@ -116,5 +116,6 @@ func DeleteListener(ctx context.Context, region, lbId, listenerId string) error 
 	if err != nil {
 		return err
 	}
-	return Wait(ctx, region, *resp.Response.RequestId)
+	_, err = Wait(ctx, region, *resp.Response.RequestId)
+	return err
 }
