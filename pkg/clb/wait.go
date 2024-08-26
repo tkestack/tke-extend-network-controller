@@ -10,7 +10,7 @@ import (
 
 func Wait(ctx context.Context, region, reqId string) error {
 	client := GetClient(region)
-	for i := 0; i < 10; i++ {
+	for i := 0; i < 20; i++ {
 		req := clb.NewDescribeTaskStatusRequest()
 		req.TaskId = &reqId
 		resp, err := client.DescribeTaskStatusWithContext(ctx, req)

@@ -2,10 +2,14 @@ package clb
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"time"
 
+	sdkerror "github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common/errors"
+
+	"github.com/imroc/tke-extend-network-controller/pkg/util"
 	clb "github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/clb/v20180317"
 	"github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common"
 )
@@ -47,13 +51,15 @@ func GetClb(ctx context.Context, lbId, region string) (instance *clb.LoadBalance
 	return
 }
 
-func Create(ctx context.Context, region, vpcId, name string) (lbId string, err error) {
+// TODO: 支持部分成功
+func Create(ctx context.Context, region, vpcId, configJson string, num int) (ids []string, err error) {
 	if vpcId == "" {
 		vpcId = defaultVpcId
 	}
 	req := clb.NewCreateLoadBalancerRequest()
 	req.LoadBalancerType = common.StringPtr("OPEN")
 	req.VpcId = &vpcId
+	req.Number = common.Uint64Ptr(uint64(num))
 	req.Tags = append(req.Tags,
 		&clb.TagInfo{
 			TagKey:   common.StringPtr("tke-clusterId"), // 与集群关联
@@ -64,31 +70,60 @@ func Create(ctx context.Context, region, vpcId, name string) (lbId string, err e
 			TagValue: common.StringPtr("yes"),
 		},
 	)
+	if configJson != "" {
+		err = json.Unmarshal([]byte(configJson), req)
+		if err != nil {
+			return
+		}
+	}
 	client := GetClient(region)
-	resp, err := client.CreateLoadBalancer(req)
+	resp, err := client.CreateLoadBalancerWithContext(ctx, req)
 	if err != nil {
 		return
 	}
-	ids := resp.Response.LoadBalancerIds
+	ids = util.ConvertStringPointSlice(resp.Response.LoadBalancerIds)
 	if len(ids) == 0 {
 		err = errors.New("no loadbalancer created")
 		return
 	}
-	if len(ids) > 1 {
-		err = fmt.Errorf("multiple loadbalancers created: %v", ids)
-		return
-	}
-	lbId = *ids[0]
-	for {
-		lb, err := GetClb(ctx, lbId, region)
-		if err != nil {
-			return "", err
+	for _, lbId := range ids {
+		for {
+			lb, err := GetClb(ctx, lbId, region)
+			if err != nil {
+				return nil, err
+			}
+			if *lb.Status == 0 { // 创建中，等待一下
+				time.Sleep(time.Second * 3)
+				continue
+			}
+			break
 		}
-		if *lb.Status == 0 { // 创建中，等待一下
-			time.Sleep(time.Second * 3)
-			continue
-		}
-		break
 	}
 	return
+}
+
+func Delete(ctx context.Context, region string, lbIds ...string) error {
+	req := clb.NewDeleteLoadBalancerRequest()
+	for _, lbId := range lbIds {
+		req.LoadBalancerIds = append(req.LoadBalancerIds, &lbId)
+	}
+	client := GetClient(region)
+	resp, err := client.DeleteLoadBalancerWithContext(ctx, req)
+	if err != nil {
+		fmt.Printf("inspect TencentCloudSDKError: %+#v\n", err)
+		if serr, ok := err.(*sdkerror.TencentCloudSDKError); ok && serr.Code == "InvalidParameter.LBIdNotFound" {
+			if len(lbIds) == 1 { // lb 已全部删除，忽略
+				return nil
+			} else { // lb 可能全部删除，也可能部分删除，挨个尝试一下
+				for _, lbId := range lbIds {
+					if err := Delete(ctx, region, lbId); err != nil {
+						return err
+					}
+				}
+				return nil
+			}
+		}
+		return err
+	}
+	return Wait(ctx, region, *resp.Response.RequestId)
 }

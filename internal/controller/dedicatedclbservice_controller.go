@@ -20,6 +20,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/labels"
@@ -35,6 +36,7 @@ import (
 
 	"github.com/go-logr/logr"
 	networkingv1alpha1 "github.com/imroc/tke-extend-network-controller/api/v1alpha1"
+	"github.com/imroc/tke-extend-network-controller/pkg/clb"
 	"github.com/imroc/tke-extend-network-controller/pkg/kube"
 	"github.com/imroc/tke-extend-network-controller/pkg/util"
 )
@@ -70,7 +72,50 @@ func (r *DedicatedCLBServiceReconciler) Reconcile(ctx context.Context, req ctrl.
 	return util.RequeueIfConflict(r.reconcile(ctx, ds))
 }
 
+const dedicatedCLBServiceFinalizer = "dedicatedclbservice.finalizers.networking.cloud.tencent.com"
+
+func (r *DedicatedCLBServiceReconciler) syncDelete(ctx context.Context, ds *networkingv1alpha1.DedicatedCLBService) error {
+	lbToDelete := []string{}
+	for _, lb := range ds.Status.LbList {
+		if lb.AutoCreate {
+			lbToDelete = append(lbToDelete, lb.LbId)
+		}
+	}
+	if len(lbToDelete) > 0 {
+		r.Recorder.Event(ds, corev1.EventTypeNormal, "DeleteCLB", fmt.Sprintf("delete auto created clb instances: %v", lbToDelete))
+		if err := clb.Delete(ctx, ds.Spec.LbRegion, lbToDelete...); err != nil {
+			r.Recorder.Event(ds, corev1.EventTypeWarning, "DeleteCLB", err.Error())
+			return err
+		}
+	}
+	return nil
+}
+
 func (r *DedicatedCLBServiceReconciler) reconcile(ctx context.Context, ds *networkingv1alpha1.DedicatedCLBService) error {
+	if !ds.DeletionTimestamp.IsZero() { // 正在删除
+		if err := r.syncDelete(ctx, ds); err != nil { // 清理
+			return err
+		}
+		// 确保自动创建的CLB清理后，移除finalizer
+		if controllerutil.ContainsFinalizer(ds, dedicatedCLBServiceFinalizer) && controllerutil.RemoveFinalizer(ds, dedicatedCLBServiceFinalizer) {
+			if err := r.Update(ctx, ds); err != nil {
+				return err
+			}
+		}
+		return nil
+	}
+
+	// 确保 finalizers 存在
+	if !controllerutil.ContainsFinalizer(ds, dedicatedCLBServiceFinalizer) && controllerutil.AddFinalizer(ds, dedicatedCLBServiceFinalizer) {
+		if err := r.Update(ctx, ds); err != nil {
+			return err
+		}
+	}
+
+	return r.sync(ctx, ds)
+}
+
+func (r *DedicatedCLBServiceReconciler) sync(ctx context.Context, ds *networkingv1alpha1.DedicatedCLBService) error {
 	if err := r.ensureStatus(ctx, ds); err != nil {
 		return err
 	}
@@ -112,17 +157,45 @@ func (r *DedicatedCLBServiceReconciler) reconcile(ctx context.Context, ds *netwo
 		}
 	}
 	for protocol, num := range toCreate {
-		if err := r.allocateNewListener(ctx, log, ds, protocol, num); err != nil {
+		if createdNum, err := r.allocateNewListener(ctx, log, ds, protocol, num); err != nil {
 			r.Recorder.Event(ds, corev1.EventTypeWarning, "CreateListener", fmt.Sprintf("failed to create %d listeners with %s protocol: %s", num, protocol, err.Error()))
 			return err
 		} else {
-			r.Recorder.Event(ds, corev1.EventTypeNormal, "CreateListener", fmt.Sprintf("successfully created %d listeners with %s protocol", num, protocol))
+			if createdNum > 0 {
+				r.Recorder.Event(ds, corev1.EventTypeNormal, "CreateListener", fmt.Sprintf("successfully created %d listeners with %s protocol", createdNum, protocol))
+			}
+			if ds.Spec.LbAutoCreate.Enable {
+				if gapNum := num - createdNum; gapNum > 0 {
+					lbNum := float64(gapNum) / (float64(ds.Spec.MaxPort) - float64(ds.Spec.MinPort) + 1)
+					lbToCreate := int(math.Ceil(lbNum))
+					r.Recorder.Event(ds, corev1.EventTypeNormal, "CreateCLB", fmt.Sprintf("clb is not enough, try to create %d clb instance", lbToCreate))
+					if err := r.allocateNewCLB(ctx, ds, lbToCreate); err != nil {
+						r.Recorder.Event(ds, corev1.EventTypeWarning, "CreateCLB", fmt.Sprintf("failed to create %d clb instance: %s", lbToCreate, err.Error()))
+						return err
+					}
+					break
+				}
+			}
 		}
 	}
 	if err := r.ensurePodAnnotation(ctx, ds, pods.Items, boundListeners); err != nil {
 		return err
 	}
 	return nil
+}
+
+func (r *DedicatedCLBServiceReconciler) allocateNewCLB(ctx context.Context, ds *networkingv1alpha1.DedicatedCLBService, num int) error {
+	ids, err := clb.Create(ctx, ds.Spec.LbRegion, ds.Spec.VpcId, ds.Spec.LbAutoCreate.ConfigJson, num)
+	if err != nil {
+		return err
+	}
+	for _, lbId := range ids {
+		ds.Status.LbList = append(ds.Status.LbList, networkingv1alpha1.DedicatedCLBInfo{
+			LbId:       lbId,
+			AutoCreate: true,
+		})
+	}
+	return r.Status().Update(ctx, ds)
 }
 
 func (r *DedicatedCLBServiceReconciler) ensurePodAnnotation(ctx context.Context, ds *networkingv1alpha1.DedicatedCLBService, pods []corev1.Pod, boundListeners map[string]*networkingv1alpha1.DedicatedCLBListener) error {
@@ -261,16 +334,17 @@ func (r *DedicatedCLBServiceReconciler) diff(
 	return
 }
 
-func (r *DedicatedCLBServiceReconciler) allocateNewListener(ctx context.Context, log logr.Logger, ds *networkingv1alpha1.DedicatedCLBService, protocol string, num int) error {
+func (r *DedicatedCLBServiceReconciler) allocateNewListener(ctx context.Context, log logr.Logger, ds *networkingv1alpha1.DedicatedCLBService, protocol string, num int) (int, error) {
 	if len(ds.Status.LbList) == 0 {
-		return errors.New("no clb found")
+		return 0, errors.New("no clb found")
 	}
 	updateStatus := false
 	var err error
 	lbIndex := 0
 	generateName := ds.Name + "-"
+	createdNum := 0
 OUTER_LOOP:
-	for ; num > 0; num-- { // 每个n个端口的循环
+	for ; createdNum < num; createdNum++ { // 每个n个端口的循环
 		for { // 分配单个lb端口的循环
 			if lbIndex >= len(ds.Status.LbList) {
 				log.Info("lb is not enough, stop trying allocate new listener")
@@ -310,19 +384,19 @@ OUTER_LOOP:
 		}
 	}
 
-	if num > 0 { // 空闲监听器不够
-		log.V(5).Info("idle listener is not enough", "gapNum", num)
-	}
+	// if createdNum > 0 { // 空闲监听器不够
+	// 	log.V(5).Info("idle listener is not enough", "gapNum", num)
+	// }
 
 	if updateStatus { // 有成功创建过，更新status
 		log.V(5).Info("update lbList status", "lbList", ds.Status.LbList)
 		if statusErr := r.Status().Update(ctx, ds); statusErr != nil {
-			return statusErr // TODO: 两个err可能同时发生，出现err覆盖
+			return createdNum, statusErr // TODO: 两个err可能同时发生，出现err覆盖
 		}
-		return err
+		return createdNum, err
 	}
 	log.V(5).Info("no listener created")
-	return err
+	return createdNum, err
 }
 
 func (r *DedicatedCLBServiceReconciler) findObjectsForPod(ctx context.Context, pod client.Object) []reconcile.Request {
