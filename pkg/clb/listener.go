@@ -7,6 +7,7 @@ import (
 	"fmt"
 
 	clb "github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/clb/v20180317"
+	"github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common"
 )
 
 type Listener struct {
@@ -75,6 +76,7 @@ func CreateListener(ctx context.Context, region, lbId string, port int64, protoc
 	req.LoadBalancerId = &lbId
 	req.Ports = []*int64{&port}
 	req.Protocol = &protocol
+	req.ListenerNames = []*string{common.StringPtr(TkePodListenerName)}
 	client := GetClient(region)
 	mu := getLbLock(lbId)
 	mu.Lock()
