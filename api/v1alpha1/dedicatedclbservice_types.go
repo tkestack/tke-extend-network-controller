@@ -25,48 +25,66 @@ import (
 
 // DedicatedCLBServiceSpec defines the desired state of DedicatedCLBService
 type DedicatedCLBServiceSpec struct {
+	// CLB 所在地域，不填则使用 TKE 集群所在的地域。
 	// +optional
 	LbRegion string `json:"lbRegion,omitempty"`
+	// CLB 所在 VPC ID，不填则使用 TKE 集群所在的 VPC 的 ID。
 	// +optional
 	VpcId string `json:"vpcId"`
+	// CLB 端口范围的最小端口号。
 	// +default=500
 	MinPort int64 `json:"minPort"`
+	// CLB 端口范围的最大端口号。
 	// +default=550
-	MaxPort  int64                     `json:"maxPort"`
-	Selector map[string]string         `json:"selector"`
-	Ports    []DedicatedCLBServicePort `json:"ports"`
+	MaxPort int64 `json:"maxPort"`
+	// Pod 的标签选择器，被选中的 Pod 会被绑定到 CLB 监听器下。
+	Selector map[string]string `json:"selector"`
+	// Pod 监听的端口。
+	Ports []DedicatedCLBServicePort `json:"ports"`
+	// 创建监听器的参数，JSON 格式，详细参数请参考 CreateListener 接口：https://cloud.tencent.com/document/api/214/30693
 	// +optional
-	ListenerConfig string `json:"listenerConfig,omitempty"`
+	ListenerExtensiveParameters string `json:"listenerExtensiveParameters,omitempty"`
+	// 复用的已有的 CLB ID，可动态追加。
 	// +optional
 	ExistedLbIds []string `json:"existedLbIds,omitempty"`
+	// 启用自动创建 CLB 的功能。
 	// +optional
 	LbAutoCreate LbAutoCreate `json:"lbAutoCreate,omitempty"`
 }
 
 type LbAutoCreate struct {
+	// 是否启用自动创建 CLB 的功能，如果启用，当 CLB 不足时，会自动创建新的 CLB。
 	// +optional
 	Enable bool `json:"enable,omitempty"`
+	// 创建 CLB 时的参数，JSON 格式，详细参数请参考 CreateLoadBalancer 接口：https://cloud.tencent.com/document/api/214/30692
 	// +optional
 	ExtensiveParameters string `json:"extensiveParameters,omitempty"`
 }
 
 type DedicatedCLBServicePort struct {
-	Protocol   string `json:"protocol"`
-	TargetPort int64  `json:"targetPort"`
+	// 端口协议，支持 TCP、UDP。
+	Protocol string `json:"protocol"`
+	// 目标端口。
+	TargetPort int64 `json:"targetPort"`
+	// Pod 外部地址的注解，如果设置，Pod 被映射的外部 CLB 地址将会被自动写到 Pod 的该注解中，Pod 内部可通过 Downward API 感知到自身的外部地址。
 	// +optional
 	AddressPodAnnotation string `json:"addressPodAnnotation"`
 }
 
 // DedicatedCLBServiceStatus defines the observed state of DedicatedCLBService
 type DedicatedCLBServiceStatus struct {
+	// 用于为 Pod 映射端口的 CLB 列表。
 	LbList []DedicatedCLBInfo `json:"lbList"`
 }
 
 type DedicatedCLBInfo struct {
+	// CLB 实例的 ID。
 	LbId string `json:"lbId"`
+	// CLB 当前已被分配的端口。
 	// +optional
-	MaxPort    int64 `json:"maxPort"`
-	AutoCreate bool  `json:"autoCreate"`
+	MaxPort int64 `json:"maxPort"`
+	// 是否是自动创建的 CLB。如果是，删除 DedicatedCLBService 时，CLB 也会被清理。
+	AutoCreate bool `json:"autoCreate"`
 }
 
 // +kubebuilder:object:root=true

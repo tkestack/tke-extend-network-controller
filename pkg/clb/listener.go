@@ -2,11 +2,11 @@ package clb
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 
 	clb "github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/clb/v20180317"
-	"github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common"
 )
 
 type Listener struct {
@@ -64,10 +64,18 @@ func GetListenerByPort(ctx context.Context, region, lbId string, port int64, pro
 
 const TkePodListenerName = "TKE-DEDICATED-POD"
 
-func CreateListener(ctx context.Context, region string, req *clb.CreateListenerRequest) (id string, err error) {
-	req.ListenerNames = []*string{common.StringPtr(TkePodListenerName)}
+func CreateListener(ctx context.Context, region, lbId string, port int64, protocol, extensiveParameters string) (id string, err error) {
+	req := clb.NewCreateListenerRequest()
+	if extensiveParameters != "" {
+		err = json.Unmarshal([]byte(extensiveParameters), req)
+		if err != nil {
+			return
+		}
+	}
+	req.LoadBalancerId = &lbId
+	req.Ports = []*int64{&port}
+	req.Protocol = &protocol
 	client := GetClient(region)
-	lbId := *req.LoadBalancerId
 	mu := getLbLock(lbId)
 	mu.Lock()
 	defer mu.Unlock()

@@ -421,18 +421,6 @@ func (r *DedicatedCLBListenerReconciler) ensureListener(ctx context.Context, log
 
 func (r *DedicatedCLBListenerReconciler) createListener(ctx context.Context, log logr.Logger, lis *networkingv1alpha1.DedicatedCLBListener) error {
 	log.V(5).Info("try to create listener")
-	config := &networkingv1alpha1.CLBListenerConfig{}
-	configName := lis.Spec.ListenerConfig
-	if configName != "" {
-		if err := r.Get(ctx, client.ObjectKey{Name: configName}, config); err != nil {
-			if apierrors.IsNotFound(err) {
-				config = nil
-			} else {
-				r.Recorder.Event(lis, corev1.EventTypeWarning, "CreateListener", err.Error())
-				return err
-			}
-		}
-	}
 	existedLis, err := clb.GetListenerByPort(ctx, lis.Spec.LbRegion, lis.Spec.LbId, lis.Spec.LbPort, lis.Spec.Protocol)
 	if err != nil {
 		r.Recorder.Event(lis, corev1.EventTypeWarning, "CreateListener", err.Error())
@@ -455,7 +443,7 @@ func (r *DedicatedCLBListenerReconciler) createListener(ctx context.Context, log
 			return r.changeState(ctx, lis, networkingv1alpha1.DedicatedCLBListenerStateFailed, msg)
 		}
 	} else { // 没有端口冲突，创建监听器
-		id, err := clb.CreateListener(ctx, lis.Spec.LbRegion, config.Spec.CreateListenerRequest(lis.Spec.LbId, lis.Spec.LbPort, lis.Spec.Protocol))
+		id, err := clb.CreateListener(ctx, lis.Spec.LbRegion, lis.Spec.LbId, lis.Spec.LbPort, lis.Spec.Protocol, lis.Spec.ExtensiveParameters)
 		if err != nil {
 			r.Recorder.Event(lis, corev1.EventTypeWarning, "CreateListener", err.Error())
 			return err

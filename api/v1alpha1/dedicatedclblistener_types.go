@@ -25,33 +25,46 @@ import (
 
 // DedicatedCLBListenerSpec defines the desired state of DedicatedCLBListener
 type DedicatedCLBListenerSpec struct {
+	// CLB 实例的 ID。
 	// +kubebuilder:validation:XValidation:rule="self == oldSelf", message="Value is immutable"
 	LbId string `json:"lbId"`
+	// CLB 所在地域，不填则使用 TKE 集群所在的地域。
 	// +kubebuilder:validation:XValidation:rule="self == oldSelf", message="Value is immutable"
 	// +optional
 	LbRegion string `json:"lbRegion,omitempty"`
+	// CLB 监听器的端口号。
 	// +kubebuilder:validation:XValidation:rule="self == oldSelf", message="Value is immutable"
 	LbPort int64 `json:"lbPort"`
+	// CLB 监听器的协议。
 	// +kubebuilder:validation:XValidation:rule="self == oldSelf", message="Value is immutable"
 	// +kubebuilder:validation:Enum=TCP;UDP
 	Protocol string `json:"protocol"`
+	// 创建监听器的参数，JSON 格式，详细参数请参考 CreateListener 接口：https://cloud.tencent.com/document/api/214/30693
 	// +optional
-	ListenerConfig string `json:"listenerConfig,omitempty"`
+	ExtensiveParameters string `json:"extensiveParameters,omitempty"`
+	// CLB 监听器绑定的目标 Pod。
 	// +optional
 	TargetPod *TargetPod `json:"targetPod,omitempty"`
 }
 
 type TargetPod struct {
-	PodName    string `json:"podName"`
-	TargetPort int64  `json:"targetPort"`
+	// Pod 的名称。
+	PodName string `json:"podName"`
+	// Pod 监听的端口。
+	TargetPort int64 `json:"targetPort"`
 }
 
 // DedicatedCLBListenerStatus defines the observed state of DedicatedCLBListener
 type DedicatedCLBListenerStatus struct {
+	// CLB 监听器的 ID。
 	ListenerId string `json:"listenerId,omitempty"`
-	State      string `json:"state,omitempty"`
-	Message    string `json:"message,omitempty"`
-	Address    string `json:"address,omitempty"`
+	// CLB 监听器的状态。
+	// +kubebuilder:validation:Enum=Bound;Available;Pending;Failed;Deleting
+	State string `json:"state,omitempty"`
+	// 记录 CLB 监听器的失败信息。
+	Message string `json:"message,omitempty"`
+	// CLB 监听器的外部地址。
+	Address string `json:"address,omitempty"`
 }
 
 const (

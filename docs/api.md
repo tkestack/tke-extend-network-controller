@@ -157,9 +157,9 @@ _Appears in:_
 
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
-| `lbId` _string_ |  |  |  |
-| `maxPort` _integer_ |  |  |  |
-| `autoCreate` _boolean_ |  |  |  |
+| `lbId` _string_ | CLB 实例的 ID。 |  |  |
+| `maxPort` _integer_ | CLB 当前已被分配的端口。 |  |  |
+| `autoCreate` _boolean_ | 是否是自动创建的 CLB。如果是，删除 DedicatedCLBService 时，CLB 也会被清理。 |  |  |
 
 
 #### DedicatedCLBListener
@@ -196,12 +196,12 @@ _Appears in:_
 
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
-| `lbId` _string_ |  |  |  |
-| `lbRegion` _string_ |  |  |  |
-| `lbPort` _integer_ |  |  |  |
-| `protocol` _string_ |  |  | Enum: [TCP UDP] <br /> |
-| `listenerConfig` _string_ |  |  |  |
-| `targetPod` _[TargetPod](#targetpod)_ |  |  |  |
+| `lbId` _string_ | CLB 实例的 ID。 |  |  |
+| `lbRegion` _string_ | CLB 所在地域，不填则使用 TKE 集群所在的地域。 |  |  |
+| `lbPort` _integer_ | CLB 监听器的端口号。 |  |  |
+| `protocol` _string_ | CLB 监听器的协议。 |  | Enum: [TCP UDP] <br /> |
+| `extensiveParameters` _string_ | 创建监听器的参数，JSON 格式，详细参数请参考 CreateListener 接口：https://cloud.tencent.com/document/api/214/30693 |  |  |
+| `targetPod` _[TargetPod](#targetpod)_ | CLB 监听器绑定的目标 Pod。 |  |  |
 
 
 #### DedicatedCLBListenerStatus
@@ -217,10 +217,10 @@ _Appears in:_
 
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
-| `listenerId` _string_ |  |  |  |
-| `state` _string_ |  |  |  |
-| `message` _string_ |  |  |  |
-| `address` _string_ |  |  |  |
+| `listenerId` _string_ | CLB 监听器的 ID。 |  |  |
+| `state` _string_ | CLB 监听器的状态。 |  | Enum: [Bound Available Pending Failed Deleting] <br /> |
+| `message` _string_ | 记录 CLB 监听器的失败信息。 |  |  |
+| `address` _string_ | CLB 监听器的外部地址。 |  |  |
 
 
 #### DedicatedCLBService
@@ -257,9 +257,9 @@ _Appears in:_
 
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
-| `protocol` _string_ |  |  |  |
-| `targetPort` _integer_ |  |  |  |
-| `addressPodAnnotation` _string_ |  |  |  |
+| `protocol` _string_ | 端口协议，支持 TCP、UDP。 |  |  |
+| `targetPort` _integer_ | 目标端口。 |  |  |
+| `addressPodAnnotation` _string_ | Pod 外部地址的注解，如果设置，Pod 被映射的外部 CLB 地址将会被自动写到 Pod 的该注解中，Pod 内部可通过 Downward API 感知到自身的外部地址。 |  |  |
 
 
 #### DedicatedCLBServiceSpec
@@ -275,15 +275,15 @@ _Appears in:_
 
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
-| `lbRegion` _string_ |  |  |  |
-| `vpcId` _string_ |  |  |  |
-| `minPort` _integer_ |  |  |  |
-| `maxPort` _integer_ |  |  |  |
-| `selector` _object (keys:string, values:string)_ |  |  |  |
-| `ports` _[DedicatedCLBServicePort](#dedicatedclbserviceport) array_ |  |  |  |
-| `listenerConfig` _string_ |  |  |  |
-| `existedLbIds` _string array_ |  |  |  |
-| `lbAutoCreate` _[LbAutoCreate](#lbautocreate)_ |  |  |  |
+| `lbRegion` _string_ | CLB 所在地域，不填则使用 TKE 集群所在的地域。 |  |  |
+| `vpcId` _string_ | CLB 所在 VPC ID，不填则使用 TKE 集群所在的 VPC 的 ID。 |  |  |
+| `minPort` _integer_ | CLB 端口范围的最小端口号。 |  |  |
+| `maxPort` _integer_ | CLB 端口范围的最大端口号。 |  |  |
+| `selector` _object (keys:string, values:string)_ | Pod 的标签选择器，被选中的 Pod 会被绑定到 CLB 监听器下。 |  |  |
+| `ports` _[DedicatedCLBServicePort](#dedicatedclbserviceport) array_ | Pod 监听的端口。 |  |  |
+| `listenerExtensiveParameters` _string_ | 创建监听器的参数，JSON 格式，详细参数请参考 CreateListener 接口：https://cloud.tencent.com/document/api/214/30693 |  |  |
+| `existedLbIds` _string array_ | 复用的已有的 CLB ID，可动态追加。 |  |  |
+| `lbAutoCreate` _[LbAutoCreate](#lbautocreate)_ | 启用自动创建 CLB 的功能。 |  |  |
 
 
 #### DedicatedCLBServiceStatus
@@ -299,7 +299,7 @@ _Appears in:_
 
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
-| `lbList` _[DedicatedCLBInfo](#dedicatedclbinfo) array_ |  |  |  |
+| `lbList` _[DedicatedCLBInfo](#dedicatedclbinfo) array_ | 用于为 Pod 映射端口的 CLB 列表。 |  |  |
 
 
 #### LbAutoCreate
@@ -315,8 +315,8 @@ _Appears in:_
 
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
-| `enable` _boolean_ |  |  |  |
-| `extensiveParameters` _string_ |  |  |  |
+| `enable` _boolean_ | 是否启用自动创建 CLB 的功能，如果启用，当 CLB 不足时，会自动创建新的 CLB。 |  |  |
+| `extensiveParameters` _string_ | 创建 CLB 时的参数，JSON 格式，详细参数请参考 CreateLoadBalancer 接口：https://cloud.tencent.com/document/api/214/30692 |  |  |
 
 
 #### MultiCertInfo
@@ -349,7 +349,7 @@ _Appears in:_
 
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
-| `podName` _string_ |  |  |  |
-| `targetPort` _integer_ |  |  |  |
+| `podName` _string_ | Pod 的名称。 |  |  |
+| `targetPort` _integer_ | Pod 监听的端口。 |  |  |
 
 

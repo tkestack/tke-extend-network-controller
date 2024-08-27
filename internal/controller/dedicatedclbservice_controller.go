@@ -374,7 +374,7 @@ OUTER_LOOP:
 			lis.Spec.LbId = lb.LbId
 			lis.Spec.LbPort = port
 			lis.Spec.Protocol = protocol
-			lis.Spec.ListenerConfig = ds.Spec.ListenerConfig
+			lis.Spec.ExtensiveParameters = ds.Spec.ListenerExtensiveParameters
 			lis.Spec.LbRegion = ds.Spec.LbRegion
 			lis.Namespace = ds.Namespace
 			lis.GenerateName = generateName

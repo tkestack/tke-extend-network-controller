@@ -27,6 +27,7 @@ spec:
   - protocol: UDP # 端口监听的协议（TCP/UDP）
     targetPort: 9000 # 容器监听的端口 (游戏战斗服、会议等进程监听的端口)
     addressPodAnnotation: networking.cloud.tencent.com/external-address # 可选，将外部地址自动注入到指定的 pod annotation 中
+  listenerExtensiveParameters: "" # 可选，指定创建监听器时的参数，JSON 格式，完整参考 CreateListener 接口： https://cloud.tencent.com/document/api/214/30693 （由于是一个监听器只挂一个 Pod，通常不需要自定义监听器配置，因为健康检查、调度算法这些配置，对于只有一个 RS 的监听器没有意义）
   existedLbIds: # 复用已有的 CLB 实例，指定 CLB 实例 ID 的列表
     - lb-xxx
     - lb-yyy
