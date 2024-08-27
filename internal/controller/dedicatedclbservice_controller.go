@@ -354,10 +354,10 @@ func (r *DedicatedCLBServiceReconciler) allocateNewListener(ctx context.Context,
 	generateName := ds.Name + "-"
 	createdNum := 0
 OUTER_LOOP:
-	for ; createdNum < num; createdNum++ { // 每个n个端口的循环
+	for ; createdNum < num; createdNum++ { // 分配 num 个端口的循环
 		for { // 分配单个lb端口的循环
 			if lbIndex >= len(ds.Status.LbList) {
-				log.Info("lb is not enough, stop trying allocate new listener")
+				log.V(5).Info("lb is not enough, stop trying allocate new listener")
 				break OUTER_LOOP
 			}
 			lb := ds.Status.LbList[lbIndex]
