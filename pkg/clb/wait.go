@@ -10,7 +10,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
-func Wait(ctx context.Context, region, reqId string) (ids []string, err error) {
+func Wait(ctx context.Context, region, reqId, taskName string) (ids []string, err error) {
 	client := GetClient(region)
 	for i := 0; i < 100; i++ {
 		req := clb.NewDescribeTaskStatusRequest()
@@ -22,7 +22,7 @@ func Wait(ctx context.Context, region, reqId string) (ids []string, err error) {
 		switch *resp.Response.Status {
 		case 2: // 任务进行中，继续等待
 			time.Sleep(2 * time.Second)
-			log.FromContext(ctx).Info("tasks still waiting", "reqId", reqId)
+			log.FromContext(ctx).Info("task still waiting", "reqId", reqId, "taskName", taskName)
 			continue
 		case 1: // 任务失败，返回错误
 			return nil, fmt.Errorf("clb task %s failed", reqId)

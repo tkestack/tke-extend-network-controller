@@ -93,7 +93,7 @@ func CreateListener(ctx context.Context, region, lbId string, port int64, protoc
 		err = fmt.Errorf("found %d listeners created", len(resp.Response.ListenerIds))
 		return
 	}
-	_, err = Wait(ctx, region, *resp.Response.RequestId)
+	_, err = Wait(ctx, region, *resp.Response.RequestId, "CreateListener")
 	if err != nil {
 		return
 	}
@@ -126,6 +126,6 @@ func DeleteListener(ctx context.Context, region, lbId, listenerId string) error 
 	if err != nil {
 		return err
 	}
-	_, err = Wait(ctx, region, *resp.Response.RequestId)
+	_, err = Wait(ctx, region, *resp.Response.RequestId, "DeleteListener")
 	return err
 }

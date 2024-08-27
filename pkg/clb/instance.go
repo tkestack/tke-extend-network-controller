@@ -81,7 +81,7 @@ func Create(ctx context.Context, region, vpcId, extensiveParameters string, num 
 	}
 	ids = util.ConvertStringPointSlice(resp.Response.LoadBalancerIds)
 	if len(ids) == 0 {
-		ids, err = Wait(ctx, region, *resp.Response.RequestId)
+		ids, err = Wait(ctx, region, *resp.Response.RequestId, "CreateLoadBalancer")
 		if err != nil {
 			return nil, err
 		}
@@ -128,6 +128,6 @@ func Delete(ctx context.Context, region string, lbIds ...string) error {
 		}
 		return err
 	}
-	_, err = Wait(ctx, region, *resp.Response.RequestId)
+	_, err = Wait(ctx, region, *resp.Response.RequestId, "DeleteLoadBalancer")
 	return err
 }
