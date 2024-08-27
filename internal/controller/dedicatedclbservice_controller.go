@@ -191,20 +191,13 @@ func (r *DedicatedCLBServiceReconciler) allocateNewCLB(ctx context.Context, ds *
 		return err
 	}
 	log.FromContext(ctx).Info("successfully created clb instance", "lbIds", ids)
-	return util.RetryIfPossible(func() error { // 确保lb列表写入成功，避免lb泄露
-		if err := r.APIReader.Get(ctx, client.ObjectKeyFromObject(ds), ds); err != nil {
-			return err
-		}
+	return kube.UpdateStatus(ctx, ds, func() {
 		for _, lbId := range ids {
 			ds.Status.LbList = append(ds.Status.LbList, networkingv1alpha1.DedicatedCLBInfo{
 				LbId:       lbId,
 				AutoCreate: true,
 			})
 		}
-		if err := r.Status().Update(ctx, ds); err != nil {
-			return err
-		}
-		return nil
 	})
 }
 
@@ -397,12 +390,8 @@ OUTER_LOOP:
 	if updateStatus { // 有成功创建过，更新status
 		lbList := ds.Status.LbList
 		log.V(5).Info("update lbList status", "lbList", lbList)
-		if statusErr := util.RetryIfPossible(func() error {
-			if err := r.APIReader.Get(ctx, client.ObjectKeyFromObject(ds), ds); err != nil {
-				return err
-			}
+		if statusErr := kube.UpdateStatus(ctx, ds, func() {
 			ds.Status.LbList = lbList
-			return r.Status().Update(ctx, ds)
 		}); statusErr != nil {
 			return createdNum, statusErr // TODO: 两个err可能同时发生，出现err覆盖
 		}
