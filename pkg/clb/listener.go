@@ -67,6 +67,10 @@ const TkePodListenerName = "TKE-DEDICATED-POD"
 
 func CreateListener(ctx context.Context, region, lbId string, port int64, protocol, extensiveParameters string) (id string, err error) {
 	req := clb.NewCreateListenerRequest()
+	req.HealthCheck = &clb.HealthCheck{
+		HealthSwitch: common.Int64Ptr(0),
+		SourceIpType: common.Int64Ptr(1),
+	}
 	if extensiveParameters != "" {
 		err = json.Unmarshal([]byte(extensiveParameters), req)
 		if err != nil {
