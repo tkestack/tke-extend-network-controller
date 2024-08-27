@@ -8,33 +8,10 @@
 
 
 ### Resource Types
-- [CLB](#clb)
 - [CLBListenerConfig](#clblistenerconfig)
 - [DedicatedCLBListener](#dedicatedclblistener)
 - [DedicatedCLBService](#dedicatedclbservice)
-- [DedicatedNatgwService](#dedicatednatgwservice)
 
-
-
-#### CLB
-
-
-
-CLB is the Schema for the clbs API
-
-
-
-
-
-| Field | Description | Default | Validation |
-| --- | --- | --- | --- |
-| `apiVersion` _string_ | `networking.cloud.tencent.com/v1alpha1` | | |
-| `kind` _string_ | `CLB` | | |
-| `kind` _string_ | Kind is a string value representing the REST resource this object represents.<br />Servers may infer this from the endpoint the client submits requests to.<br />Cannot be updated.<br />In CamelCase.<br />More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds |  |  |
-| `apiVersion` _string_ | APIVersion defines the versioned schema of this representation of an object.<br />Servers should convert recognized schemas to the latest internal value, and<br />may reject unrecognized values.<br />More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources |  |  |
-| `metadata` _[ObjectMeta](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.28/#objectmeta-v1-meta)_ | Refer to Kubernetes API documentation for fields of `metadata`. |  |  |
-| `spec` _[CLBSpec](#clbspec)_ |  |  |  |
-| `status` _[CLBStatus](#clbstatus)_ |  |  |  |
 
 
 #### CLBHealthcheck
@@ -130,36 +107,6 @@ CLBListenerConfigStatus defines the observed state of CLBListenerConfig
 
 _Appears in:_
 - [CLBListenerConfig](#clblistenerconfig)
-
-
-
-#### CLBSpec
-
-
-
-CLBSpec defines the desired state of CLB
-
-
-
-_Appears in:_
-- [CLB](#clb)
-
-| Field | Description | Default | Validation |
-| --- | --- | --- | --- |
-| `region` _string_ |  |  |  |
-| `autoCreated` _boolean_ |  |  |  |
-
-
-#### CLBStatus
-
-
-
-CLBStatus defines the observed state of CLB
-
-
-
-_Appears in:_
-- [CLB](#clb)
 
 
 
@@ -353,56 +300,6 @@ _Appears in:_
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
 | `lbList` _[DedicatedCLBInfo](#dedicatedclbinfo) array_ |  |  |  |
-
-
-#### DedicatedNatgwService
-
-
-
-DedicatedNatgwService is the Schema for the dedicatednatgwservices API
-
-
-
-
-
-| Field | Description | Default | Validation |
-| --- | --- | --- | --- |
-| `apiVersion` _string_ | `networking.cloud.tencent.com/v1alpha1` | | |
-| `kind` _string_ | `DedicatedNatgwService` | | |
-| `kind` _string_ | Kind is a string value representing the REST resource this object represents.<br />Servers may infer this from the endpoint the client submits requests to.<br />Cannot be updated.<br />In CamelCase.<br />More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds |  |  |
-| `apiVersion` _string_ | APIVersion defines the versioned schema of this representation of an object.<br />Servers should convert recognized schemas to the latest internal value, and<br />may reject unrecognized values.<br />More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources |  |  |
-| `metadata` _[ObjectMeta](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.28/#objectmeta-v1-meta)_ | Refer to Kubernetes API documentation for fields of `metadata`. |  |  |
-| `spec` _[DedicatedNatgwServiceSpec](#dedicatednatgwservicespec)_ |  |  |  |
-| `status` _[DedicatedNatgwServiceStatus](#dedicatednatgwservicestatus)_ |  |  |  |
-
-
-#### DedicatedNatgwServiceSpec
-
-
-
-DedicatedNatgwServiceSpec defines the desired state of DedicatedNatgwService
-
-
-
-_Appears in:_
-- [DedicatedNatgwService](#dedicatednatgwservice)
-
-| Field | Description | Default | Validation |
-| --- | --- | --- | --- |
-| `foo` _string_ | Foo is an example field of DedicatedNatgwService. Edit dedicatednatgwservice_types.go to remove/update |  |  |
-
-
-#### DedicatedNatgwServiceStatus
-
-
-
-DedicatedNatgwServiceStatus defines the observed state of DedicatedNatgwService
-
-
-
-_Appears in:_
-- [DedicatedNatgwService](#dedicatednatgwservice)
-
 
 
 #### LbAutoCreate
