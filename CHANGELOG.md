@@ -1,5 +1,10 @@
 # 版本说明
 
+## v0.1.13 (2024-08-27)
+
+* 新功能：DedicatedCLBService 支持自动创建CLB。
+* 修复：解决 DedicatedCLBService 的状态写入失败后状态不一致问题。
+
 ## v0.1.12 (2024-08-26)
 
 * clb 接口改为内网调用(以支持 controller 调度到没有公网的节点或超级节点)。
