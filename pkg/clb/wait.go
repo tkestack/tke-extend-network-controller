@@ -22,7 +22,7 @@ func Wait(ctx context.Context, region, reqId, taskName string) (ids []string, er
 		switch *resp.Response.Status {
 		case 2: // 任务进行中，继续等待
 			time.Sleep(2 * time.Second)
-			log.FromContext(ctx).Info("task still waiting", "reqId", reqId, "taskName", taskName)
+			log.FromContext(ctx).V(5).Info("task still waiting", "reqId", reqId, "taskName", taskName)
 			continue
 		case 1: // 任务失败，返回错误
 			return nil, fmt.Errorf("clb task %s failed", reqId)

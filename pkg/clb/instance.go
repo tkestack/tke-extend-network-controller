@@ -96,7 +96,7 @@ func Create(ctx context.Context, region, vpcId, extensiveParameters string, num 
 				return nil, err
 			}
 			if *lb.Status == 0 { // 创建中，等待一下
-				log.FromContext(ctx).Info("lb is still creating", "lbId", lbId)
+				log.FromContext(ctx).V(5).Info("lb is still creating", "lbId", lbId)
 				time.Sleep(time.Second * 3)
 				continue
 			}
