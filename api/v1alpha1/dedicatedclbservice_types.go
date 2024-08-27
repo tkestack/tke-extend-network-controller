@@ -73,16 +73,27 @@ type DedicatedCLBServicePort struct {
 
 // DedicatedCLBServiceStatus defines the observed state of DedicatedCLBService
 type DedicatedCLBServiceStatus struct {
-	// 用于为 Pod 映射端口的 CLB 列表。
-	LbList []DedicatedCLBInfo `json:"lbList"`
+	// 可分配端口的 CLB 列表
+	// +optional
+	AllocatableLb []AllocatableCLBInfo `json:"allocatableLb"`
+	// 已分配完端口的 CLB 列表
+	// +optional
+	AllocatedLb []AllocatedCLBInfo `json:"allocatedLb"`
 }
 
-type DedicatedCLBInfo struct {
+type AllocatableCLBInfo struct {
 	// CLB 实例的 ID。
 	LbId string `json:"lbId"`
 	// CLB 当前已被分配的端口。
 	// +optional
-	MaxPort int64 `json:"maxPort"`
+	CurrentPort int64 `json:"maxPort"`
+	// 是否是自动创建的 CLB。如果是，删除 DedicatedCLBService 时，CLB 也会被清理。
+	AutoCreate bool `json:"autoCreate"`
+}
+
+type AllocatedCLBInfo struct {
+	// CLB 实例的 ID。
+	LbId string `json:"lbId"`
 	// 是否是自动创建的 CLB。如果是，删除 DedicatedCLBService 时，CLB 也会被清理。
 	AutoCreate bool `json:"autoCreate"`
 }

@@ -105,8 +105,8 @@ spec:
           status:
             description: DedicatedCLBServiceStatus defines the observed state of DedicatedCLBService
             properties:
-              lbList:
-                description: 用于为 Pod 映射端口的 CLB 列表。
+              allocatableLb:
+                description: 可分配端口的 CLB 列表
                 items:
                   properties:
                     autoCreate:
@@ -124,12 +124,24 @@ spec:
                   - lbId
                   type: object
                 type: array
-            required:
-            - lbList
+              allocatedLb:
+                description: 已分配完端口的 CLB 列表
+                items:
+                  properties:
+                    autoCreate:
+                      description: 是否是自动创建的 CLB。如果是，删除 DedicatedCLBService 时，CLB 也会被清理。
+                      type: boolean
+                    lbId:
+                      description: CLB 实例的 ID。
+                      type: string
+                  required:
+                  - autoCreate
+                  - lbId
+                  type: object
+                type: array
             type: object
         type: object
     served: true
     storage: true
     subresources:
       status: {}
-

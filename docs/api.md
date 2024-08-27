@@ -13,7 +13,7 @@
 
 
 
-#### DedicatedCLBInfo
+#### AllocatableCLBInfo
 
 
 
@@ -28,6 +28,23 @@ _Appears in:_
 | --- | --- | --- | --- |
 | `lbId` _string_ | CLB 实例的 ID。 |  |  |
 | `maxPort` _integer_ | CLB 当前已被分配的端口。 |  |  |
+| `autoCreate` _boolean_ | 是否是自动创建的 CLB。如果是，删除 DedicatedCLBService 时，CLB 也会被清理。 |  |  |
+
+
+#### AllocatedCLBInfo
+
+
+
+
+
+
+
+_Appears in:_
+- [DedicatedCLBServiceStatus](#dedicatedclbservicestatus)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `lbId` _string_ | CLB 实例的 ID。 |  |  |
 | `autoCreate` _boolean_ | 是否是自动创建的 CLB。如果是，删除 DedicatedCLBService 时，CLB 也会被清理。 |  |  |
 
 
@@ -168,7 +185,8 @@ _Appears in:_
 
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
-| `lbList` _[DedicatedCLBInfo](#dedicatedclbinfo) array_ | 用于为 Pod 映射端口的 CLB 列表。 |  |  |
+| `allocatableLb` _[AllocatableCLBInfo](#allocatableclbinfo) array_ | 可分配端口的 CLB 列表 |  |  |
+| `allocatedLb` _[AllocatedCLBInfo](#allocatedclbinfo) array_ | 已分配完端口的 CLB 列表 |  |  |
 
 
 #### LbAutoCreate

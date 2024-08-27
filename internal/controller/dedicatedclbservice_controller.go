@@ -77,7 +77,12 @@ const dedicatedCLBServiceFinalizer = "dedicatedclbservice.finalizers.networking.
 
 func (r *DedicatedCLBServiceReconciler) syncDelete(ctx context.Context, ds *networkingv1alpha1.DedicatedCLBService) error {
 	lbToDelete := []string{}
-	for _, lb := range ds.Status.LbList {
+	for _, lb := range ds.Status.AllocatableLb {
+		if lb.AutoCreate {
+			lbToDelete = append(lbToDelete, lb.LbId)
+		}
+	}
+	for _, lb := range ds.Status.AllocatedLb {
 		if lb.AutoCreate {
 			lbToDelete = append(lbToDelete, lb.LbId)
 		}
@@ -148,39 +153,78 @@ func (r *DedicatedCLBServiceReconciler) sync(ctx context.Context, ds *networking
 		"listeners", len(listeners.Items),
 		"podSelector", ds.Spec.Selector,
 	)
-	toUpdate, toCreate, boundListeners, err := r.diff(ctx, ds, pods.Items, listeners.Items)
-	if err != nil {
-		return err
-	}
-	for _, listener := range toUpdate {
-		if err := r.Update(ctx, listener); err != nil {
-			return err
+
+	usedListeners := make(map[string]*networkingv1alpha1.DedicatedCLBListener)          // pod-port-protocol --> listener
+	allocatableListeners := make(map[string][]*networkingv1alpha1.DedicatedCLBListener) // protocol --> listeners
+
+	for _, listener := range listeners.Items {
+		targetPod := listener.Spec.TargetPod
+		if targetPod == nil {
+			allocatableListeners[listener.Spec.Protocol] = append(allocatableListeners[listener.Spec.Protocol], &listener)
+		} else {
+			usedListeners[getListenerKey(targetPod.PodName, targetPod.TargetPort, listener.Spec.Protocol)] = &listener
 		}
 	}
-	for protocol, num := range toCreate {
-		if createdNum, err := r.allocateNewListener(ctx, log, ds, protocol, num); err != nil {
-			r.Recorder.Event(ds, corev1.EventTypeWarning, "CreateListener", fmt.Sprintf("failed to create %d listeners with %s protocol: %s", num, protocol, err.Error()))
-			return err
-		} else {
-			if createdNum > 0 {
-				r.Recorder.Event(ds, corev1.EventTypeNormal, "CreateListener", fmt.Sprintf("successfully created %d listeners with %s protocol", createdNum, protocol))
-			}
-			if ds.Spec.LbAutoCreate.Enable {
-				if gapNum := num - createdNum; gapNum > 0 {
-					lbNum := float64(gapNum) / (float64(ds.Spec.MaxPort) - float64(ds.Spec.MinPort) + 1)
-					lbToCreate := int(math.Ceil(lbNum))
-					r.Recorder.Event(ds, corev1.EventTypeNormal, "CreateCLB", fmt.Sprintf("clb is not enough, try to create %d clb instance", lbToCreate))
-					if err := r.allocateNewCLB(ctx, ds, lbToCreate); err != nil {
-						r.Recorder.Event(ds, corev1.EventTypeWarning, "CreateCLB", fmt.Sprintf("failed to create %d clb instance: %s", lbToCreate, err.Error()))
+
+	type bind struct {
+		Pod  *corev1.Pod
+		Port *networkingv1alpha1.DedicatedCLBServicePort
+	}
+
+	binds := []bind{}
+	for _, pod := range pods.Items {
+		for _, port := range ds.Spec.Ports {
+			key := getListenerKey(pod.Name, port.TargetPort, port.Protocol)
+			lis, ok := usedListeners[key]
+			if ok { // pod 已绑定到监听器
+				delete(usedListeners, key)
+				if port.AddressPodAnnotation != "" && lis.Status.Address != "" && pod.Annotations[port.AddressPodAnnotation] != lis.Status.Address { // 确保外部地址写到对应注解中
+					r.Recorder.Event(ds, corev1.EventTypeNormal, "UpdatePodAnnotation", fmt.Sprintf("set pod %s's annotation (%s: %s)", pod.Name, port.AddressPodAnnotation, lis.Status.Address))
+					if err := kube.SetPodAnnotation(ctx, &pod, port.AddressPodAnnotation, lis.Status.Address); err != nil {
+						r.Recorder.Event(ds, corev1.EventTypeWarning, "UpdatePodAnnotation", fmt.Sprintf("set pod %s's annotation (%s: %s): %s", pod.Name, port.AddressPodAnnotation, lis.Status.Address, err.Error()))
 						return err
 					}
-					break
 				}
+				continue
+			}
+			binds = append(binds, bind{Pod: &pod, Port: &port})
+		}
+	}
+	for _, lis := range usedListeners { // 绑定了其它非预期 Pod 的监听器认为是可分配的
+		allocatableListeners[lis.Spec.Protocol] = append(allocatableListeners[lis.Spec.Protocol], lis)
+	}
+
+	listenerGap := 0
+	for _, bind := range binds {
+		targetPod := &networkingv1alpha1.TargetPod{PodName: bind.Pod.Name, TargetPort: bind.Port.TargetPort}
+		// 没绑定到监听器，尝试找一个
+		if liss, ok := allocatableListeners[bind.Port.Protocol]; ok && len(liss) > 0 { // 有现成的监听器可绑定
+			lis := liss[0]
+			r.Recorder.Event(ds, corev1.EventTypeNormal, "BindPod", "bind pod "+bind.Pod.Name+" to listener "+lis.Name)
+			if err := kube.Update(ctx, lis, func() {
+				lis.Spec.TargetPod = targetPod
+			}); err != nil {
+				return err
+			}
+			allocatableListeners[bind.Port.Protocol] = liss[1:]
+		} else { // 尝试创建新监听器
+			ok, err := r.allocateListener(ctx, log, ds, bind.Port.Protocol, targetPod)
+			if err != nil {
+				return err
+			}
+			if !ok { // 没有可分配的监听器，计算缺失的监听器数量
+				listenerGap++
 			}
 		}
 	}
-	if err := r.ensurePodAnnotation(ctx, ds, pods.Items, boundListeners); err != nil {
-		return err
+	if listenerGap > 0 {
+		lbNum := float64(listenerGap) / (float64(ds.Spec.MaxPort) - float64(ds.Spec.MinPort) + 1)
+		lbToCreate := int(math.Ceil(lbNum))
+		r.Recorder.Event(ds, corev1.EventTypeNormal, "CreateCLB", fmt.Sprintf("clb is not enough, try to create clb instance (num: %d)", lbToCreate))
+		if err := r.allocateNewCLB(ctx, ds, lbToCreate); err != nil {
+			r.Recorder.Event(ds, corev1.EventTypeWarning, "CreateCLB", fmt.Sprintf("failed to create %d clb instance: %s", lbToCreate, err.Error()))
+			return err
+		}
 	}
 	return nil
 }
@@ -193,7 +237,7 @@ func (r *DedicatedCLBServiceReconciler) allocateNewCLB(ctx context.Context, ds *
 	log.FromContext(ctx).Info("successfully created clb instance", "lbIds", ids)
 	return kube.UpdateStatus(ctx, ds, func() {
 		for _, lbId := range ids {
-			ds.Status.LbList = append(ds.Status.LbList, networkingv1alpha1.DedicatedCLBInfo{
+			ds.Status.AllocatableLb = append(ds.Status.AllocatableLb, networkingv1alpha1.AllocatableCLBInfo{
 				LbId:       lbId,
 				AutoCreate: true,
 			})
@@ -201,57 +245,26 @@ func (r *DedicatedCLBServiceReconciler) allocateNewCLB(ctx context.Context, ds *
 	})
 }
 
-func (r *DedicatedCLBServiceReconciler) ensurePodAnnotation(ctx context.Context, ds *networkingv1alpha1.DedicatedCLBService, pods []corev1.Pod, boundListeners map[string]*networkingv1alpha1.DedicatedCLBListener) error {
-	if len(pods) == 0 {
-		return nil
-	}
-	for _, port := range ds.Spec.Ports {
-		if port.AddressPodAnnotation == "" {
-			continue
-		}
-		for _, pod := range pods {
-			key := getListenerKey(pod.Name, port.TargetPort, port.Protocol)
-			lis, ok := boundListeners[key]
-			if !ok || lis.Status.Address == "" {
-				continue
-			}
-			realAddr := lis.Status.Address
-			currentAddr := pod.Annotations[port.AddressPodAnnotation]
-			if realAddr == currentAddr {
-				continue
-			}
-			log.FromContext(ctx).V(5).Info(
-				"set external address to pod annotation",
-				"pod", pod.Name,
-				"port", port.TargetPort,
-				"protocol", port.Protocol,
-				"oldAddr", currentAddr, "realAddr", realAddr,
-			)
-			if err := kube.SetPodAnnotation(ctx, &pod, port.AddressPodAnnotation, realAddr); err != nil {
-				r.Recorder.Event(ds, corev1.EventTypeWarning, "UpdatePodAnnotation", fmt.Sprintf("set pod %s's annotation (%s: %s): %s", pod.Name, port.AddressPodAnnotation, realAddr, err.Error()))
-				return err
-			} else {
-				r.Recorder.Event(ds, corev1.EventTypeNormal, "UpdatePodAnnotation", fmt.Sprintf("set pod %s's annotation (%s: %s)", pod.Name, port.AddressPodAnnotation, realAddr))
-			}
-		}
-	}
-	return nil
-}
-
 func (r *DedicatedCLBServiceReconciler) ensureStatus(ctx context.Context, ds *networkingv1alpha1.DedicatedCLBService) error {
-	lbMap := map[string]networkingv1alpha1.DedicatedCLBInfo{}
-	for _, lb := range ds.Status.LbList {
-		lbMap[lb.LbId] = lb
+	lbMap := make(map[string]bool)
+	for _, lb := range ds.Status.AllocatableLb {
+		lbMap[lb.LbId] = true
+	}
+	for _, lb := range ds.Status.AllocatedLb {
+		lbMap[lb.LbId] = true
 	}
 	needUpdate := false
 	for _, lbId := range ds.Spec.ExistedLbIds {
-		if _, ok := lbMap[lbId]; !ok {
-			ds.Status.LbList = append(ds.Status.LbList, networkingv1alpha1.DedicatedCLBInfo{LbId: lbId})
+		if !lbMap[lbId] {
+			ds.Status.AllocatableLb = append(ds.Status.AllocatableLb, networkingv1alpha1.AllocatableCLBInfo{LbId: lbId})
 			needUpdate = true
 		}
 	}
 	if needUpdate { // 有新增已有CLB，加进待分配LB列表
-		return r.Status().Update(ctx, ds)
+		status := ds.Status
+		return kube.UpdateStatus(ctx, ds, func() {
+			ds.Status = status
+		})
 	}
 	return nil
 }
@@ -337,68 +350,62 @@ func (r *DedicatedCLBServiceReconciler) diff(
 	return
 }
 
-func (r *DedicatedCLBServiceReconciler) allocateNewListener(ctx context.Context, log logr.Logger, ds *networkingv1alpha1.DedicatedCLBService, protocol string, num int) (int, error) {
-	if len(ds.Status.LbList) == 0 {
-		return 0, errors.New("no clb found")
+func (r *DedicatedCLBServiceReconciler) allocateListener(ctx context.Context, log logr.Logger, ds *networkingv1alpha1.DedicatedCLBService, protocol string, pod *networkingv1alpha1.TargetPod) (ok bool, err error) {
+	if len(ds.Status.AllocatableLb) == 0 {
+		return false, nil
 	}
-	updateStatus := false
-	var err error
-	lbIndex := 0
-	generateName := ds.Name + "-"
-	createdNum := 0
-OUTER_LOOP:
-	for ; createdNum < num; createdNum++ { // 分配 num 个端口的循环
-		for { // 分配单个lb端口的循环
-			if lbIndex >= len(ds.Status.LbList) {
-				log.V(5).Info("lb is not enough, stop trying allocate new listener")
-				break OUTER_LOOP
-			}
-			lb := ds.Status.LbList[lbIndex]
-			port := lb.MaxPort + 1
-			if port < ds.Spec.MinPort {
-				port = ds.Spec.MinPort
-			}
-			if port > ds.Spec.MaxPort { // 该lb已分配完所有端口，尝试下一个lb
-				lbIndex++
-				continue
-			}
-			// 没有同名监听器，新建
-			lis := &networkingv1alpha1.DedicatedCLBListener{}
-			lis.Spec.LbId = lb.LbId
-			lis.Spec.LbPort = port
-			lis.Spec.Protocol = protocol
-			lis.Spec.ExtensiveParameters = ds.Spec.ListenerExtensiveParameters
-			lis.Spec.LbRegion = ds.Spec.LbRegion
-			lis.Namespace = ds.Namespace
-			lis.GenerateName = generateName
-			lis.Labels = map[string]string{
-				labelKeyDedicatedCLBServiceName: ds.Name,
-			}
-			if err = controllerutil.SetControllerReference(ds, lis, r.Scheme); err != nil {
-				break OUTER_LOOP
-			}
-			if err = r.Create(ctx, lis); err != nil {
-				break OUTER_LOOP
-			}
-			lb.MaxPort = port
-			ds.Status.LbList[lbIndex] = lb
-			updateStatus = true
-			break // 创建成功，跳出本次端口分配的循环
+	lb := ds.Status.AllocatableLb[0]
+	if lb.CurrentPort <= 0 {
+		lb.CurrentPort = ds.Spec.MinPort - 1
+	}
+	if lb.CurrentPort >= ds.Spec.MaxPort { // 该lb已分配完所有端口，尝试下一个lb
+		ds.Status.AllocatableLb = ds.Status.AllocatableLb[1:]
+		ds.Status.AllocatedLb = append(ds.Status.AllocatedLb, networkingv1alpha1.AllocatedCLBInfo{LbId: lb.LbId, AutoCreate: lb.AutoCreate})
+		status := ds.Status
+		if err := kube.UpdateStatus(ctx, ds, func() {
+			ds.Status = status
+		}); err != nil {
+			return false, err
 		}
+		return false, errors.New("currentPort >= maxPort found in allocatableLb")
+	}
+	lb.CurrentPort++
+	lis := &networkingv1alpha1.DedicatedCLBListener{}
+	lis.Spec.LbId = lb.LbId
+	lis.Spec.LbPort = lb.CurrentPort
+	lis.Spec.Protocol = protocol
+	lis.Spec.ExtensiveParameters = ds.Spec.ListenerExtensiveParameters
+	lis.Spec.LbRegion = ds.Spec.LbRegion
+	lis.Spec.TargetPod = pod
+	lis.Namespace = ds.Namespace
+	lis.GenerateName = ds.Name + "-"
+	lis.Labels = map[string]string{
+		labelKeyDedicatedCLBServiceName: ds.Name,
+	}
+	if err := controllerutil.SetControllerReference(ds, lis, r.Scheme); err != nil {
+		return false, err
+	}
+	if err := r.Create(ctx, lis); err != nil {
+		return false, err
 	}
 
-	if updateStatus { // 有成功创建过，更新status
-		lbList := ds.Status.LbList
-		log.V(5).Info("update lbList status", "lbList", lbList)
-		if statusErr := kube.UpdateStatus(ctx, ds, func() {
-			ds.Status.LbList = lbList
-		}); statusErr != nil {
-			return createdNum, statusErr // TODO: 两个err可能同时发生，出现err覆盖
-		}
-		return createdNum, err
+	r.Recorder.Event(ds, corev1.EventTypeNormal, "AllocateListener", "allocate listener "+lis.Name+" for pod "+pod.PodName)
+
+	// listener 创建成功，更新 status
+	if lb.CurrentPort >= ds.Spec.MaxPort { // 该lb已分配完所有端口，将其移到已分配的lb列表
+		ds.Status.AllocatableLb = ds.Status.AllocatableLb[1:]
+		ds.Status.AllocatedLb = append(ds.Status.AllocatedLb, networkingv1alpha1.AllocatedCLBInfo{LbId: lb.LbId, AutoCreate: lb.AutoCreate})
+		status := ds.Status
+		return true, kube.UpdateStatus(ctx, ds, func() {
+			ds.Status = status
+		})
 	}
-	log.V(5).Info("no listener created")
-	return createdNum, err
+	// lb端口还没分配完，更新currentPort
+	status := ds.Status
+	status.AllocatableLb[0].CurrentPort = lb.CurrentPort
+	return true, kube.UpdateStatus(ctx, ds, func() {
+		ds.Status = status
+	})
 }
 
 func (r *DedicatedCLBServiceReconciler) findObjectsForPod(ctx context.Context, pod client.Object) []reconcile.Request {
