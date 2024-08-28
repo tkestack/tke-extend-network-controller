@@ -10,17 +10,23 @@ import (
 )
 
 func Update(ctx context.Context, obj client.Object, mutate func()) error {
-	return update(ctx, obj, mutate, false)
+	return update(ctx, obj, mutate, false, true)
 }
 
 func UpdateStatus(ctx context.Context, obj client.Object, mutate func()) error {
-	return update(ctx, obj, mutate, true)
+	return update(ctx, obj, mutate, true, true)
 }
 
-func update(ctx context.Context, obj client.Object, mutate func(), updateStatus bool) error {
+func update(ctx context.Context, obj client.Object, mutate func(), updateStatus, useCache bool) error {
 	return wait.ExponentialBackoff(retry.DefaultBackoff, func() (done bool, err error) {
 		key := client.ObjectKeyFromObject(obj)
-		err = apiClient.Get(ctx, key, obj)
+		var reader client.Reader
+		if useCache {
+			reader = apiClient
+		} else {
+			reader = apiReader
+		}
+		err = reader.Get(ctx, key, obj)
 		if err != nil {
 			return false, err
 		}
