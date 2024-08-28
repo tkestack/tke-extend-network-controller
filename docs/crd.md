@@ -36,12 +36,13 @@ spec:
     - lb-zzz
   lbAutoCreate:
     enable: true # 当 CLB 不足时，自动创建 CLB
-    extensiveParameters: | # 购买 CLB 时的参数(JSON 字符串格式)：按流量计费，带宽上限 2048 Mbps （完整参数列表参考 CreateLoadBalancer 接口 https://cloud.tencent.com/document/api/214/30692）
+    extensiveParameters: | # 购买 CLB 时的参数(JSON 字符串格式)：按流量计费，超强型4实例规格，带宽上限 60 Gbps （完整参数列表参考 CreateLoadBalancer 接口 https://cloud.tencent.com/document/api/214/30692）
       {
         "InternetAccessible": {
           "InternetChargeType": "TRAFFIC_POSTPAID_BY_HOUR",
-          "InternetMaxBandwidthOut": 2048
-        }
+          "InternetMaxBandwidthOut": 61440
+        },
+        "SlaType": "clb.c4.xlarge"
       }
 ```
 
