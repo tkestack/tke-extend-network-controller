@@ -14,14 +14,20 @@ spec:
     min: 500
     max: 600
   ports: # 必选，自动创建的CLB监听器与后端pod端口的映射关系与自动创建的监听器配置
-    - listenerConfig: clblistenerconfig-sample-tcp # 必选，CLB 监听器配置，必须为已存在的 CLBListenerConfig 资源。
+    - protocol: TCP # 端口监听的协议（TCP/UDP）
       targetPort: 9000 # 容器监听的端口
-    - listenerConfig: clblistenerconfig-sample-udp
+      addressPodAnnotation: networking.cloud.tencent.com/external-address-9000 # 可选，将外部地址自动注入到指定的 pod annotation 中
+    - protocol: UDP
       targetPort: 8000
+      addressPodAnnotation: networking.cloud.tencent.com/external-address-8080
   existedLbIds: # 复用已有的 CLB 实例，指定 CLB 实例 ID 的列表
     - lb-xxx
     - lb-yyy
     - lb-zzz
+  listenerExtensiveParameters: | # 可选，指定创建监听器时的参数(JSON 格式)，完整参考 CreateListener 接口： https://cloud.tencent.com/document/api/214/30693 （由于是一个监听器只挂一个 Pod，通常不需要自定义监听器配置，因为健康检查、调度算法这些配置，对于只有一个 RS 的监听器没有意义）
+    {
+      "DeregisterTargetRst": true
+    }
   lbAutoCreate:
     enable: true # 当 CLB 不足时，是否自动创建 CLB
     extensiveParameters: | # 指定购买 CLB 的参数(JSON 字符串格式)：按流量计费，带宽上限 2048 Mbps （完整参数列表参考 CreateLoadBalancer 接口 https://cloud.tencent.com/document/api/214/30692）

@@ -17,7 +17,10 @@ spec:
   lbRegion: ap-chengdu # 可选，CLB 所在地域，默认为集群所在地域
   minPort: 501 # 在 CLB 自动创建监听器，每个 Pod 占用一个端口，端口号范围在 501-600
   maxPort: 600
-  listenerExtensiveParameters: "" # 可选，指定创建监听器时的参数，JSON 格式，完整参考 CreateListener 接口： https://cloud.tencent.com/document/api/214/30693 （由于是一个监听器只挂一个 Pod，通常不需要自定义监听器配置，因为健康检查、调度算法这些配置，对于只有一个 RS 的监听器没有意义）
+  listenerExtensiveParameters: | # 可选，指定创建监听器时的参数(JSON 格式)，完整参考 CreateListener 接口： https://cloud.tencent.com/document/api/214/30693 （由于是一个监听器只挂一个 Pod，通常不需要自定义监听器配置，因为健康检查、调度算法这些配置，对于只有一个 RS 的监听器没有意义）
+    {
+      "DeregisterTargetRst": true
+    }
   selector:
     app: gameserver
   ports:

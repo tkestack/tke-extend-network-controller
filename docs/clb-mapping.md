@@ -5,7 +5,7 @@
 ## 创建 DedicatedCLBService
 
 为应用创建 `DedicatedCLBService`:
-1. `selector` 选中目标应用 Pod 的 labels，
+1. `selector` 选中目标应用 Pod 的 labels。
 2. `existedLbIds` 传入用于为 Pod 分配公网映射的 CLB 实例 ID 列表，可动态追加。
 3. `minPort` 和 `maxPort` 为 CLB 自动创建监听器的端口范围，每个端口只绑定一个 Pod。
 4. `ports` 为 Pod 监听的端口列表，通常一个房间进程只监听一个端口。其中 `addressPodAnnotation` 用于 CLB 绑定 Pod 后，自动将其 CLB 外部映射地址自动注入到指定的 pod annotation 中，可结合 Kubernetes 的 Downward API 将外部地址挂载进容器内，以便让应用能够感知到自身的公网地址。
@@ -24,10 +24,13 @@ spec:
   selector:
     app: gameserver
   ports:
-  - protocol: UDP # 端口监听的协议（TCP/UDP）
+  - protocol: TCP # 端口监听的协议（TCP/UDP）
     targetPort: 9000 # 容器监听的端口 (游戏战斗服、会议等进程监听的端口)
     addressPodAnnotation: networking.cloud.tencent.com/external-address # 可选，将外部地址自动注入到指定的 pod annotation 中
-  listenerExtensiveParameters: "" # 可选，指定创建监听器时的参数，JSON 格式，完整参考 CreateListener 接口： https://cloud.tencent.com/document/api/214/30693 （由于是一个监听器只挂一个 Pod，通常不需要自定义监听器配置，因为健康检查、调度算法这些配置，对于只有一个 RS 的监听器没有意义）
+  listenerExtensiveParameters: | # 可选，指定创建监听器时的参数(JSON 格式)，完整参考 CreateListener 接口： https://cloud.tencent.com/document/api/214/30693 （由于是一个监听器只挂一个 Pod，通常不需要自定义监听器配置，因为健康检查、调度算法这些配置，对于只有一个 RS 的监听器没有意义）
+    {
+      "DeregisterTargetRst": true
+    }
   existedLbIds: # 复用已有的 CLB 实例，指定 CLB 实例 ID 的列表
     - lb-xxx
     - lb-yyy
