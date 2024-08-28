@@ -7,7 +7,7 @@ spec:
   lbRegion: ap-chengdu # 可选，CLB 所在地域，默认为集群所在地域
   lbPort: 8088 # 必选，监听器端口
   protocol: TCP # 必选，监听器协议。TCP | UDP
-  listenerConfig: clblistenerconfig-sample # 可选，创建监听器的配置
+  extensiveParameters: "" # 可选，指定创建监听器时的参数，JSON 格式，完整参考 CreateListener 接口： https://cloud.tencent.com/document/api/214/30693
   backendPod: # 可选，需绑定的后端Pod
     podName: gameserver-0 # 指定 backendPod 时必选，后端 Pod 名称
     port: 80 # 指定 backendPod 时必选，后端 Pod 监听的端口
