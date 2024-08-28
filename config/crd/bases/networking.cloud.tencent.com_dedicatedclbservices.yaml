@@ -113,13 +113,13 @@ spec:
                     autoCreate:
                       description: 是否是自动创建的 CLB。如果是，删除 DedicatedCLBService 时，CLB 也会被清理。
                       type: boolean
-                    lbId:
-                      description: CLB 实例的 ID。
-                      type: string
-                    maxPort:
+                    currentPort:
                       description: CLB 当前已被分配的端口。
                       format: int64
                       type: integer
+                    lbId:
+                      description: CLB 实例的 ID。
+                      type: string
                   required:
                   - autoCreate
                   - lbId

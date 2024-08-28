@@ -67,7 +67,7 @@ type DedicatedCLBServiceReconciler struct {
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.18.4/pkg/reconcile
 func (r *DedicatedCLBServiceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	ds := &networkingv1alpha1.DedicatedCLBService{}
-	if err := r.Get(ctx, req.NamespacedName, ds); err != nil {
+	if err := r.APIReader.Get(ctx, req.NamespacedName, ds); err != nil { // 避免从缓存中读取（status可能更新不及时导致状态不一致，造成clb多创等问题）
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
 	return util.RequeueIfConflict(r.reconcile(ctx, ds))
@@ -234,7 +234,7 @@ func (r *DedicatedCLBServiceReconciler) allocateNewCLB(ctx context.Context, ds *
 	if err != nil {
 		return err
 	}
-	log.FromContext(ctx).Info("successfully created clb instance", "lbIds", ids)
+	r.Recorder.Event(ds, corev1.EventTypeNormal, "CreateCLB", fmt.Sprintf("clb successfully created: %v", ids))
 	return kube.UpdateStatus(ctx, ds, func() {
 		for _, lbId := range ids {
 			ds.Status.AllocatableLb = append(ds.Status.AllocatableLb, networkingv1alpha1.AllocatableCLBInfo{

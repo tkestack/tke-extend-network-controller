@@ -86,7 +86,7 @@ type AllocatableCLBInfo struct {
 	LbId string `json:"lbId"`
 	// CLB 当前已被分配的端口。
 	// +optional
-	CurrentPort int64 `json:"maxPort"`
+	CurrentPort int64 `json:"currentPort"`
 	// 是否是自动创建的 CLB。如果是，删除 DedicatedCLBService 时，CLB 也会被清理。
 	AutoCreate bool `json:"autoCreate"`
 }
