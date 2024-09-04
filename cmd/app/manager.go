@@ -6,8 +6,10 @@ import (
 	"github.com/spf13/viper"
 
 	"github.com/imroc/tke-extend-network-controller/internal/controller"
+	"github.com/imroc/tke-extend-network-controller/pkg/clb"
 	"github.com/imroc/tke-extend-network-controller/pkg/kube"
 	"github.com/imroc/tke-extend-network-controller/pkg/manager"
+	"github.com/imroc/tke-extend-network-controller/pkg/util"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
@@ -35,15 +37,34 @@ func init() {
 }
 
 func runManager() {
-	metricsAddr := viper.GetString(metricsBindAddress)
-	probeAddr := viper.GetString(healthProbeBindAddress)
-	enableLeaderElection := viper.GetBool(leaderElect)
-	workers := viper.GetInt(workerCount)
+	ctrl.SetLogger(zap.New(zap.UseFlagOptions(zapOptions)))
+
+	region := viper.GetString(regionFlag)
+	if region == "" {
+		var err error
+		setupLog.Info("no region specified, trying to get current region from metadata api")
+		region, err = util.GetCurrentRegion()
+		if err != nil {
+			setupLog.Error(err, "failed to get current region")
+			os.Exit(1)
+		}
+	}
+	setupLog.Info("use region " + region)
+	clb.Init(
+		viper.GetString(secretIdFlag),
+		viper.GetString(secretKeyFlag),
+		region,
+		viper.GetString(vpcIdFlag),
+		viper.GetString(clusterIdFlag),
+	)
+
+	metricsAddr := viper.GetString(metricsBindAddressFlag)
+	probeAddr := viper.GetString(healthProbeBindAddressFlag)
+	enableLeaderElection := viper.GetBool(leaderElectFlag)
+	workers := viper.GetInt(workerCountFlag)
 	if workers <= 0 {
 		workers = 1
 	}
-
-	ctrl.SetLogger(zap.New(zap.UseFlagOptions(zapOptions)))
 
 	mgr, err := ctrl.NewManager(
 		ctrl.GetConfigOrDie(),
@@ -63,13 +84,7 @@ func runManager() {
 		setupLog.Error(err, "unable to create controller", "controller", "DedicatedCLBService")
 		os.Exit(1)
 	}
-	// if err = (&controller.DedicatedNatgwServiceReconciler{
-	// 	Client: mgr.GetClient(),
-	// 	Scheme: mgr.GetScheme(),
-	// }).SetupWithManager(mgr); err != nil {
-	// 	setupLog.Error(err, "unable to create controller", "controller", "DedicatedNatgwService")
-	// 	os.Exit(1)
-	// }
+
 	if err = (&controller.DedicatedCLBListenerReconciler{
 		Client:    mgr.GetClient(),
 		Scheme:    mgr.GetScheme(),

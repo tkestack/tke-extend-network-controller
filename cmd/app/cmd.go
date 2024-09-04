@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/imroc/tke-extend-network-controller/pkg/clb"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
@@ -16,27 +15,20 @@ var RootCommand = cobra.Command{
 	Use:   "tke-extend-network-controller",
 	Short: "A network controller for TKE",
 	Run: func(cmd *cobra.Command, args []string) {
-		clb.Init(
-			viper.GetString(secretId),
-			viper.GetString(secretKey),
-			viper.GetString(region),
-			viper.GetString(vpcId),
-			viper.GetString(clusterId),
-		)
 		runManager()
 	},
 }
 
 const (
-	metricsBindAddress     = "metrics-bind-address"
-	leaderElect            = "leader-elect"
-	healthProbeBindAddress = "health-probe-bind-address"
-	secretId               = "secret-id"
-	secretKey              = "secret-key"
-	region                 = "region"
-	vpcId                  = "vpcid"
-	clusterId              = "cluster-id"
-	workerCount            = "worker-count"
+	metricsBindAddressFlag     = "metrics-bind-address"
+	leaderElectFlag            = "leader-elect"
+	healthProbeBindAddressFlag = "health-probe-bind-address"
+	secretIdFlag               = "secret-id"
+	secretKeyFlag              = "secret-key"
+	regionFlag                 = "region"
+	vpcIdFlag                  = "vpcid"
+	clusterIdFlag              = "cluster-id"
+	workerCountFlag            = "worker-count"
 )
 
 var (
@@ -51,14 +43,14 @@ func init() {
 	flags := RootCommand.Flags()
 	zapOptions.BindFlags(flag.CommandLine)
 	flags.AddGoFlagSet(flag.CommandLine)
-	addIntFlag(flags, workerCount, 1, "The worker count of each controller.")
-	addStringFlag(flags, metricsBindAddress, "0", "The address the metrics endpoint binds to. Use :8443 for HTTPS or :8080 for HTTP, or leave as 0 to disable the metrics service.")
-	addStringFlag(flags, healthProbeBindAddress, ":8081", "The address the probe endpoint binds to.")
-	addBoolFlag(flags, leaderElect, false, "Enable leader election for controller manager. Enabling this will ensure there is only one active controller manager.")
-	addStringFlag(flags, secretId, "", "Secret ID")
-	addStringFlag(flags, secretKey, "", "Secret Key")
-	addStringFlag(flags, region, "", "The region of TKE cluster")
-	addStringFlag(flags, vpcId, "", "The VPC ID of TKE cluster")
+	addIntFlag(flags, workerCountFlag, 1, "The worker count of each controller.")
+	addStringFlag(flags, metricsBindAddressFlag, "0", "The address the metrics endpoint binds to. Use :8443 for HTTPS or :8080 for HTTP, or leave as 0 to disable the metrics service.")
+	addStringFlag(flags, healthProbeBindAddressFlag, ":8081", "The address the probe endpoint binds to.")
+	addBoolFlag(flags, leaderElectFlag, false, "Enable leader election for controller manager. Enabling this will ensure there is only one active controller manager.")
+	addStringFlag(flags, secretIdFlag, "", "Secret ID")
+	addStringFlag(flags, secretKeyFlag, "", "Secret Key")
+	addStringFlag(flags, regionFlag, "", "The region of TKE cluster")
+	addStringFlag(flags, vpcIdFlag, "", "The VPC ID of TKE cluster")
 }
 
 func addStringFlag(flags *pflag.FlagSet, name, value, usage string) {
