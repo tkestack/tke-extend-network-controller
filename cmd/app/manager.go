@@ -1,6 +1,7 @@
 package app
 
 import (
+	"context"
 	"os"
 
 	"github.com/spf13/viper"
@@ -57,6 +58,11 @@ func runManager() {
 		viper.GetString(vpcIdFlag),
 		viper.GetString(clusterIdFlag),
 	)
+	_, err := clb.SyncQuota(context.Background(), region)
+	if err != nil {
+		setupLog.Error(err, "failed to sync clb quota")
+		os.Exit(1)
+	}
 
 	metricsAddr := viper.GetString(metricsBindAddressFlag)
 	probeAddr := viper.GetString(healthProbeBindAddressFlag)

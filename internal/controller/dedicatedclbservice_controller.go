@@ -194,6 +194,11 @@ func (r *DedicatedCLBServiceReconciler) sync(ctx context.Context, ds *networking
 		allocatableListeners[lis.Spec.Protocol] = append(allocatableListeners[lis.Spec.Protocol], lis)
 	}
 
+	listenerQuota, err := clb.GetQuota(ctx, ds.Spec.LbRegion, clb.TOTAL_LISTENER_QUOTA)
+	if err != nil {
+		r.Recorder.Event(ds, corev1.EventTypeWarning, "GetQuota", fmt.Sprintf("failed to get clb listener quota: %s", err.Error()))
+		return err
+	}
 	listenerGap := 0
 	for _, bind := range binds {
 		targetPod := &networkingv1alpha1.TargetPod{PodName: bind.Pod.Name, TargetPort: bind.Port.TargetPort}
@@ -208,7 +213,7 @@ func (r *DedicatedCLBServiceReconciler) sync(ctx context.Context, ds *networking
 			}
 			allocatableListeners[bind.Port.Protocol] = liss[1:]
 		} else { // 尝试创建新监听器
-			ok, err := r.allocateListener(ctx, log, ds, bind.Port.Protocol, targetPod)
+			ok, err := r.allocateListener(ctx, log, ds, bind.Port.Protocol, targetPod, listenerQuota)
 			if err != nil {
 				return err
 			}
@@ -350,7 +355,7 @@ func (r *DedicatedCLBServiceReconciler) diff(
 	return
 }
 
-func (r *DedicatedCLBServiceReconciler) allocateListener(ctx context.Context, log logr.Logger, ds *networkingv1alpha1.DedicatedCLBService, protocol string, pod *networkingv1alpha1.TargetPod) (ok bool, err error) {
+func (r *DedicatedCLBServiceReconciler) allocateListener(ctx context.Context, log logr.Logger, ds *networkingv1alpha1.DedicatedCLBService, protocol string, pod *networkingv1alpha1.TargetPod, listenerQuota int64) (ok bool, err error) {
 	if len(ds.Status.AllocatableLb) == 0 {
 		return false, nil
 	}
@@ -392,7 +397,7 @@ func (r *DedicatedCLBServiceReconciler) allocateListener(ctx context.Context, lo
 	r.Recorder.Event(ds, corev1.EventTypeNormal, "AllocateListener", "allocate listener "+lis.Name+" for pod "+pod.PodName)
 
 	// listener 创建成功，更新 status
-	if lb.CurrentPort >= ds.Spec.MaxPort { // 该lb已分配完所有端口，将其移到已分配的lb列表
+	if lb.CurrentPort >= ds.Spec.MaxPort || (lb.CurrentPort-ds.Spec.MinPort+1) >= listenerQuota { // 该lb已分配完所有端口，或者到达配额上限，将其移到已分配的lb列表
 		ds.Status.AllocatableLb = ds.Status.AllocatableLb[1:]
 		ds.Status.AllocatedLb = append(ds.Status.AllocatedLb, networkingv1alpha1.AllocatedCLBInfo{LbId: lb.LbId, AutoCreate: lb.AutoCreate})
 		status := ds.Status

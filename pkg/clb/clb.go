@@ -4,11 +4,14 @@ import (
 	clb "github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/clb/v20180317"
 	"github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common"
 	"github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common/profile"
+	ctrl "sigs.k8s.io/controller-runtime"
 )
 
 var credential *common.Credential
 
 var defaultRegion, defaultVpcId, clusterId string
+
+var clbLog = ctrl.Log.WithName("clb")
 
 func Init(secretId, secretKey, region, vpcId, clusterID string) {
 	if secretId == "" || secretKey == "" {
