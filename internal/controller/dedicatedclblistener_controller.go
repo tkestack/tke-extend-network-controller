@@ -60,6 +60,7 @@ type DedicatedCLBListenerReconciler struct {
 // +kubebuilder:rbac:groups=networking.cloud.tencent.com,resources=dedicatedclblisteners/finalizers,verbs=update
 // +kubebuilder:rbac:groups="",resources=pods,verbs=get;list;watch;update
 // +kubebuilder:rbac:groups="",resources=pods/status,verbs=get
+// +kubebuilder:rbac:groups="",resources=nodes,verbs=get;list;watch
 // +kubebuilder:rbac:groups=core,resources=events,verbs=create;patch
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
@@ -277,6 +278,21 @@ func (r *DedicatedCLBListenerReconciler) ensureBackendPod(ctx context.Context, l
 		return r.syncPodDelete(ctx, log, lis, podFinalizerName, pod)
 	}
 
+	// 检测节点类型
+	nodeName := pod.Spec.NodeName
+	if nodeName == "" { // Pod 还没调度成功，忽略
+		return nil
+	}
+	node := &corev1.Node{}
+	err = r.Get(ctx, client.ObjectKey{Name: nodeName}, node)
+	if err != nil {
+		return err
+	}
+	if !util.IsNodeTypeSupported(node) {
+		r.Recorder.Event(lis, corev1.EventTypeWarning, "NodeNotSupported", "node type not supported, please make sure pod scheduled to super node or native node")
+		return nil
+	}
+
 	// 确保 pod finalizer 存在
 	if !controllerutil.ContainsFinalizer(pod, podFinalizerName) {
 		log.V(6).Info(
@@ -285,6 +301,7 @@ func (r *DedicatedCLBListenerReconciler) ensureBackendPod(ctx context.Context, l
 		)
 		r.Recorder.Event(lis, corev1.EventTypeNormal, "AddPodFinalizer", "add finalizer to pod "+pod.Name)
 		if err := kube.AddPodFinalizer(ctx, pod, podFinalizerName); err != nil {
+			r.Recorder.Event(lis, corev1.EventTypeWarning, "AddPodFinalizer", fmt.Sprintf("failed to add finalizer to pod: %s", err.Error()))
 			return err
 		}
 	}
