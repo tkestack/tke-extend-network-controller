@@ -32,11 +32,13 @@ type DedicatedCLBServiceSpec struct {
 	// +optional
 	VpcId string `json:"vpcId"`
 	// CLB 端口范围的最小端口号。
-	// +default=500
-	MinPort int64 `json:"minPort"`
+	// +optional
+	// +kubebuilder:default:value=500
+	MinPort int64 `json:"minPort,omitempty"`
 	// CLB 端口范围的最大端口号。
-	// +default=550
-	MaxPort int64 `json:"maxPort"`
+	// +optional
+	// +kubebuilder:default:value=50000
+	MaxPort int64 `json:"maxPort,omitempty"`
 	// Pod 的标签选择器，被选中的 Pod 会被绑定到 CLB 监听器下。
 	Selector map[string]string `json:"selector"`
 	// Pod 监听的端口。
