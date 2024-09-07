@@ -362,7 +362,11 @@ func (r *DedicatedCLBServiceReconciler) allocateListener(ctx context.Context, ds
 		lb.CurrentPort = ds.Spec.MinPort - 1
 	}
 	havePort := func() bool {
-		return lb.CurrentPort >= ds.Spec.MaxPort || (lb.CurrentPort-ds.Spec.MinPort+1) >= listenerQuota
+		if lb.CurrentPort >= ds.Spec.MaxPort {
+			return true
+		}
+		allocatedPorts := (lb.CurrentPort - ds.Spec.MinPort + 1)
+		return allocatedPorts >= listenerQuota || (ds.Spec.MaxPod > 0 && allocatedPorts >= ds.Spec.MaxPod)
 	}
 	if havePort() { // 该lb已分配完所有端口，尝试下一个lb
 		ds.Status.AllocatableLb = ds.Status.AllocatableLb[1:]
