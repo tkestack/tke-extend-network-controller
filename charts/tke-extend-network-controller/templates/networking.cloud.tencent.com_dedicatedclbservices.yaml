@@ -60,11 +60,17 @@ spec:
               listenerExtensiveParameters:
                 description: 创建监听器的参数，JSON 格式，详细参数请参考 CreateListener 接口：https://cloud.tencent.com/document/api/214/30693
                 type: string
+              maxPod:
+                description: 限制单个 CLB 的 Pod/监听器 的最大数量。
+                format: int64
+                type: integer
               maxPort:
+                default: 50000
                 description: CLB 端口范围的最大端口号。
                 format: int64
                 type: integer
               minPort:
+                default: 500
                 description: CLB 端口范围的最小端口号。
                 format: int64
                 type: integer
@@ -97,8 +103,6 @@ spec:
                 description: CLB 所在 VPC ID，不填则使用 TKE 集群所在的 VPC 的 ID。
                 type: string
             required:
-            - maxPort
-            - minPort
             - ports
             - selector
             type: object
@@ -145,3 +149,4 @@ spec:
     storage: true
     subresources:
       status: {}
+

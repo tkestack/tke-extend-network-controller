@@ -30,7 +30,7 @@ type DedicatedCLBServiceSpec struct {
 	LbRegion string `json:"lbRegion,omitempty"`
 	// CLB 所在 VPC ID，不填则使用 TKE 集群所在的 VPC 的 ID。
 	// +optional
-	VpcId string `json:"vpcId"`
+	VpcId *string `json:"vpcId"`
 	// CLB 端口范围的最小端口号。
 	// +optional
 	// +kubebuilder:default:value=500
@@ -41,7 +41,7 @@ type DedicatedCLBServiceSpec struct {
 	MaxPort int64 `json:"maxPort,omitempty"`
 	// 限制单个 CLB 的 Pod/监听器 的最大数量。
 	// +optional
-	MaxPod int64 `json:"maxPod,omitempty"`
+	MaxPod *int64 `json:"maxPod,omitempty"`
 	// Pod 的标签选择器，被选中的 Pod 会被绑定到 CLB 监听器下。
 	Selector map[string]string `json:"selector"`
 	// Pod 监听的端口。

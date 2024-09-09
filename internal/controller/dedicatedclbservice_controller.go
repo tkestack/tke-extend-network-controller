@@ -233,7 +233,11 @@ func (r *DedicatedCLBServiceReconciler) sync(ctx context.Context, ds *networking
 }
 
 func (r *DedicatedCLBServiceReconciler) allocateNewCLB(ctx context.Context, ds *networkingv1alpha1.DedicatedCLBService, num int) error {
-	ids, err := clb.Create(ctx, ds.Spec.LbRegion, ds.Spec.VpcId, ds.Spec.LbAutoCreate.ExtensiveParameters, num)
+	var vpcId string
+	if ds.Spec.VpcId != nil {
+		vpcId = *ds.Spec.VpcId
+	}
+	ids, err := clb.Create(ctx, ds.Spec.LbRegion, vpcId, ds.Spec.LbAutoCreate.ExtensiveParameters, num)
 	if err != nil {
 		return err
 	}
@@ -366,7 +370,7 @@ func (r *DedicatedCLBServiceReconciler) allocateListener(ctx context.Context, ds
 			return true
 		}
 		allocatedPorts := (lb.CurrentPort - ds.Spec.MinPort + 1)
-		return allocatedPorts >= listenerQuota || (ds.Spec.MaxPod > 0 && allocatedPorts >= ds.Spec.MaxPod)
+		return allocatedPorts >= listenerQuota || (ds.Spec.MaxPod != nil && allocatedPorts >= *ds.Spec.MaxPod)
 	}
 	if havePort() { // 该lb已分配完所有端口，尝试下一个lb
 		ds.Status.AllocatableLb = ds.Status.AllocatableLb[1:]

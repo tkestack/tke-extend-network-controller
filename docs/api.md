@@ -27,7 +27,7 @@ _Appears in:_
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
 | `lbId` _string_ | CLB 实例的 ID。 |  |  |
-| `maxPort` _integer_ | CLB 当前已被分配的端口。 |  |  |
+| `currentPort` _integer_ | CLB 当前已被分配的端口。 |  |  |
 | `autoCreate` _boolean_ | 是否是自动创建的 CLB。如果是，删除 DedicatedCLBService 时，CLB 也会被清理。 |  |  |
 
 
@@ -163,8 +163,9 @@ _Appears in:_
 | --- | --- | --- | --- |
 | `lbRegion` _string_ | CLB 所在地域，不填则使用 TKE 集群所在的地域。 |  |  |
 | `vpcId` _string_ | CLB 所在 VPC ID，不填则使用 TKE 集群所在的 VPC 的 ID。 |  |  |
-| `minPort` _integer_ | CLB 端口范围的最小端口号。 |  |  |
-| `maxPort` _integer_ | CLB 端口范围的最大端口号。 |  |  |
+| `minPort` _integer_ | CLB 端口范围的最小端口号。 | 500 |  |
+| `maxPort` _integer_ | CLB 端口范围的最大端口号。 | 50000 |  |
+| `maxPod` _integer_ | 限制单个 CLB 的 Pod/监听器 的最大数量。 |  |  |
 | `selector` _object (keys:string, values:string)_ | Pod 的标签选择器，被选中的 Pod 会被绑定到 CLB 监听器下。 |  |  |
 | `ports` _[DedicatedCLBServicePort](#dedicatedclbserviceport) array_ | Pod 监听的端口。 |  |  |
 | `listenerExtensiveParameters` _string_ | 创建监听器的参数，JSON 格式，详细参数请参考 CreateListener 接口：https://cloud.tencent.com/document/api/214/30693 |  |  |

@@ -8,8 +8,8 @@
 1. `selector` 选中目标应用 Pod 的 labels。
 2. `existedLbIds` 传入用于为 Pod 分配公网映射的 CLB 实例 ID 列表，可动态追加。
 3. `minPort` 和 `maxPort` 为 CLB 自动创建监听器的端口范围，每个端口只绑定一个 Pod。
-4. `ports` 为 Pod 监听的端口列表，通常一个房间进程只监听一个端口。其中 `addressPodAnnotation` 用于 CLB 绑定 Pod 后，自动将其 CLB 外部映射地址自动注入到指定的 pod annotation 中，可结合 Kubernetes 的 Downward API 将外部地址挂载进容器内，以便让应用能够感知到自身的公网地址。
-
+4. `maxPod` 用于限制最大 Pod/监听器 数量。
+5. `ports` 为 Pod 监听的端口列表，通常一个房间进程只监听一个端口。其中 `addressPodAnnotation` 用于 CLB 绑定 Pod 后，自动将其 CLB 外部映射地址自动注入到指定的 pod annotation 中，可结合 Kubernetes 的 Downward API 将外部地址挂载进容器内，以便让应用能够感知到自身的公网地址。
 
 ```yaml
 apiVersion: networking.cloud.tencent.com/v1alpha1
@@ -19,8 +19,9 @@ metadata:
   name: gameserver
 spec:
   lbRegion: ap-chengdu # 可选，CLB 所在地域，默认为集群所在地域
-  minPort: 501 # 在 CLB 自动创建监听器，每个 Pod 占用一个端口，端口号范围在 501-600
-  maxPort: 600
+  minPort: 500 # 可选，在 CLB 自动创建监听器，每个 Pod 占用一个端口，默认端口号范围在 500-50000
+  maxPort: 50000
+  maxPod: 50 # 可选，限制最大 Pod/监听器 数量。
   selector:
     app: gameserver
   ports:
