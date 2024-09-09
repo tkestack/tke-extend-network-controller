@@ -1,5 +1,7 @@
 # tke-extend-network-controller
 
+![](./docs/images/logo.png)
+
 针对 TKE 集群一些特殊场景的的网络控制器。
 
 ## 支持房间类场景
