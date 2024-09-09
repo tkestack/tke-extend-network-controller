@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN" "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">
+<svg xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns="http://www.w3.org/2000/svg" xmlns:xl="http://www.w3.org/1999/xlink" version="1.1" viewBox="578 252 426 394" width="426" height="394">
+  <defs/>
+  <g id="Canvas_1" stroke-dasharray="none" stroke="none" stroke-opacity="1" fill="none" fill-opacity="1">
+    <title>Canvas 1</title>
+    <g id="Canvas_1_Layer_1">
+      <title>Layer 1</title>
+      <g id="Group_4">
+        <title>腾讯云</title>
+        <g id="Group_10">
+          <title>XMLID_556_</title>
+          <g id="Group_11">
+            <title>XMLID_580_</title>
+            <g id="Group_12">
+              <g id="Graphic_13">
+                <path d="M 928.4043 448.63043 C 917.0891 525.5739 851.4609 584.41304 771.5 584.41304 C 683.99565 584.41304 613.08696 513.50435 613.08696 426 C 613.08696 338.49565 683.99565 267.58696 771.5 267.58696 C 851.4609 267.58696 917.0891 326.4261 928.4043 403.36957 L 943.4913 403.36957 C 932.1761 318.12826 859.7587 252.5 771.5 252.5 C 675.6978 252.5 598 330.19783 598 426 C 598 521.8022 675.6978 599.5 771.5 599.5 C 859.7587 599.5 932.1761 533.87174 943.4913 448.63043 Z" fill="#00a4ff"/>
+              </g>
+            </g>
+          </g>
+        </g>
+        <g id="Group_5">
+          <g id="Graphic_9">
+            <path d="M 684.75 418.4565 L 767.7283 418.4565 L 767.7283 321.9 L 684.75 372.4413 Z M 699.83696 380.73913 L 752.6413 349.05652 L 752.6413 403.36957 L 699.83696 403.36957 Z" fill="#00a4ff"/>
+          </g>
+          <g id="Graphic_8">
+            <path d="M 782.8152 321.9 L 782.8152 418.4565 L 865.7935 418.4565 L 865.7935 372.4413 Z M 850.7065 403.36957 L 797.9022 403.36957 L 797.9022 349.05652 L 850.7065 380.73913 Z" fill="#00a4ff"/>
+          </g>
+          <g id="Graphic_7">
+            <path d="M 684.75 479.5587 L 767.7283 530.1 L 767.7283 433.5435 L 684.75 433.5435 Z M 699.83696 448.63043 L 752.6413 448.63043 L 752.6413 502.9435 L 699.83696 471.26087 Z" fill="#00a4ff"/>
+          </g>
+          <g id="Graphic_6">
+            <path d="M 782.8152 530.1 L 865.7935 479.5587 L 865.7935 433.5435 L 782.8152 433.5435 Z M 797.9022 448.63043 L 850.7065 448.63043 L 850.7065 471.26087 L 797.9022 502.9435 Z" fill="#00a4ff"/>
+          </g>
+        </g>
+      </g>
+      <g id="Graphic_25">
+        <text transform="translate(583 599)" fill="#02a4ff">
+          <tspan font-family="TencentSans" font-weight="bold" font-size="28" fill="#02a4ff" x="0" y="33" xml:space="preserve">tke-extend-network-controller</tspan>
+        </text>
+      </g>
+    </g>
+  </g>
+</svg>
