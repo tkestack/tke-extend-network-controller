@@ -221,7 +221,14 @@ func (r *DedicatedCLBServiceReconciler) sync(ctx context.Context, ds *networking
 		}
 	}
 	if listenerGap > 0 {
-		lbNum := float64(listenerGap) / (float64(ds.Spec.MaxPort) - float64(ds.Spec.MinPort) + 1)
+		podLimit := listenerQuota
+		if maxPorts := ds.Spec.MaxPort - ds.Spec.MinPort + 1; maxPorts < podLimit {
+			podLimit = maxPorts
+		}
+		if ds.Spec.MaxPod != nil && *ds.Spec.MaxPod < podLimit {
+			podLimit = *ds.Spec.MaxPod
+		}
+		lbNum := float64(listenerGap) / float64(podLimit)
 		lbToCreate := int(math.Ceil(lbNum))
 		r.Recorder.Event(ds, corev1.EventTypeNormal, "CreateCLB", fmt.Sprintf("clb is not enough, try to create clb instance (num: %d)", lbToCreate))
 		if err := r.allocateNewCLB(ctx, ds, lbToCreate); err != nil {
