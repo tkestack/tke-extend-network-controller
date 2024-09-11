@@ -208,3 +208,7 @@ generate-docs:
 		--output-path=./docs/api.md \
 		--renderer=markdown
 
+
+.PHONY: helm-docs
+helm-docs:
+	./hack/helm-docs.sh

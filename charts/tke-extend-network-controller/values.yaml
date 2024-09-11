@@ -2,26 +2,39 @@
 # This is a YAML-formatted file.
 # Declare variables to be passed into your templates.
 
+# -- Replica count of the controller pod
 replicaCount: 1
 
+# -- Region of the current TKE Cluster, optional.
 region: ""
+# -- VPC ID of the current TKE Cluster.
 vpcID: ""
+# -- Secret ID of the Tencent Cloud Account.
 secretID: ""
+# -- Secret Key of the Tencent Cloud Account.
 secretKey: ""
+# -- Cluster ID of the current TKE Cluster.
 clusterID: ""
-
+# -- Worker count of the controller
 workerCount: 3
 
+# -- Logging otpions of the controller
 log:
-  level: "info" # be one of 'debug', 'info', 'error', or any integer value > 0 which corresponds to custom debug levels of increasing verbosity
-  encoder: "json" # json or console
+  # -- Log level of the controller, be one of 'debug', 'info', 'error', or any integer value > 0 which corresponds to custom debug levels of increasing verbosity
+  level: "info"
+  # -- Log format of the controller, be one of 'json' or 'console'
+  encoder: "json"
 
+# -- Image of the controller
 image:
+  # -- Image repository of the controller
   repository: imroc/tke-extend-network-controller
+  # -- ImagePullPolicy of the controller
   pullPolicy: IfNotPresent
-  # Overrides the image tag whose default is the chart appVersion.
+  # -- Overrides the image tag whose default is the chart appVersion.
   tag: ""
 
+# -- ImagePullSecrets of the controller
 imagePullSecrets: []
 nameOverride: ""
 fullnameOverride: ""
