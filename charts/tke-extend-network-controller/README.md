@@ -55,12 +55,16 @@
 
 ## 配置 values
 
+以下是必要配置：
+
 ```yaml
 vpcID: "" # TKE 集群所在 VPC ID (vpc-xxx)
 clusterID: "" # TKE 集群 ID (cls-xxx)
 secretID: "" # 腾讯云子账号的 SecretID
 secretKey: "" # 腾讯云子账号的 SecretKey
 ```
+
+完整配置参考 [Values](#values)。
 
 ## 使用 CLB 为 Pod 分配公网地址映射
 
