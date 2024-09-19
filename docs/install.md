@@ -41,10 +41,10 @@
 
 ## 使用 helm 安装
 
-1. 添加 helm repo:
+1. 克隆仓库:
 
 ```bash
-helm repo add tke-extend-network-controller https://imroc.github.io/tke-extend-network-controller
+git clone --depth 1 https://github.com/tkestack/tke-extend-network-controller.git
 ```
 
 2. 创建 `values.yaml` 并配置:
@@ -60,7 +60,7 @@ secretKey: "" # 腾讯云子账号的 SecretKey
 ```bash
 helm upgrade --install -f values.yaml \
   --namespace tke-extend-network-controller --create-namespace \
-  tke-extend-network-controller tke-extend-network-controller/tke-extend-network-controller
+  tke-extend-network-controller charts/tke-extend-network-controller
 ```
 
 > 1. 如果要升级版本，先执行 `helm repo update`，再重复执行上面的安装命令即可。
