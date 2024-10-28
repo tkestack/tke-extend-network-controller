@@ -66,14 +66,21 @@ func validateLbPort(lis *DedicatedCLBListener) error {
 	if err != nil {
 		return err
 	}
-	if len(list.Items) > 0 {
+	var dup *DedicatedCLBListener
+	for _, lis := range list.Items {
+		if lis.DeletionTimestamp == nil {
+			continue
+		}
+		dup = &lis
+	}
+	if dup != nil {
 		lbPortPath := field.NewPath("spec").Child("lbPort")
 		var allErrs field.ErrorList
 		allErrs = append(
 			allErrs,
 			field.Invalid(
 				lbPortPath, lis.Spec.LbPort,
-				fmt.Sprintf("lbPort is already used by other DedicatedCLBListener (%s/%s)", list.Items[0].Namespace, list.Items[0].Name),
+				fmt.Sprintf("lbPort is already used by other DedicatedCLBListener (%s/%s)", dup.Namespace, dup.Name),
 			),
 		)
 		return apierrors.NewInvalid(
