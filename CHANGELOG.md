@@ -1,5 +1,9 @@
 # 版本说明
 
+## v1.1.2 (2024-11-4)
+
+* 修复：解决DedicatedCLBListener的TargetPod置为nil后导致pod finalizer泄露问题。
+
 ## v1.1.1 (2024-10-28)
 
 * DedicatedCLBListener 校验端口重复时不考虑正在删除的 DedicatedCLBListener。
