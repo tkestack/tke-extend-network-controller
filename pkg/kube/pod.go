@@ -8,6 +8,14 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
+//	func RemovePodAnnotation(ctx context.Context, pod *corev1.Pod, name string) error {
+//		return update(ctx, pod, func() {
+//			if pod.Annotations == nil {
+//				return
+//			}
+//			delete(pod.Annotations, name)
+//		}, false, false)
+//	}
 func SetPodAnnotation(ctx context.Context, pod *corev1.Pod, name, value string) error {
 	return update(ctx, pod, func() {
 		if pod.Annotations == nil {

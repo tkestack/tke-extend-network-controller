@@ -219,6 +219,8 @@ func getDedicatedCLBListenerPodFinalizerName(lis *networkingv1alpha1.DedicatedCL
 	return "dedicatedclblistener.networking.cloud.tencent.com/" + lis.Name
 }
 
+const podNameAnnotation = "dedicatedclblistener.networking.cloud.tencent.com/pod-name"
+
 func (r *DedicatedCLBListenerReconciler) ensureBackendPod(ctx context.Context, log logr.Logger, lis *networkingv1alpha1.DedicatedCLBListener) error {
 	if lis.Status.ListenerId == "" {
 		return nil
@@ -226,8 +228,28 @@ func (r *DedicatedCLBListenerReconciler) ensureBackendPod(ctx context.Context, l
 	log = log.WithValues("listenerId", lis.Status.ListenerId)
 	// 没配置后端 pod，确保后端rs全被解绑，并且状态为 Available
 	targetPod := lis.Spec.TargetPod
+	podFinalizerName := getDedicatedCLBListenerPodFinalizerName(lis)
+
 	if targetPod == nil {
 		if lis.Status.State == networkingv1alpha1.DedicatedCLBListenerStateBound { // 但监听器状态是已占用，需要解绑
+			if podName := lis.GetAnnotations()[podNameAnnotation]; podName != "" {
+				pod := &corev1.Pod{}
+				err := r.Get(
+					ctx,
+					client.ObjectKey{
+						Namespace: lis.Namespace,
+						Name:      podName,
+					},
+					pod,
+				)
+				if err == nil {
+					if err = kube.RemovePodFinalizer(ctx, pod, podFinalizerName); err != nil {
+						return err
+					}
+				} else {
+					r.Recorder.Event(lis, corev1.EventTypeWarning, "Deregister", fmt.Sprintf("faild to find pod before deregister: %s", err.Error()))
+				}
+			}
 			r.Recorder.Event(lis, corev1.EventTypeNormal, "PodChangeToNil", "no backend pod configured, try to deregister all targets")
 			// 解绑所有后端
 			if err := clb.DeregisterAllTargets(ctx, lis.Spec.LbRegion, lis.Spec.LbId, lis.Status.ListenerId); err != nil {
@@ -246,6 +268,17 @@ func (r *DedicatedCLBListenerReconciler) ensureBackendPod(ctx context.Context, l
 	// 有配置后端 pod，对pod对账
 	log = log.WithValues("pod", targetPod.PodName, "port", targetPod.TargetPort)
 	log.V(6).Info("ensure backend pod")
+	// 确保记录当前 target pod 到注解以便 targetPod 置为 nil 后（不删除listener）可找到pod以删除pod finalizer
+	if lis.Annotations == nil {
+		lis.Annotations = make(map[string]string)
+	}
+	if lis.Annotations[podNameAnnotation] != targetPod.PodName {
+		log.V(6).Info("set pod name annotation")
+		lis.Annotations[podNameAnnotation] = targetPod.PodName
+		if err := r.Update(ctx, lis); err != nil {
+			return err
+		}
+	}
 	pod := &corev1.Pod{}
 	err := r.Get(
 		ctx,
@@ -271,8 +304,6 @@ func (r *DedicatedCLBListenerReconciler) ensureBackendPod(ctx context.Context, l
 		}
 		return err
 	}
-
-	podFinalizerName := getDedicatedCLBListenerPodFinalizerName(lis)
 
 	if !pod.DeletionTimestamp.IsZero() { // pod 正在删除
 		return r.syncPodDelete(ctx, log, lis, podFinalizerName, pod)
