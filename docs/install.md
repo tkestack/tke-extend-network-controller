@@ -28,7 +28,9 @@
                     "clb:CreateListener",
                     "clb:RegisterTargets",
                     "clb:DeleteLoadBalancers",
-                    "clb:DescribeLoadBalancersDetail"
+                    "clb:DescribeLoadBalancersDetail",
+                    "clb:DescribeQuota",
+                    "clb:DescribeListeners"
                 ],
                 "resource": [
                     "*"
