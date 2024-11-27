@@ -62,9 +62,9 @@ spec:
   lbPort: 8088 # 必选，监听器端口
   protocol: TCP # 必选，监听器协议。TCP | UDP
   extensiveParameters: "" # 可选，指定创建监听器时的参数，JSON 格式，完整参考 CreateListener 接口： https://cloud.tencent.com/document/api/214/30693
-  backendPod: # 可选，需绑定的后端Pod
+  targetPod: # 可选，需绑定的后端Pod
     podName: gameserver-0 # 指定 backendPod 时必选，后端 Pod 名称
-    port: 80 # 指定 backendPod 时必选，后端 Pod 监听的端口
+    targetPort: 80 # 指定 backendPod 时必选，后端 Pod 监听的端口
 status:
   listenerId: lbl-ku486mr3 # 监听器 ID
   state: Bound # 监听器状态，Pending (监听器创建中) | Bound (监听器已绑定Pod) | Available (监听器已创建但还未绑定Pod) | Deleting (监听器删除中) | Failed （失败）
