@@ -69,6 +69,13 @@ spec:
               extensiveParameters:
                 description: 创建监听器的参数，JSON 格式，详细参数请参考 CreateListener 接口：https://cloud.tencent.com/document/api/214/30693
                 type: string
+              lbEndPort:
+                description: CLB 端口段监听器的结束端口号。
+                format: int64
+                type: integer
+                x-kubernetes-validations:
+                - message: Value is immutable
+                  rule: self == oldSelf
               lbId:
                 description: CLB 实例的 ID。
                 type: string
