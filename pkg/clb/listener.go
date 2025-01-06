@@ -65,7 +65,7 @@ func GetListenerByPort(ctx context.Context, region, lbId string, port int64, pro
 
 const TkePodListenerName = "TKE-DEDICATED-POD"
 
-func CreateListener(ctx context.Context, region, lbId string, port int64, protocol, extensiveParameters string) (id string, err error) {
+func CreateListener(ctx context.Context, region, lbId string, port, endPort int64, protocol, extensiveParameters string) (id string, err error) {
 	req := clb.NewCreateListenerRequest()
 	req.HealthCheck = &clb.HealthCheck{
 		HealthSwitch: common.Int64Ptr(0),
@@ -79,6 +79,9 @@ func CreateListener(ctx context.Context, region, lbId string, port int64, protoc
 	}
 	req.LoadBalancerId = &lbId
 	req.Ports = []*int64{&port}
+	if endPort > 0 {
+		req.EndPort = common.Uint64Ptr(uint64(endPort))
+	}
 	req.Protocol = &protocol
 	req.ListenerNames = []*string{common.StringPtr(TkePodListenerName)}
 	client := GetClient(region)

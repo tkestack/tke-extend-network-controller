@@ -35,6 +35,10 @@ type DedicatedCLBListenerSpec struct {
 	// CLB 监听器的端口号。
 	// +kubebuilder:validation:XValidation:rule="self == oldSelf", message="Value is immutable"
 	LbPort int64 `json:"lbPort"`
+	// CLB 端口段监听器的结束端口号。
+	// +kubebuilder:validation:XValidation:rule="self == oldSelf", message="Value is immutable"
+	// +optional
+	LbEndPort int64 `json:"lbEndPort"`
 	// CLB 监听器的协议。
 	// +kubebuilder:validation:XValidation:rule="self == oldSelf", message="Value is immutable"
 	// +kubebuilder:validation:Enum=TCP;UDP
