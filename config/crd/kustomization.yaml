@@ -4,6 +4,7 @@
 resources:
   - bases/networking.cloud.tencent.com_dedicatedclbservices.yaml
   - bases/networking.cloud.tencent.com_dedicatedclblisteners.yaml
+  - bases/networking.cloud.tencent.com_dedicatedmulticlbservices.yaml
   # +kubebuilder:scaffold:crdkustomizeresource
 
 patches:

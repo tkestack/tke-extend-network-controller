@@ -1,0 +1,23 @@
+# permissions for end users to view dedicatedmulticlbservices.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  labels:
+    app.kubernetes.io/name: tke-extend-network-controller
+    app.kubernetes.io/managed-by: kustomize
+  name: dedicatedmulticlbservice-viewer-role
+rules:
+- apiGroups:
+  - networking.cloud.tencent.com
+  resources:
+  - dedicatedmulticlbservices
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - networking.cloud.tencent.com
+  resources:
+  - dedicatedmulticlbservices/status
+  verbs:
+  - get
