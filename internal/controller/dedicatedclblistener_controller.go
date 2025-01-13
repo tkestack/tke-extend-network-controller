@@ -349,8 +349,15 @@ func (r *DedicatedCLBListenerReconciler) ensureBackendPod(ctx context.Context, l
 	}
 	// 绑定rs
 	lbInfos := getLbInfos(lis.Spec.LbId)
-	for _, lbInfo := range lbInfos {
-		targets, err := clb.DescribeTargets(ctx, lis.Spec.LbRegion, lbInfo.LbId, lis.Status.ListenerId)
+	ls := getListenerInfos(lis.Status.ListenerId)
+	if len(lbInfos) != len(ls) {
+		err = fmt.Errorf("exptected ListenerId length %d, got %d", len(lbInfos), len(ls))
+		r.Recorder.Event(lis, corev1.EventTypeWarning, "EnsureBackendPod", err.Error())
+		return err
+	}
+	for i, lbInfo := range lbInfos {
+		listenerId := ls[i].ListenerId
+		targets, err := clb.DescribeTargets(ctx, lis.Spec.LbRegion, lbInfo.LbId, listenerId)
 		if err != nil {
 			r.Recorder.Event(lis, corev1.EventTypeWarning, "DescribeTargets", err.Error())
 			return err
@@ -367,7 +374,7 @@ func (r *DedicatedCLBListenerReconciler) ensureBackendPod(ctx context.Context, l
 		if len(toDel) > 0 {
 			r.Recorder.Event(lis, corev1.EventTypeNormal, "DeregisterExtra", fmt.Sprintf("deregister extra rs %v", toDel))
 			log.Info("deregister extra rs", "extraRs", toDel)
-			if err := clb.DeregisterTargetsForListener(ctx, lis.Spec.LbRegion, lbInfo.LbId, lis.Status.ListenerId, toDel...); err != nil {
+			if err := clb.DeregisterTargetsForListener(ctx, lis.Spec.LbRegion, lbInfo.LbId, listenerId, toDel...); err != nil {
 				r.Recorder.Event(lis, corev1.EventTypeWarning, "DeregisterExtra", err.Error())
 				return err
 			}
@@ -380,7 +387,7 @@ func (r *DedicatedCLBListenerReconciler) ensureBackendPod(ctx context.Context, l
 			fmt.Sprintf("register pod %s/%s:%d to %s", pod.Name, pod.Status.PodIP, targetPod.TargetPort, lbInfo.LbId),
 		)
 		if err := clb.RegisterTargets(
-			ctx, lis.Spec.LbRegion, lbInfo.LbId, lis.Status.ListenerId,
+			ctx, lis.Spec.LbRegion, lbInfo.LbId, listenerId,
 			clb.Target{TargetIP: pod.Status.PodIP, TargetPort: targetPod.TargetPort},
 		); err != nil {
 			r.Recorder.Event(lis, corev1.EventTypeWarning, "RegisterPod", err.Error())
@@ -410,12 +417,7 @@ func (r *DedicatedCLBListenerReconciler) ensureBackendPod(ctx context.Context, l
 				r.Recorder.Event(lis, corev1.EventTypeWarning, "GetClbExternalAddress", err.Error())
 				return err
 			}
-			var name string
-			if lbInfo.Alias != "" {
-				name = lbInfo.Alias
-			} else {
-				name = lbInfo.LbId
-			}
+			name := lbInfo.Name()
 			addresses[name] = addr
 		}
 		addresses["port"] = lis.Spec.LbPort

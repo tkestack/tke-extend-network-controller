@@ -42,15 +42,30 @@ func (i *LBInfo) Name() string {
 	return i.LbId
 }
 
+func getListenerInfos(listenerId string) (ls ListenerInfos) {
+	ss := strings.Split(listenerId, ",")
+	for _, s := range ss {
+		idAndName := strings.Split(s, "/")
+		id := idAndName[0]
+		name := ""
+		if len(idAndName) == 2 {
+			name = idAndName[1]
+		}
+		ls = append(ls, ListenerInfo{ListenerId: id, LbName: name})
+	}
+	return
+}
+
 func getLbInfos(lbId string) (lbInfos []LBInfo) {
 	ss := strings.Split(lbId, ",")
 	for _, s := range ss {
 		idAndName := strings.Split(s, "/")
-		if len(idAndName) == 1 {
-			lbInfos = append(lbInfos, LBInfo{idAndName[0], ""})
-		} else {
-			lbInfos = append(lbInfos, LBInfo{idAndName[0], idAndName[1]})
+		id := idAndName[0]
+		name := ""
+		if len(idAndName) == 2 {
+			name = idAndName[1]
 		}
+		lbInfos = append(lbInfos, LBInfo{LbId: id, Alias: name})
 	}
 	return
 }
