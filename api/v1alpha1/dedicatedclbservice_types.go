@@ -63,7 +63,7 @@ type LbAutoCreate struct {
 	Enable bool `json:"enable,omitempty"`
 	// 创建 CLB 时的参数，JSON 格式，详细参数请参考 CreateLoadBalancer 接口：https://cloud.tencent.com/document/api/214/30692
 	// +optional
-	ExtensiveParameters string `json:"extensiveParameters,omitempty"`
+	ExtensiveParameters *string `json:"extensiveParameters,omitempty"`
 }
 
 type DedicatedCLBServicePort struct {
