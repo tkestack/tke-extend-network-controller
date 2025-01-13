@@ -20,6 +20,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 
 	corev1 "k8s.io/api/core/v1"
 
@@ -166,6 +167,19 @@ func (r *DedicatedCLBListenerReconciler) cleanPodFinalizer(ctx context.Context, 
 	return nil
 }
 
+func (r *DedicatedCLBListenerReconciler) getLbIds(lbId string) []string {
+	ss := strings.Split(lbId, ",")
+	if len(ss) > 1 {
+		ids := []string{}
+		for _, s := range ss {
+			ids = append(ids, strings.Split(s, "/")[0])
+		}
+		return ids
+	} else {
+		return ss
+	}
+}
+
 func (r *DedicatedCLBListenerReconciler) cleanListener(ctx context.Context, log logr.Logger, lis *networkingv1alpha1.DedicatedCLBListener) error {
 	if lis.Status.ListenerId == "" {
 		return nil
@@ -173,10 +187,12 @@ func (r *DedicatedCLBListenerReconciler) cleanListener(ctx context.Context, log 
 	log = log.WithValues("listenerId", lis.Status.ListenerId, "port", lis.Spec.LbPort, "protocol", lis.Spec.Protocol)
 	// 删除监听器
 	log.V(5).Info("delete listener")
-	_, err := clb.DeleteListenerByPort(ctx, lis.Spec.LbRegion, lis.Spec.LbId, lis.Spec.LbPort, lis.Spec.Protocol)
-	if err != nil && !clb.IsLbIdNotFoundError(err) {
-		r.Recorder.Event(lis, corev1.EventTypeWarning, "DeleteListener", err.Error())
-		return err
+	for _, lbId := range r.getLbIds(lis.Spec.LbId) {
+		_, err := clb.DeleteListenerByPort(ctx, lis.Spec.LbRegion, lbId, lis.Spec.LbPort, lis.Spec.Protocol)
+		if err != nil && !clb.IsLbIdNotFoundError(err) {
+			r.Recorder.Event(lis, corev1.EventTypeWarning, "DeleteListener", err.Error())
+			return err
+		}
 	}
 	log.V(7).Info("listener deleted, remove listenerId from status")
 	lis.Status.ListenerId = ""
