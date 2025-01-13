@@ -48,7 +48,7 @@ type DedicatedCLBServiceSpec struct {
 	Ports []DedicatedCLBServicePort `json:"ports"`
 	// 创建监听器的参数，JSON 格式，详细参数请参考 CreateListener 接口：https://cloud.tencent.com/document/api/214/30693
 	// +optional
-	ListenerExtensiveParameters string `json:"listenerExtensiveParameters,omitempty"`
+	ListenerExtensiveParameters *string `json:"listenerExtensiveParameters,omitempty"`
 	// 复用的已有的 CLB ID，可动态追加。
 	// +optional
 	ExistedLbIds []string `json:"existedLbIds,omitempty"`

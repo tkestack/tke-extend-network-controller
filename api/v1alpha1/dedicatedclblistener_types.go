@@ -45,7 +45,7 @@ type DedicatedCLBListenerSpec struct {
 	Protocol string `json:"protocol"`
 	// 创建监听器的参数，JSON 格式，详细参数请参考 CreateListener 接口：https://cloud.tencent.com/document/api/214/30693
 	// +optional
-	ExtensiveParameters string `json:"extensiveParameters,omitempty"`
+	ExtensiveParameters *string `json:"extensiveParameters,omitempty"`
 	// CLB 监听器绑定的目标 Pod。
 	// +optional
 	TargetPod *TargetPod `json:"targetPod,omitempty"`
