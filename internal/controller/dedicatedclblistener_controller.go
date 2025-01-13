@@ -442,6 +442,45 @@ func (r *DedicatedCLBListenerReconciler) syncPodDelete(ctx context.Context, log 
 	return nil
 }
 
+func (r *DedicatedCLBListenerReconciler) ensureOneListener(ctx context.Context, log logr.Logger, lis *networkingv1alpha1.DedicatedCLBListener, lbId string) (listenerId string, err error) {
+	log.V(5).Info("try to create listener")
+	existedLis, err := clb.GetListenerByPort(ctx, lis.Spec.LbRegion, lbId, lis.Spec.LbPort, lis.Spec.Protocol)
+	if err != nil {
+		r.Recorder.Event(lis, corev1.EventTypeWarning, "CreateListener", err.Error())
+		return
+	}
+	if existedLis != nil { // 端口冲突，如果是控制器创建的，则直接复用，如果不是，则报错引导用户人工确认手动清理冲突的监听器（避免直接重建误删用户有用的监听器）
+		log = log.WithValues("listenerId", existedLis.ListenerId, "port", lis.Spec.LbPort, "protocol", lis.Spec.Protocol)
+		log.V(5).Info("lb port already existed", "listenerName", existedLis.ListenerName)
+		if existedLis.ListenerName == clb.TkePodListenerName { // 已经创建了，直接复用
+			log.V(5).Info("reuse already existed listener")
+			listenerId = existedLis.ListenerId
+		} else {
+			msg := "lb port already existed, but not created by tke, please confirm and delete the conficted listener manually"
+			r.Recorder.Event(
+				lis, corev1.EventTypeWarning, "CreateListener",
+				msg,
+			)
+			err = errors.New(msg)
+			if lis.Status.State != networkingv1alpha1.DedicatedCLBListenerStateFailed {
+				lis.Status.ListenerId = "" // 确保 status 里没有监听器ID，避免 ensureBackendPod 时误认为监听器已创建
+				r.changeState(ctx, lis, networkingv1alpha1.DedicatedCLBListenerStateFailed, msg)
+			}
+			return
+		}
+	} else { // 没有端口冲突，创建监听器
+		var id string
+		id, err = clb.CreateListener(ctx, lis.Spec.LbRegion, lbId, lis.Spec.LbPort, lis.Spec.LbEndPort, lis.Spec.Protocol, lis.Spec.ExtensiveParameters)
+		if err != nil {
+			r.Recorder.Event(lis, corev1.EventTypeWarning, "CreateListener", err.Error())
+			return
+		}
+		r.Recorder.Event(lis, corev1.EventTypeNormal, "CreateListener", fmt.Sprintf("clb listener successfully created (%s)", id))
+		listenerId = id
+	}
+	return
+}
+
 func (r *DedicatedCLBListenerReconciler) ensureListener(ctx context.Context, log logr.Logger, lis *networkingv1alpha1.DedicatedCLBListener) error {
 	// 如果监听器状态是 Pending，尝试创建
 	switch lis.Status.State {
@@ -484,38 +523,26 @@ func (r *DedicatedCLBListenerReconciler) ensureListener(ctx context.Context, log
 }
 
 func (r *DedicatedCLBListenerReconciler) createListener(ctx context.Context, log logr.Logger, lis *networkingv1alpha1.DedicatedCLBListener) error {
-	log.V(5).Info("try to create listener")
-	existedLis, err := clb.GetListenerByPort(ctx, lis.Spec.LbRegion, lis.Spec.LbId, lis.Spec.LbPort, lis.Spec.Protocol)
-	if err != nil {
-		r.Recorder.Event(lis, corev1.EventTypeWarning, "CreateListener", err.Error())
-		return err
-	}
-	var listenerId string
-	if existedLis != nil { // 端口冲突，如果是控制器创建的，则直接复用，如果不是，则报错引导用户人工确认手动清理冲突的监听器（避免直接重建误删用户有用的监听器）
-		log = log.WithValues("listenerId", existedLis.ListenerId, "port", lis.Spec.LbPort, "protocol", lis.Spec.Protocol)
-		log.V(5).Info("lb port already existed", "listenerName", existedLis.ListenerName)
-		if existedLis.ListenerName == clb.TkePodListenerName { // 已经创建了，直接复用
-			log.V(5).Info("reuse already existed listener")
-			listenerId = existedLis.ListenerId
-		} else {
-			msg := fmt.Sprintf("lb port already existed (%s), but not created by tke, please confirm and delete the conficted listener manually", existedLis.ListenerId)
-			r.Recorder.Event(
-				lis, corev1.EventTypeWarning, "CreateListener",
-				msg,
-			)
-			lis.Status.ListenerId = "" // 确保 status 里没有监听器ID，避免 ensureBackendPod 时误认为监听器已创建
-			return r.changeState(ctx, lis, networkingv1alpha1.DedicatedCLBListenerStateFailed, msg)
-		}
-	} else { // 没有端口冲突，创建监听器
-		id, err := clb.CreateListener(ctx, lis.Spec.LbRegion, lis.Spec.LbId, lis.Spec.LbPort, lis.Spec.LbEndPort, lis.Spec.Protocol, lis.Spec.ExtensiveParameters)
+	lbIds := r.getLbIds(lis.Spec.LbId)
+	var listeners []string
+	for _, lbId := range lbIds {
+		listenerId, err := r.ensureOneListener(ctx, log, lis, lbId)
 		if err != nil {
-			r.Recorder.Event(lis, corev1.EventTypeWarning, "CreateListener", err.Error())
 			return err
 		}
-		r.Recorder.Event(lis, corev1.EventTypeNormal, "CreateListener", fmt.Sprintf("clb listener successfully created (%s)", id))
-		listenerId = id
+		listeners = append(listeners, listenerId)
 	}
-	lis.Status.ListenerId = listenerId
+	if len(listeners) != len(lbIds) {
+		return fmt.Errorf("exptected %d listeners, got %d", len(lbIds), len(listeners))
+	}
+	if len(lbIds) == 1 {
+		lis.Status.ListenerId = listeners[0]
+	} else {
+		for i, lbId := range lbIds {
+			listeners[i] = lbId + "/" + listeners[i]
+		}
+	}
+	lis.Status.ListenerId = strings.Join(listeners, ",")
 	return r.changeState(ctx, lis, networkingv1alpha1.DedicatedCLBListenerStateAvailable, "")
 }
 
