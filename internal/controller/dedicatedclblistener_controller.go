@@ -233,6 +233,13 @@ func (r *DedicatedCLBListenerReconciler) ensureBackendPod(ctx context.Context, l
 	// 没配置后端 pod，确保后端rs全被解绑，并且状态为 Available
 	targetPod := lis.Spec.TargetPod
 	podFinalizerName := getDedicatedCLBListenerPodFinalizerName(lis)
+	lbInfos := getLbInfos(lis.Spec.LbId)
+	ls := getListenerInfos(lis.Status.ListenerId)
+	if len(lbInfos) != len(ls) {
+		err := fmt.Errorf("exptected ListenerId length %d, got %d", len(lbInfos), len(ls))
+		r.Recorder.Event(lis, corev1.EventTypeWarning, "EnsureBackendPod", err.Error())
+		return err
+	}
 
 	if targetPod == nil {
 		if lis.Status.State == networkingv1alpha1.DedicatedCLBListenerStateBound { // 但监听器状态是已占用，需要解绑
@@ -256,9 +263,8 @@ func (r *DedicatedCLBListenerReconciler) ensureBackendPod(ctx context.Context, l
 			}
 			r.Recorder.Event(lis, corev1.EventTypeNormal, "PodChangeToNil", "no backend pod configured, try to deregister all targets")
 			// 解绑所有后端
-			lbIds := getLbIds(lis.Spec.LbId)
-			for _, lbId := range lbIds {
-				if err := clb.DeregisterAllTargets(ctx, lis.Spec.LbRegion, lbId, lis.Status.ListenerId); err != nil {
+			for i, lbInfo := range lbInfos {
+				if err := clb.DeregisterAllTargets(ctx, lis.Spec.LbRegion, lbInfo.LbId, ls[i].ListenerId); err != nil {
 					r.Recorder.Event(lis, corev1.EventTypeWarning, "Deregister", err.Error())
 					return err
 				}
@@ -348,13 +354,6 @@ func (r *DedicatedCLBListenerReconciler) ensureBackendPod(ctx context.Context, l
 		return nil
 	}
 	// 绑定rs
-	lbInfos := getLbInfos(lis.Spec.LbId)
-	ls := getListenerInfos(lis.Status.ListenerId)
-	if len(lbInfos) != len(ls) {
-		err = fmt.Errorf("exptected ListenerId length %d, got %d", len(lbInfos), len(ls))
-		r.Recorder.Event(lis, corev1.EventTypeWarning, "EnsureBackendPod", err.Error())
-		return err
-	}
 	for i, lbInfo := range lbInfos {
 		listenerId := ls[i].ListenerId
 		targets, err := clb.DescribeTargets(ctx, lis.Spec.LbRegion, lbInfo.LbId, listenerId)
@@ -438,8 +437,9 @@ func (r *DedicatedCLBListenerReconciler) ensureBackendPod(ctx context.Context, l
 func (r *DedicatedCLBListenerReconciler) syncPodDelete(ctx context.Context, log logr.Logger, lis *networkingv1alpha1.DedicatedCLBListener, podFinalizerName string, pod *corev1.Pod) error {
 	r.Recorder.Event(lis, corev1.EventTypeNormal, "PodDeleting", "deregister all targets")
 	lbIds := getLbIds(lis.Spec.LbId)
-	for _, lbId := range lbIds {
-		if err := clb.DeregisterAllTargets(ctx, lis.Spec.LbRegion, lbId, lis.Status.ListenerId); err != nil {
+	ls := getListenerInfos(lis.Status.ListenerId)
+	for i, lbId := range lbIds {
+		if err := clb.DeregisterAllTargets(ctx, lis.Spec.LbRegion, lbId, ls[i].ListenerId); err != nil {
 			r.Recorder.Event(lis, corev1.EventTypeWarning, "DeregisterFailed", err.Error())
 			return err
 		}

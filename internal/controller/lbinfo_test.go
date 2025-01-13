@@ -1,6 +1,8 @@
 package controller
 
-import "testing"
+import (
+	"testing"
+)
 
 func TestLbInfo(t *testing.T) {
 	lbId := "lb-3npjk3wh/BGP,lb-b6ukw5nr/DianXing"
