@@ -18,6 +18,7 @@ package controller
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"strings"
@@ -167,6 +168,24 @@ func (r *DedicatedCLBListenerReconciler) cleanPodFinalizer(ctx context.Context, 
 	return nil
 }
 
+type LBInfo struct {
+	LbId  string
+	Alias string
+}
+
+func (r *DedicatedCLBListenerReconciler) getLbInfos(lbId string) (lbInfos []LBInfo) {
+	ss := strings.Split(lbId, ",")
+	for _, s := range ss {
+		idAndName := strings.Split(s, "/")
+		if len(idAndName) == 1 {
+			lbInfos = append(lbInfos, LBInfo{idAndName[0], ""})
+		} else {
+			lbInfos = append(lbInfos, LBInfo{idAndName[0], idAndName[1]})
+		}
+	}
+	return
+}
+
 func (r *DedicatedCLBListenerReconciler) getLbIds(lbId string) []string {
 	ss := strings.Split(lbId, ",")
 	if len(ss) > 1 {
@@ -268,9 +287,12 @@ func (r *DedicatedCLBListenerReconciler) ensureBackendPod(ctx context.Context, l
 			}
 			r.Recorder.Event(lis, corev1.EventTypeNormal, "PodChangeToNil", "no backend pod configured, try to deregister all targets")
 			// 解绑所有后端
-			if err := clb.DeregisterAllTargets(ctx, lis.Spec.LbRegion, lis.Spec.LbId, lis.Status.ListenerId); err != nil {
-				r.Recorder.Event(lis, corev1.EventTypeWarning, "Deregister", err.Error())
-				return err
+			lbIds := r.getLbIds(lis.Spec.LbId)
+			for _, lbId := range lbIds {
+				if err := clb.DeregisterAllTargets(ctx, lis.Spec.LbRegion, lbId, lis.Status.ListenerId); err != nil {
+					r.Recorder.Event(lis, corev1.EventTypeWarning, "Deregister", err.Error())
+					return err
+				}
 			}
 			// 更新监听器状态
 			if lis.Status.State != networkingv1alpha1.DedicatedCLBListenerStateAvailable {
@@ -357,71 +379,99 @@ func (r *DedicatedCLBListenerReconciler) ensureBackendPod(ctx context.Context, l
 		return nil
 	}
 	// 绑定rs
-	targets, err := clb.DescribeTargets(ctx, lis.Spec.LbRegion, lis.Spec.LbId, lis.Status.ListenerId)
-	if err != nil {
-		r.Recorder.Event(lis, corev1.EventTypeWarning, "DescribeTargets", err.Error())
-		return err
-	}
-	toDel := []clb.Target{}
-	needAdd := true
-	for _, target := range targets {
-		if target.TargetIP == pod.Status.PodIP && target.TargetPort == targetPod.TargetPort {
-			needAdd = false
-		} else {
-			toDel = append(toDel, target)
-		}
-	}
-	if len(toDel) > 0 {
-		r.Recorder.Event(lis, corev1.EventTypeNormal, "DeregisterExtra", fmt.Sprintf("deregister extra rs %v", toDel))
-		log.Info("deregister extra rs", "extraRs", toDel)
-		if err := clb.DeregisterTargetsForListener(ctx, lis.Spec.LbRegion, lis.Spec.LbId, lis.Status.ListenerId, toDel...); err != nil {
-			r.Recorder.Event(lis, corev1.EventTypeWarning, "DeregisterExtra", err.Error())
+	lbInfos := r.getLbInfos(lis.Spec.LbId)
+	for _, lbInfo := range lbInfos {
+		targets, err := clb.DescribeTargets(ctx, lis.Spec.LbRegion, lbInfo.LbId, lis.Status.ListenerId)
+		if err != nil {
+			r.Recorder.Event(lis, corev1.EventTypeWarning, "DescribeTargets", err.Error())
 			return err
 		}
-	}
-	if !needAdd {
-		if lis.Status.State != networkingv1alpha1.DedicatedCLBListenerStateBound { // pod 已被绑定但状态不是bound，更新下状态
-			if err := r.changeState(ctx, lis, networkingv1alpha1.DedicatedCLBListenerStateBound, ""); err != nil {
+		toDel := []clb.Target{}
+		needAdd := true
+		for _, target := range targets {
+			if target.TargetIP == pod.Status.PodIP && target.TargetPort == targetPod.TargetPort {
+				needAdd = false
+			} else {
+				toDel = append(toDel, target)
+			}
+		}
+		if len(toDel) > 0 {
+			r.Recorder.Event(lis, corev1.EventTypeNormal, "DeregisterExtra", fmt.Sprintf("deregister extra rs %v", toDel))
+			log.Info("deregister extra rs", "extraRs", toDel)
+			if err := clb.DeregisterTargetsForListener(ctx, lis.Spec.LbRegion, lbInfo.LbId, lis.Status.ListenerId, toDel...); err != nil {
+				r.Recorder.Event(lis, corev1.EventTypeWarning, "DeregisterExtra", err.Error())
 				return err
 			}
 		}
-		return nil
-	}
-	r.Recorder.Event(
-		lis, corev1.EventTypeNormal, "RegisterPod",
-		fmt.Sprintf("register pod %s/%s:%d", pod.Name, pod.Status.PodIP, targetPod.TargetPort),
-	)
-	if err := clb.RegisterTargets(
-		ctx, lis.Spec.LbRegion, lis.Spec.LbId, lis.Status.ListenerId,
-		clb.Target{TargetIP: pod.Status.PodIP, TargetPort: targetPod.TargetPort},
-	); err != nil {
-		r.Recorder.Event(lis, corev1.EventTypeWarning, "RegisterPod", err.Error())
-		return err
+		if !needAdd {
+			continue
+		}
+		r.Recorder.Event(
+			lis, corev1.EventTypeNormal, "RegisterPod",
+			fmt.Sprintf("register pod %s/%s:%d to %s", pod.Name, pod.Status.PodIP, targetPod.TargetPort, lbInfo.LbId),
+		)
+		if err := clb.RegisterTargets(
+			ctx, lis.Spec.LbRegion, lbInfo.LbId, lis.Status.ListenerId,
+			clb.Target{TargetIP: pod.Status.PodIP, TargetPort: targetPod.TargetPort},
+		); err != nil {
+			r.Recorder.Event(lis, corev1.EventTypeWarning, "RegisterPod", err.Error())
+			return err
+		}
 	}
 	// 更新监听器状态
-	if err := r.changeState(ctx, lis, networkingv1alpha1.DedicatedCLBListenerStateBound, ""); err != nil {
-		return err
+	if lis.Status.State != networkingv1alpha1.DedicatedCLBListenerStateBound {
+		if err := r.changeState(ctx, lis, networkingv1alpha1.DedicatedCLBListenerStateBound, ""); err != nil {
+			return err
+		}
 	}
 	// 更新Pod注解
-	addr, err := clb.GetClbExternalAddress(ctx, lis.Spec.LbId, lis.Spec.LbRegion)
-	if err != nil {
-		r.Recorder.Event(lis, corev1.EventTypeWarning, "GetClbExternalAddress", err.Error())
-		return err
+	var externalAddress string
+	if len(lbInfos) == 1 {
+		addr, err := clb.GetClbExternalAddress(ctx, lbInfos[0].LbId, lis.Spec.LbRegion)
+		if err != nil {
+			r.Recorder.Event(lis, corev1.EventTypeWarning, "GetClbExternalAddress", err.Error())
+			return err
+		}
+		externalAddress = fmt.Sprintf("%s:%d", addr, lis.Spec.LbPort)
+	} else {
+		addresses := make(map[string]any)
+		for _, lbInfo := range lbInfos {
+			addr, err := clb.GetClbExternalAddress(ctx, lbInfo.LbId, lis.Spec.LbRegion)
+			if err != nil {
+				r.Recorder.Event(lis, corev1.EventTypeWarning, "GetClbExternalAddress", err.Error())
+				return err
+			}
+			var name string
+			if lbInfo.Alias != "" {
+				name = lbInfo.Alias
+			} else {
+				name = lbInfo.LbId
+			}
+			addresses[name] = addr
+		}
+		addresses["port"] = lis.Spec.LbPort
+		data, err := json.Marshal(addresses)
+		if err != nil {
+			return err
+		}
+		externalAddress = string(data)
 	}
-	addr = fmt.Sprintf("%s:%d", addr, lis.Spec.LbPort)
-	lis.Status.Address = addr
+	lis.Status.Address = externalAddress
 	if err := r.Status().Update(ctx, lis); err != nil {
 		return err
 	}
-	r.Recorder.Event(lis, corev1.EventTypeNormal, "UpdateStatus", "got external address "+addr)
+	r.Recorder.Event(lis, corev1.EventTypeNormal, "UpdateStatus", "got external address "+externalAddress)
 	return nil
 }
 
 func (r *DedicatedCLBListenerReconciler) syncPodDelete(ctx context.Context, log logr.Logger, lis *networkingv1alpha1.DedicatedCLBListener, podFinalizerName string, pod *corev1.Pod) error {
 	r.Recorder.Event(lis, corev1.EventTypeNormal, "PodDeleting", "deregister all targets")
-	if err := clb.DeregisterAllTargets(ctx, lis.Spec.LbRegion, lis.Spec.LbId, lis.Status.ListenerId); err != nil {
-		r.Recorder.Event(lis, corev1.EventTypeWarning, "DeregisterFailed", err.Error())
-		return err
+	lbIds := r.getLbIds(lis.Spec.LbId)
+	for _, lbId := range lbIds {
+		if err := clb.DeregisterAllTargets(ctx, lis.Spec.LbRegion, lbId, lis.Status.ListenerId); err != nil {
+			r.Recorder.Event(lis, corev1.EventTypeWarning, "DeregisterFailed", err.Error())
+			return err
+		}
 	}
 	// 清理成功，删除 pod finalizer
 	log.V(6).Info(
