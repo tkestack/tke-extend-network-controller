@@ -168,37 +168,6 @@ func (r *DedicatedCLBListenerReconciler) cleanPodFinalizer(ctx context.Context, 
 	return nil
 }
 
-type LBInfo struct {
-	LbId  string
-	Alias string
-}
-
-func (r *DedicatedCLBListenerReconciler) getLbInfos(lbId string) (lbInfos []LBInfo) {
-	ss := strings.Split(lbId, ",")
-	for _, s := range ss {
-		idAndName := strings.Split(s, "/")
-		if len(idAndName) == 1 {
-			lbInfos = append(lbInfos, LBInfo{idAndName[0], ""})
-		} else {
-			lbInfos = append(lbInfos, LBInfo{idAndName[0], idAndName[1]})
-		}
-	}
-	return
-}
-
-func (r *DedicatedCLBListenerReconciler) getLbIds(lbId string) []string {
-	ss := strings.Split(lbId, ",")
-	if len(ss) > 1 {
-		ids := []string{}
-		for _, s := range ss {
-			ids = append(ids, strings.Split(s, "/")[0])
-		}
-		return ids
-	} else {
-		return ss
-	}
-}
-
 func (r *DedicatedCLBListenerReconciler) cleanListener(ctx context.Context, log logr.Logger, lis *networkingv1alpha1.DedicatedCLBListener) error {
 	if lis.Status.ListenerId == "" {
 		return nil
@@ -206,7 +175,7 @@ func (r *DedicatedCLBListenerReconciler) cleanListener(ctx context.Context, log 
 	log = log.WithValues("listenerId", lis.Status.ListenerId, "port", lis.Spec.LbPort, "protocol", lis.Spec.Protocol)
 	// 删除监听器
 	log.V(5).Info("delete listener")
-	for _, lbId := range r.getLbIds(lis.Spec.LbId) {
+	for _, lbId := range getLbIds(lis.Spec.LbId) {
 		_, err := clb.DeleteListenerByPort(ctx, lis.Spec.LbRegion, lbId, lis.Spec.LbPort, lis.Spec.Protocol)
 		if err != nil && !clb.IsLbIdNotFoundError(err) {
 			r.Recorder.Event(lis, corev1.EventTypeWarning, "DeleteListener", err.Error())
@@ -287,7 +256,7 @@ func (r *DedicatedCLBListenerReconciler) ensureBackendPod(ctx context.Context, l
 			}
 			r.Recorder.Event(lis, corev1.EventTypeNormal, "PodChangeToNil", "no backend pod configured, try to deregister all targets")
 			// 解绑所有后端
-			lbIds := r.getLbIds(lis.Spec.LbId)
+			lbIds := getLbIds(lis.Spec.LbId)
 			for _, lbId := range lbIds {
 				if err := clb.DeregisterAllTargets(ctx, lis.Spec.LbRegion, lbId, lis.Status.ListenerId); err != nil {
 					r.Recorder.Event(lis, corev1.EventTypeWarning, "Deregister", err.Error())
@@ -379,7 +348,7 @@ func (r *DedicatedCLBListenerReconciler) ensureBackendPod(ctx context.Context, l
 		return nil
 	}
 	// 绑定rs
-	lbInfos := r.getLbInfos(lis.Spec.LbId)
+	lbInfos := getLbInfos(lis.Spec.LbId)
 	for _, lbInfo := range lbInfos {
 		targets, err := clb.DescribeTargets(ctx, lis.Spec.LbRegion, lbInfo.LbId, lis.Status.ListenerId)
 		if err != nil {
@@ -466,7 +435,7 @@ func (r *DedicatedCLBListenerReconciler) ensureBackendPod(ctx context.Context, l
 
 func (r *DedicatedCLBListenerReconciler) syncPodDelete(ctx context.Context, log logr.Logger, lis *networkingv1alpha1.DedicatedCLBListener, podFinalizerName string, pod *corev1.Pod) error {
 	r.Recorder.Event(lis, corev1.EventTypeNormal, "PodDeleting", "deregister all targets")
-	lbIds := r.getLbIds(lis.Spec.LbId)
+	lbIds := getLbIds(lis.Spec.LbId)
 	for _, lbId := range lbIds {
 		if err := clb.DeregisterAllTargets(ctx, lis.Spec.LbRegion, lbId, lis.Status.ListenerId); err != nil {
 			r.Recorder.Event(lis, corev1.EventTypeWarning, "DeregisterFailed", err.Error())
@@ -492,7 +461,7 @@ func (r *DedicatedCLBListenerReconciler) syncPodDelete(ctx context.Context, log 
 	return nil
 }
 
-func (r *DedicatedCLBListenerReconciler) ensureOneListener(ctx context.Context, log logr.Logger, lis *networkingv1alpha1.DedicatedCLBListener, lbId string) (listenerId string, err error) {
+func (r *DedicatedCLBListenerReconciler) createOneListener(ctx context.Context, log logr.Logger, lis *networkingv1alpha1.DedicatedCLBListener, lbId string) (listenerId string, err error) {
 	log.V(5).Info("try to create listener")
 	existedLis, err := clb.GetListenerByPort(ctx, lis.Spec.LbRegion, lbId, lis.Spec.LbPort, lis.Spec.Protocol)
 	if err != nil {
@@ -550,21 +519,27 @@ func (r *DedicatedCLBListenerReconciler) ensureListener(ctx context.Context, log
 	}
 	// 监听器存在，进行对账
 	log.V(5).Info("ensure listener", "listenerId", listenerId)
-	listener, err := clb.GetListenerByPort(ctx, lis.Spec.LbRegion, lis.Spec.LbId, lis.Spec.LbPort, lis.Spec.Protocol)
-	if err != nil {
-		r.Recorder.Event(lis, corev1.EventTypeWarning, "GetListenerByPort", err.Error())
-		return err
+	var ls ListenerInfos
+	lbInfos := getLbInfos(lis.Spec.LbId)
+	for _, lbInfo := range lbInfos {
+		listener, err := clb.GetListenerByPort(ctx, lis.Spec.LbRegion, lbInfo.LbId, lis.Spec.LbPort, lis.Spec.Protocol)
+		if err != nil {
+			r.Recorder.Event(lis, corev1.EventTypeWarning, "GetListenerByPort", err.Error())
+			return err
+		}
+		if listener == nil { // 监听器不存在，重建监听器
+			msg := "listener not found, try to recreate"
+			log.Info(msg, "listenerId", listenerId)
+			r.Recorder.Event(lis, corev1.EventTypeWarning, "ListenerNotFound", msg)
+			return r.createListener(ctx, log, lis)
+		}
+		ls = append(ls, ListenerInfo{LbName: lbInfo.Name(), ListenerId: listener.ListenerId})
 	}
-	if listener == nil { // 监听器不存在，重建监听器
-		msg := "listener not found, try to recreate"
-		log.Info(msg, "listenerId", listenerId)
-		r.Recorder.Event(lis, corev1.EventTypeWarning, "ListenerNotFound", msg)
-		return r.createListener(ctx, log, lis)
-	}
-	if listener.ListenerId != listenerId { // 监听器ID不匹配，更新监听器ID
-		msg := fmt.Sprintf("listener id from status (%s) is not equal with the real listener id (%s), will override to the real listener id", listenerId, listener.ListenerId)
+	listenerIdResult := ls.String()
+	if listenerIdResult != listenerId { // 监听器ID不匹配，更新监听器ID
+		msg := fmt.Sprintf("listener id from status (%s) is not equal with the real listener id (%s), will override to the real listener id", listenerId, listenerIdResult)
 		r.Recorder.Event(lis, corev1.EventTypeWarning, "ListenerIdNotMatch", msg)
-		lis.Status.ListenerId = listener.ListenerId
+		lis.Status.ListenerId = listenerIdResult
 		if err := r.Status().Update(ctx, lis); err != nil {
 			return err
 		}
@@ -573,23 +548,23 @@ func (r *DedicatedCLBListenerReconciler) ensureListener(ctx context.Context, log
 }
 
 func (r *DedicatedCLBListenerReconciler) createListener(ctx context.Context, log logr.Logger, lis *networkingv1alpha1.DedicatedCLBListener) error {
-	lbIds := r.getLbIds(lis.Spec.LbId)
+	lbInfos := getLbInfos(lis.Spec.LbId)
 	var listeners []string
-	for _, lbId := range lbIds {
-		listenerId, err := r.ensureOneListener(ctx, log, lis, lbId)
+	for _, lbInfo := range lbInfos {
+		listenerId, err := r.createOneListener(ctx, log, lis, lbInfo.LbId)
 		if err != nil {
 			return err
 		}
 		listeners = append(listeners, listenerId)
 	}
-	if len(listeners) != len(lbIds) {
-		return fmt.Errorf("exptected %d listeners, got %d", len(lbIds), len(listeners))
+	if len(listeners) != len(lbInfos) {
+		return fmt.Errorf("exptected %d listeners, got %d", len(lbInfos), len(listeners))
 	}
-	if len(lbIds) == 1 {
+	if len(lbInfos) == 1 {
 		lis.Status.ListenerId = listeners[0]
 	} else {
-		for i, lbId := range lbIds {
-			listeners[i] = lbId + "/" + listeners[i]
+		for i, lbInfo := range lbInfos {
+			listeners[i] = listeners[i] + "/" + lbInfo.Name()
 		}
 	}
 	lis.Status.ListenerId = strings.Join(listeners, ",")
