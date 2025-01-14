@@ -73,9 +73,9 @@ func validateLbPort(lis *DedicatedCLBListener) error {
 		}
 		dup = &lis
 	}
+	var allErrs field.ErrorList
 	if dup != nil {
 		lbPortPath := field.NewPath("spec").Child("lbPort")
-		var allErrs field.ErrorList
 		allErrs = append(
 			allErrs,
 			field.Invalid(
@@ -83,6 +83,19 @@ func validateLbPort(lis *DedicatedCLBListener) error {
 				fmt.Sprintf("lbPort is already used by other DedicatedCLBListener (%s/%s)", dup.Namespace, dup.Name),
 			),
 		)
+	}
+	if lis.Spec.LbEndPort != nil && *lis.Spec.LbEndPort <= lis.Spec.LbPort {
+		lbEndPortPath := field.NewPath("spec").Child("lbEndPort")
+		allErrs = append(
+			allErrs,
+			field.Invalid(
+				lbEndPortPath, lis.Spec.LbEndPort,
+				fmt.Sprintf("lbEndPort(%d) should bigger than lbPort(%d)", *lis.Spec.LbEndPort, lis.Spec.LbPort),
+			),
+		)
+	}
+
+	if len(allErrs) > 0 {
 		return apierrors.NewInvalid(
 			schema.GroupKind{Group: "networking.cloud.tencent.com", Kind: "DedicatedCLBListener"},
 			lis.Name,
