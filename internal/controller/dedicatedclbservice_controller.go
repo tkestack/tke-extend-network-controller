@@ -37,6 +37,7 @@ import (
 	"github.com/imroc/tke-extend-network-controller/pkg/clb"
 	"github.com/imroc/tke-extend-network-controller/pkg/kube"
 	"github.com/imroc/tke-extend-network-controller/pkg/util"
+	"github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common"
 )
 
 // DedicatedCLBServiceReconciler reconciles a DedicatedCLBService object
@@ -369,14 +370,18 @@ func (r *DedicatedCLBServiceReconciler) allocateListener(ctx context.Context, ds
 		return false, nil
 	}
 	lb := ds.Status.AllocatableLb[0]
+	var segment int64 = 1
+	if ds.Spec.PortSegment != nil {
+		segment = *ds.Spec.PortSegment
+	}
 	if lb.CurrentPort <= 0 {
-		lb.CurrentPort = ds.Spec.MinPort - 1
+		lb.CurrentPort = ds.Spec.MinPort - segment
 	}
 	havePort := func() bool {
 		if lb.CurrentPort >= ds.Spec.MaxPort {
 			return true
 		}
-		allocatedPorts := (lb.CurrentPort - ds.Spec.MinPort + 1)
+		allocatedPorts := (lb.CurrentPort - ds.Spec.MinPort + segment) / segment
 		return allocatedPorts >= listenerQuota || (ds.Spec.MaxPod != nil && allocatedPorts >= *ds.Spec.MaxPod)
 	}
 	if havePort() { // 该lb已分配完所有端口，尝试下一个lb
@@ -390,10 +395,13 @@ func (r *DedicatedCLBServiceReconciler) allocateListener(ctx context.Context, ds
 		}
 		return false, fmt.Errorf("%s's port is exhausted but still in allocatableLb", lb.LbId)
 	}
-	lb.CurrentPort++
+	lb.CurrentPort += segment
 	lis := &networkingv1alpha1.DedicatedCLBListener{}
 	lis.Spec.LbId = lb.LbId
 	lis.Spec.LbPort = lb.CurrentPort
+	if ds.Spec.PortSegment != nil {
+		lis.Spec.LbEndPort = common.Int64Ptr(lb.CurrentPort + segment - 1)
+	}
 	lis.Spec.Protocol = protocol
 	lis.Spec.ExtensiveParameters = ds.Spec.ListenerExtensiveParameters
 	lis.Spec.LbRegion = ds.Spec.LbRegion

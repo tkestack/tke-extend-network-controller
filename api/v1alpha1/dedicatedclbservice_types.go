@@ -42,6 +42,11 @@ type DedicatedCLBServiceSpec struct {
 	// 限制单个 CLB 的 Pod/监听器 的最大数量。
 	// +optional
 	MaxPod *int64 `json:"maxPod,omitempty"`
+
+	// Number of ports in the port range listener if not null.
+	// +optional
+	PortSegment *int64 `json:"portSegment,omitempty"`
+
 	// Pod 的标签选择器，被选中的 Pod 会被绑定到 CLB 监听器下。
 	Selector map[string]string `json:"selector"`
 	// Pod 监听的端口。

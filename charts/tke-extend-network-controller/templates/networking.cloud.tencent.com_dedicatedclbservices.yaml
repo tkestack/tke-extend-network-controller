@@ -74,6 +74,10 @@ spec:
                 description: CLB 端口范围的最小端口号。
                 format: int64
                 type: integer
+              portSegment:
+                description: Number of ports in the port range listener if not null.
+                format: int64
+                type: integer
               ports:
                 description: Pod 监听的端口。
                 items:
