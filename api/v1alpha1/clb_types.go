@@ -28,8 +28,8 @@ type CLBSpec struct {
 	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
 
-	// Foo is an example field of CLB. Edit clb_types.go to remove/update
-	Foo string `json:"foo,omitempty"`
+	// Region of the CLB instance (e.g. ap-hongkong). For a list of all available regions, please refer to https://cloud.tencent.com/document/product/213/6091.
+	Region string `json:"region,omitempty"`
 }
 
 // CLBStatus defines the observed state of CLB.

@@ -5,7 +5,7 @@
 # -- Replica count of the controller pod
 replicaCount: 1
 
-# -- Region of the current TKE Cluster (e.g. ap-hongkong), For a list of all available regions, please refer to https://cloud.tencent.com/document/product/213/6091.
+# -- Region of the current TKE Cluster (e.g. ap-hongkong). For a list of all available regions, please refer to https://cloud.tencent.com/document/product/213/6091.
 region: ""
 # -- VPC ID of the current TKE Cluster.
 vpcID: ""
