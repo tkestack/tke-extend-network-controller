@@ -1,3 +1,4 @@
+---
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
@@ -16,7 +17,8 @@ spec:
   - name: v1alpha1
     schema:
       openAPIV3Schema:
-        description: DedicatedCLBService is the Schema for the dedicatedclbservices API
+        description: DedicatedCLBService is the Schema for the dedicatedclbservices
+          API
         properties:
           apiVersion:
             description: |-
@@ -82,7 +84,8 @@ spec:
                 items:
                   properties:
                     addressPodAnnotation:
-                      description: Pod 外部地址的注解，如果设置，Pod 被映射的外部 CLB 地址将会被自动写到 Pod 的该注解中，Pod 内部可通过 Downward API 感知到自身的外部地址。
+                      description: Pod 外部地址的注解，如果设置，Pod 被映射的外部 CLB 地址将会被自动写到 Pod 的该注解中，Pod
+                        内部可通过 Downward API 感知到自身的外部地址。
                       type: string
                     protocol:
                       description: 端口协议，支持 TCP、UDP。

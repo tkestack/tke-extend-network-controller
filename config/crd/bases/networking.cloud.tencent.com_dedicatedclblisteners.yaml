@@ -1,3 +1,4 @@
+---
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
@@ -33,7 +34,8 @@ spec:
     name: v1alpha1
     schema:
       openAPIV3Schema:
-        description: DedicatedCLBListener is the Schema for the dedicatedclblisteners API
+        description: DedicatedCLBListener is the Schema for the dedicatedclblisteners
+          API
         properties:
           apiVersion:
             description: |-
@@ -146,7 +148,8 @@ spec:
             - protocol
             type: object
           status:
-            description: DedicatedCLBListenerStatus defines the observed state of DedicatedCLBListener
+            description: DedicatedCLBListenerStatus defines the observed state of
+              DedicatedCLBListener
             properties:
               address:
                 description: CLB 监听器的外部地址。
@@ -224,7 +227,8 @@ spec:
     name: v1beta1
     schema:
       openAPIV3Schema:
-        description: DedicatedCLBListener is the Schema for the dedicatedclblisteners API
+        description: DedicatedCLBListener is the Schema for the dedicatedclblisteners
+          API
         properties:
           apiVersion:
             description: |-
@@ -326,7 +330,8 @@ spec:
             - protocol
             type: object
           status:
-            description: DedicatedCLBListenerStatus defines the observed state of DedicatedCLBListener
+            description: DedicatedCLBListenerStatus defines the observed state of
+              DedicatedCLBListener
             properties:
               listenerStatuses:
                 items:
