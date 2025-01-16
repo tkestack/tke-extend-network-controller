@@ -1,4 +1,4 @@
-package v1alpha1
+package v1beta1
 
 import (
 	"context"
@@ -9,10 +9,8 @@ import (
 
 const (
 	backendPodNameField = "spec.targetPod.podName"
-	lbPortField         = "spec.lbPort"
+	lbPortField         = "spec.port"
 	lbIdField           = "spec.lbId"
-	protocolField       = "spec.protocol"
-	stateField          = "status.state"
 )
 
 func indexFieldForDedicatedCLBListener(indexer client.FieldIndexer) error {
@@ -31,17 +29,8 @@ func indexFieldForDedicatedCLBListener(indexer client.FieldIndexer) error {
 	if err := indexer.IndexField(
 		context.TODO(), &DedicatedCLBListener{}, lbPortField,
 		func(o client.Object) []string {
-			lbPort := o.(*DedicatedCLBListener).Spec.LbPort
+			lbPort := o.(*DedicatedCLBListener).Spec.Port
 			return []string{strconv.Itoa(int(lbPort))}
-		},
-	); err != nil {
-		return err
-	}
-	if err := indexer.IndexField(
-		context.TODO(), &DedicatedCLBListener{}, protocolField,
-		func(o client.Object) []string {
-			protocol := o.(*DedicatedCLBListener).Spec.Protocol
-			return []string{protocol}
 		},
 	); err != nil {
 		return err
@@ -50,18 +39,12 @@ func indexFieldForDedicatedCLBListener(indexer client.FieldIndexer) error {
 	if err := indexer.IndexField(
 		context.TODO(), &DedicatedCLBListener{}, lbIdField,
 		func(o client.Object) []string {
-			lbId := o.(*DedicatedCLBListener).Spec.LbId
-			return []string{lbId}
-		},
-	); err != nil {
-		return err
-	}
-
-	if err := indexer.IndexField(
-		context.TODO(), &DedicatedCLBListener{}, stateField,
-		func(o client.Object) []string {
-			state := o.(*DedicatedCLBListener).Status.State
-			return []string{state}
+			clbs := o.(*DedicatedCLBListener).Spec.CLBs
+			ids := make([]string, len(clbs))
+			for i, clb := range clbs {
+				ids[i] = clb.ID
+			}
+			return ids
 		},
 	); err != nil {
 		return err

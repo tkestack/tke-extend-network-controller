@@ -14,14 +14,13 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package v1alpha1
+package v1beta1
 
 import (
 	"context"
 	"fmt"
 	"strconv"
 
-	"github.com/imroc/tke-extend-network-controller/pkg/clb"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -50,51 +49,50 @@ var _ webhook.Defaulter = &DedicatedCLBListener{}
 // Default implements webhook.Defaulter so a webhook will be registered for the type
 func (r *DedicatedCLBListener) Default() {
 	dedicatedclblistenerlog.Info("default", "name", r.Name)
-	r.Spec.LbRegion = clb.DefaultRegion()
-	r.Status.State = DedicatedCLBListenerStatePending
 }
 
 func validateLbPort(lis *DedicatedCLBListener) error {
-	list := &DedicatedCLBListenerList{}
-	err := apiClient.List(
-		context.Background(), list,
-		client.MatchingFields{
-			lbIdField:   lis.Spec.LbId,
-			lbPortField: strconv.Itoa(int(lis.Spec.LbPort)),
-		},
-	)
-	if err != nil {
-		return err
-	}
-	var dup *DedicatedCLBListener
-	for _, lis := range list.Items {
-		if lis.DeletionTimestamp == nil {
-			continue
-		}
-		dup = &lis
-	}
 	var allErrs field.ErrorList
-	if dup != nil {
-		lbPortPath := field.NewPath("spec").Child("lbPort")
-		allErrs = append(
-			allErrs,
-			field.Invalid(
-				lbPortPath, lis.Spec.LbPort,
-				fmt.Sprintf("lbPort is already used by other DedicatedCLBListener (%s/%s)", dup.Namespace, dup.Name),
-			),
+	for _, clb := range lis.Spec.CLBs {
+		list := &DedicatedCLBListenerList{}
+		err := apiClient.List(
+			context.Background(), list,
+			client.MatchingFields{
+				lbIdField:   clb.ID,
+				lbPortField: strconv.Itoa(int(lis.Spec.Port)),
+			},
 		)
+		if err != nil {
+			return err
+		}
+		var dup *DedicatedCLBListener
+		for _, lis := range list.Items {
+			if lis.DeletionTimestamp == nil {
+				continue
+			}
+			dup = &lis
+		}
+		if dup != nil {
+			lbPortPath := field.NewPath("spec").Child("port")
+			allErrs = append(
+				allErrs,
+				field.Invalid(
+					lbPortPath, lis.Spec.Port,
+					fmt.Sprintf("lbPort is already used by othe(lis *DedicatedCLBListener) (%s/%s)", dup.Namespace, dup.Name),
+				),
+			)
+		}
+		if lis.Spec.EndPort != nil && *lis.Spec.EndPort <= lis.Spec.Port {
+			lbEndPortPath := field.NewPath("spec").Child("endPort")
+			allErrs = append(
+				allErrs,
+				field.Invalid(
+					lbEndPortPath, lis.Spec.EndPort,
+					fmt.Sprintf("lbEndPort(%d) should bigger than lbPort(%d)", *lis.Spec.EndPort, lis.Spec.Port),
+				),
+			)
+		}
 	}
-	if lis.Spec.LbEndPort != nil && *lis.Spec.LbEndPort <= lis.Spec.LbPort {
-		lbEndPortPath := field.NewPath("spec").Child("lbEndPort")
-		allErrs = append(
-			allErrs,
-			field.Invalid(
-				lbEndPortPath, lis.Spec.LbEndPort,
-				fmt.Sprintf("lbEndPort(%d) should bigger than lbPort(%d)", *lis.Spec.LbEndPort, lis.Spec.LbPort),
-			),
-		)
-	}
-
 	if len(allErrs) > 0 {
 		return apierrors.NewInvalid(
 			schema.GroupKind{Group: "networking.cloud.tencent.com", Kind: "DedicatedCLBListener"},
@@ -126,7 +124,7 @@ func (r *DedicatedCLBListener) ValidateCreate() (admission.Warnings, error) {
 // ValidateUpdate implements webhook.Validator so a webhook will be registered for the type
 func (r *DedicatedCLBListener) ValidateUpdate(old runtime.Object) (admission.Warnings, error) {
 	dedicatedclblistenerlog.Info("validate update", "name", r.Name)
-	return nil, nil
+	return r.validate()
 }
 
 // ValidateDelete implements webhook.Validator so a webhook will be registered for the type
