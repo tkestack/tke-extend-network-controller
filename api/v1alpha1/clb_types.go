@@ -23,18 +23,6 @@ import (
 // EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
 // NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
 
-type CLBListener struct {
-	// CLB listener ID.
-	ID string `json:"id"`
-	// CLB listener port.
-	Port uint64 `json:"port"`
-	// CLB end port in port range listener.
-	// +optional
-	EndPort *uint64 `json:"endPort"`
-	// CLB listener protocol.
-	Protocol string `json:"protocol"`
-}
-
 // CLBSpec defines the desired state of CLB.
 type CLBSpec struct {
 	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
