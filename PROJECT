@@ -4,39 +4,30 @@
 # More info: https://book.kubebuilder.io/reference/project-config.html
 domain: cloud.tencent.com
 layout:
-- go.kubebuilder.io/v4
+  - go.kubebuilder.io/v4
 projectName: tke-extend-network-controller
 repo: github.com/imroc/tke-extend-network-controller
 resources:
-- api:
-    crdVersion: v1
-    namespaced: true
-  controller: true
-  domain: cloud.tencent.com
-  group: networking
-  kind: DedicatedCLBService
-  path: github.com/imroc/tke-extend-network-controller/api/v1alpha1
-  version: v1alpha1
-- api:
-    crdVersion: v1
-    namespaced: true
-  controller: true
-  domain: cloud.tencent.com
-  group: networking
-  kind: DedicatedCLBListener
-  path: github.com/imroc/tke-extend-network-controller/api/v1alpha1
-  version: v1alpha1
-  webhooks:
-    defaulting: true
-    validation: true
-    webhookVersion: v1
-- api:
-    crdVersion: v1
-    namespaced: true
-  controller: true
-  domain: cloud.tencent.com
-  group: networking
-  kind: CLB
-  path: github.com/imroc/tke-extend-network-controller/api/v1alpha1
-  version: v1alpha1
+  - api:
+      crdVersion: v1
+      namespaced: true
+    controller: true
+    domain: cloud.tencent.com
+    group: networking
+    kind: DedicatedCLBService
+    path: github.com/imroc/tke-extend-network-controller/api/v1alpha1
+    version: v1alpha1
+  - api:
+      crdVersion: v1
+      namespaced: true
+    controller: true
+    domain: cloud.tencent.com
+    group: networking
+    kind: DedicatedCLBListener
+    path: github.com/imroc/tke-extend-network-controller/api/v1alpha1
+    version: v1alpha1
+    webhooks:
+      defaulting: true
+      validation: true
+      webhookVersion: v1
 version: "3"

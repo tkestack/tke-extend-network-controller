@@ -2,4 +2,4 @@
 resources:
   - networking_v1alpha1_dedicatedclbservice.yaml
   - networking_v1alpha1_dedicatedclblistener.yaml
-  - networking_v1alpha1_clb.yaml
+    # +kubebuilder:scaffold:manifestskustomizesamples

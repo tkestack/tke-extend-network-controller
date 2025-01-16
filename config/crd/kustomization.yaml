@@ -4,8 +4,7 @@
 resources:
   - bases/networking.cloud.tencent.com_dedicatedclbservices.yaml
   - bases/networking.cloud.tencent.com_dedicatedclblisteners.yaml
-  - bases/networking.cloud.tencent.com_clbs.yaml
-    # +kubebuilder:scaffold:crdkustomizeresource
+  # +kubebuilder:scaffold:crdkustomizeresource
 
 patches:
   # [WEBHOOK] To enable webhook, uncomment all the sections with [WEBHOOK] prefix.
