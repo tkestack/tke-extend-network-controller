@@ -8,16 +8,13 @@ import (
 
 	"github.com/imroc/tke-extend-network-controller/internal/controller"
 	"github.com/imroc/tke-extend-network-controller/pkg/clb"
-	"github.com/imroc/tke-extend-network-controller/pkg/kube"
 	"github.com/imroc/tke-extend-network-controller/pkg/manager"
 	"github.com/imroc/tke-extend-network-controller/pkg/util"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
-	networkingv1alpha1 "github.com/imroc/tke-extend-network-controller/api/v1alpha1"
 	networkingv1beta1 "github.com/imroc/tke-extend-network-controller/api/v1beta1"
-	webhookv1beta1 "github.com/imroc/tke-extend-network-controller/internal/webhook/v1beta1"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
@@ -103,10 +100,7 @@ func runManager() {
 		os.Exit(1)
 	}
 	// +kubebuilder:scaffold:builder
-	networkingv1beta1.Init(setupLog, mgr)
-	networkingv1alpha1.Init(setupLog, mgr)
-	webhookv1beta1.SetupDedicatedCLBListenerWebhookWithManager(mgr)
-	kube.Init(mgr)
+	SetupAPI(mgr)
 
 	if err := mgr.AddHealthzCheck("healthz", healthz.Ping); err != nil {
 		setupLog.Error(err, "unable to set up health check")
