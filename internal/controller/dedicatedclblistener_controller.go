@@ -595,7 +595,7 @@ func (r *DedicatedCLBListenerReconciler) findObjectsForPod(ctx context.Context, 
 		list,
 		client.InNamespace(pod.GetNamespace()),
 		client.MatchingFields{
-			"spec.backendPod.podName": pod.GetName(),
+			"spec.targetPod.podName": pod.GetName(),
 		},
 	)
 	if err != nil {
