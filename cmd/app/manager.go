@@ -100,7 +100,7 @@ func runManager() {
 		os.Exit(1)
 	}
 	// +kubebuilder:scaffold:builder
-	SetupAPI(mgr)
+	setupAPI(mgr)
 
 	if err := mgr.AddHealthzCheck("healthz", healthz.Ping); err != nil {
 		setupLog.Error(err, "unable to set up health check")

@@ -10,7 +10,7 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 )
 
-func SetupAPI(mgr ctrl.Manager) {
+func setupAPI(mgr ctrl.Manager) {
 	networkingv1beta1.Init(setupLog, mgr)
 	networkingv1alpha1.Init(setupLog, mgr)
 	if err := webhookv1beta1.SetupDedicatedCLBListenerWebhookWithManager(mgr); err != nil {
