@@ -15,6 +15,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
+	networkingv1alpha1 "github.com/imroc/tke-extend-network-controller/api/v1alpha1"
 	networkingv1beta1 "github.com/imroc/tke-extend-network-controller/api/v1beta1"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
@@ -102,6 +103,7 @@ func runManager() {
 	}
 	// +kubebuilder:scaffold:builder
 	networkingv1beta1.Init(setupLog, mgr)
+	networkingv1alpha1.Init(setupLog, mgr)
 	kube.Init(mgr)
 
 	if err := mgr.AddHealthzCheck("healthz", healthz.Ping); err != nil {
