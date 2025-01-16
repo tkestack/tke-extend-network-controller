@@ -15,13 +15,13 @@ spec:
       control-plane: controller-manager
       app.kubernetes.io/name: tke-extend-network-controller
   policyTypes:
-    - Ingress
+  - Ingress
   ingress:
-    # This allows ingress traffic from any namespace with the label webhook: enabled
-    - from:
-      - namespaceSelector:
-          matchLabels:
-            webhook: enabled # Only from namespaces with this label
-      ports:
-        - port: 443
-          protocol: TCP
+  # This allows ingress traffic from any namespace with the label webhook: enabled
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          webhook: enabled # Only from namespaces with this label
+    ports:
+    - port: 443
+      protocol: TCP

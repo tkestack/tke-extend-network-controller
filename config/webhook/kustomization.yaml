@@ -1,8 +1,8 @@
 resources:
-  - manifests.yaml
-  - service.yaml
+- manifests.yaml
+- service.yaml
 
 namePrefix: tke-extend-network-controller-
 
 configurations:
-  - kustomizeconfig.yaml
+- kustomizeconfig.yaml
