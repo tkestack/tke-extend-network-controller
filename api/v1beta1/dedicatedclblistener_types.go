@@ -80,6 +80,8 @@ const (
 )
 
 // +kubebuilder:object:root=true
+// +kubebuilder:storageversion
+// +kubebuilder:conversion:hub
 // +kubebuilder:subresource:status
 // +kubebuilder:storageversion
 // +kubebuilder:printcolumn:name="LbId",type="string",JSONPath=".spec.lbId",description="CLB ID"
