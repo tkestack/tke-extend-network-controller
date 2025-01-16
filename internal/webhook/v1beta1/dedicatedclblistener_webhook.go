@@ -30,7 +30,6 @@ var dedicatedclblistenerlog = logf.Log.WithName("dedicatedclblistener-resource")
 // SetupDedicatedCLBListenerWebhookWithManager registers the webhook for DedicatedCLBListener in the manager.
 func SetupDedicatedCLBListenerWebhookWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewWebhookManagedBy(mgr).For(&networkingv1beta1.DedicatedCLBListener{}).
+		WithValidator(&DedicatedCLBListenerValidator{mgr.GetClient()}).
 		Complete()
 }
-
-// TODO(user): EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
