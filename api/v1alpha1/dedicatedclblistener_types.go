@@ -20,13 +20,22 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
-// NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
+type CLB struct {
+	// CLB 实例的 ID。
+	// +kubebuilder:validation:XValidation:rule="self == oldSelf", message="Value is immutable"
+	ID string `json:"id"`
+	// region of the CLB instance.
+	// +kubebuilder:validation:XValidation:rule="self == oldSelf", message="Value is immutable"
+	// +optional
+	Region string `json:"region"`
+}
 
 // DedicatedCLBListenerSpec defines the desired state of DedicatedCLBListener
 type DedicatedCLBListenerSpec struct {
+	CLBs []CLB `json:"clbs"`
 	// CLB 实例的 ID。
 	// +kubebuilder:validation:XValidation:rule="self == oldSelf", message="Value is immutable"
+	// +optional
 	LbId string `json:"lbId"`
 	// CLB 所在地域，不填则使用 TKE 集群所在的地域。
 	// +kubebuilder:validation:XValidation:rule="self == oldSelf", message="Value is immutable"
@@ -49,6 +58,16 @@ type DedicatedCLBListenerSpec struct {
 	// CLB 监听器绑定的目标 Pod。
 	// +optional
 	TargetPod *TargetPod `json:"targetPod,omitempty"`
+	// Target node of the CLB listener.
+	// +optional
+	TargetNode *TargetNode `json:"targetNode,omitempty"`
+}
+
+type TargetNode struct {
+	// Node 的名称。
+	NodeName string `json:"nodeName"`
+	// Node 监听的端口。
+	TargetPort int64 `json:"targetPort"`
 }
 
 type TargetPod struct {
@@ -58,8 +77,22 @@ type TargetPod struct {
 	TargetPort int64 `json:"targetPort"`
 }
 
+type ListenerStatus struct {
+	CLB CLB `json:"clb,omitempty"`
+	// CLB 监听器的 ID。
+	ListenerId string `json:"listenerId,omitempty"`
+	// CLB 监听器的状态。
+	// +kubebuilder:validation:Enum=Bound;Available;Pending;Failed;Deleting
+	State string `json:"state,omitempty"`
+	// 记录 CLB 监听器的失败信息。
+	Message string `json:"message,omitempty"`
+	// CLB 监听器的外部地址。
+	Address string `json:"address,omitempty"`
+}
+
 // DedicatedCLBListenerStatus defines the observed state of DedicatedCLBListener
 type DedicatedCLBListenerStatus struct {
+	ListenerStatuses []ListenerStatus `json:"listenerStatuses,omitempty"`
 	// CLB 监听器的 ID。
 	ListenerId string `json:"listenerId,omitempty"`
 	// CLB 监听器的状态。

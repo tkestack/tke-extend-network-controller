@@ -20,73 +20,92 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
-// NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
+type CLB struct {
+	// CLB 实例的 ID。
+	// +kubebuilder:validation:XValidation:rule="self == oldSelf", message="Value is immutable"
+	ID string `json:"id"`
+	// region of the CLB instance.
+	// +kubebuilder:validation:XValidation:rule="self == oldSelf", message="Value is immutable"
+	// +optional
+	Region string `json:"region"`
+}
 
 // DedicatedCLBListenerSpec defines the desired state of DedicatedCLBListener
 type DedicatedCLBListenerSpec struct {
-	// CLB 实例的 ID。
+	CLBs []CLB `json:"clbs"`
+	// CLB port.
 	// +kubebuilder:validation:XValidation:rule="self == oldSelf", message="Value is immutable"
-	LbId string `json:"lbId"`
-	// CLB 所在地域，不填则使用 TKE 集群所在的地域。
-	// +kubebuilder:validation:XValidation:rule="self == oldSelf", message="Value is immutable"
-	// +optional
-	LbRegion string `json:"lbRegion,omitempty"`
-	// CLB 监听器的端口号。
-	// +kubebuilder:validation:XValidation:rule="self == oldSelf", message="Value is immutable"
-	LbPort int64 `json:"lbPort"`
-	// CLB 端口段监听器的结束端口号。
+	Port int64 `json:"port"`
+	// CLB Endport.
 	// +kubebuilder:validation:XValidation:rule="self == oldSelf", message="Value is immutable"
 	// +optional
-	LbEndPort *int64 `json:"lbEndPort"`
+	EndPort *int64 `json:"endPort"`
 	// CLB 监听器的协议。
 	// +kubebuilder:validation:XValidation:rule="self == oldSelf", message="Value is immutable"
-	// +kubebuilder:validation:Enum=TCP;UDP
+	// +kubebuilder:validation:Enum=TCP;UDP;TCPUDP
 	Protocol string `json:"protocol"`
 	// 创建监听器的参数，JSON 格式，详细参数请参考 CreateListener 接口：https://cloud.tencent.com/document/api/214/30693
 	// +optional
 	ExtensiveParameters *string `json:"extensiveParameters,omitempty"`
-	// CLB 监听器绑定的目标 Pod。
+	// Target pod of the CLB listener.
 	// +optional
 	TargetPod *TargetPod `json:"targetPod,omitempty"`
+	// Target node of the CLB listener.
+	// +optional
+	TargetNode *TargetNode `json:"targetNode,omitempty"`
+}
+
+type TargetNode struct {
+	// Node 的名称。
+	NodeName string `json:"nodeName"`
+	// Node 监听的端口。
+	Port int64 `json:"port"`
 }
 
 type TargetPod struct {
 	// Pod 的名称。
 	PodName string `json:"podName"`
 	// Pod 监听的端口。
-	TargetPort int64 `json:"targetPort"`
+	Port int64 `json:"port"`
 }
 
-// DedicatedCLBListenerStatus defines the observed state of DedicatedCLBListener
-type DedicatedCLBListenerStatus struct {
+type ListenerStatus struct {
+	CLB CLB `json:"clb,omitempty"`
 	// CLB 监听器的 ID。
 	ListenerId string `json:"listenerId,omitempty"`
 	// CLB 监听器的状态。
 	// +kubebuilder:validation:Enum=Bound;Available;Pending;Failed;Deleting
 	State string `json:"state,omitempty"`
 	// 记录 CLB 监听器的失败信息。
+	// +optional
 	Message string `json:"message,omitempty"`
 	// CLB 监听器的外部地址。
 	Address string `json:"address,omitempty"`
 }
 
+// DedicatedCLBListenerStatus defines the observed state of DedicatedCLBListener
+type DedicatedCLBListenerStatus struct {
+	ListenerStatuses []ListenerStatus `json:"listenerStatuses,omitempty"`
+	State            string           `json:"state,omitempty"`
+	// 记录 CLB 监听器的失败信息。
+	// +optional
+	Message string `json:"message,omitempty"`
+}
+
 const (
-	DedicatedCLBListenerStateBound     = "Bound"
-	DedicatedCLBListenerStateAvailable = "Available"
-	DedicatedCLBListenerStatePending   = "Pending"
-	DedicatedCLBListenerStateFailed    = "Failed"
-	DedicatedCLBListenerStateDeleting  = "Deleting"
+	DedicatedCLBListenerStatePartialBound = "PartialBound"
+	DedicatedCLBListenerStateBound        = "Bound"
+	DedicatedCLBListenerStateAvailable    = "Available"
+	DedicatedCLBListenerStatePending      = "Pending"
+	DedicatedCLBListenerStateFailed       = "Failed"
+	DedicatedCLBListenerStateDeleting     = "Deleting"
 )
 
 // +kubebuilder:object:root=true
 // +kubebuilder:storageversion
 // +kubebuilder:conversion:hub
 // +kubebuilder:subresource:status
-// +kubebuilder:storageversion
-// +kubebuilder:printcolumn:name="LbId",type="string",JSONPath=".spec.lbId",description="CLB ID"
-// +kubebuilder:printcolumn:name="LbPort",type="integer",JSONPath=".spec.lbPort",description="Port of CLB Listener"
-// +kubebuilder:printcolumn:name="Pod",type="string",JSONPath=".spec.targetPod.podName",description="Pod name of target pod"
+// +kubebuilder:printcolumn:name="Port",type="integer",JSONPath=".spec.port",description="Port of CLB Listener"
 // +kubebuilder:printcolumn:name="State",type="string",JSONPath=".status.state",description="State of the dedicated clb listener"
 
 // DedicatedCLBListener is the Schema for the dedicatedclblisteners API
