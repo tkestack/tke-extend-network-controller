@@ -16,7 +16,5 @@ limitations under the License.
 
 package v1beta1
 
-// EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
-
 // Hub marks this type as a conversion hub.
 func (*DedicatedCLBListener) Hub() {}
