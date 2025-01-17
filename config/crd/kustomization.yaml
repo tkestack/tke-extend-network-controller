@@ -7,14 +7,9 @@ resources:
 # +kubebuilder:scaffold:crdkustomizeresource
 
 patches:
-# [WEBHOOK] To enable webhook, uncomment all the sections with [WEBHOOK] prefix.
-# patches here are for enabling the conversion webhook for each CRD
 # - path: patches/webhook_in_clbpodbindings.yaml
 - path: patches/webhook_in_dedicatedclblisteners.yaml
   # +kubebuilder:scaffold:crdkustomizewebhookpatch
-
-# [WEBHOOK] To enable webhook, uncomment the following section
-# the following config is for teaching kustomize how to do kustomization for CRDs.
 
 configurations:
 - kustomizeconfig.yaml
