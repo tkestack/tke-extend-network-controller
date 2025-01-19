@@ -22,10 +22,8 @@ import (
 
 type CLB struct {
 	// CLB 实例的 ID。
-	// +kubebuilder:validation:XValidation:rule="self == oldSelf", message="Value is immutable"
 	ID string `json:"id"`
 	// region of the CLB instance.
-	// +kubebuilder:validation:XValidation:rule="self == oldSelf", message="Value is immutable"
 	// +optional
 	Region string `json:"region"`
 }
@@ -82,7 +80,6 @@ type ListenerStatus struct {
 	// CLB 监听器的 ID。
 	ListenerId string `json:"listenerId,omitempty"`
 	// CLB 监听器的状态。
-	// +kubebuilder:validation:Enum=Bound;Available;Pending;Failed;Deleting
 	State string `json:"state,omitempty"`
 	// 记录 CLB 监听器的失败信息。
 	Message string `json:"message,omitempty"`

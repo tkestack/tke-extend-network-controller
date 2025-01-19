@@ -72,15 +72,9 @@ spec:
                     id:
                       description: CLB 实例的 ID。
                       type: string
-                      x-kubernetes-validations:
-                      - message: Value is immutable
-                        rule: self == oldSelf
                     region:
                       description: region of the CLB instance.
                       type: string
-                      x-kubernetes-validations:
-                      - message: Value is immutable
-                        rule: self == oldSelf
                   required:
                   - id
                   type: object
@@ -177,15 +171,9 @@ spec:
                         id:
                           description: CLB 实例的 ID。
                           type: string
-                          x-kubernetes-validations:
-                          - message: Value is immutable
-                            rule: self == oldSelf
                         region:
                           description: region of the CLB instance.
                           type: string
-                          x-kubernetes-validations:
-                          - message: Value is immutable
-                            rule: self == oldSelf
                       required:
                       - id
                       type: object
@@ -197,12 +185,6 @@ spec:
                       type: string
                     state:
                       description: CLB 监听器的状态。
-                      enum:
-                      - Bound
-                      - Available
-                      - Pending
-                      - Failed
-                      - Deleting
                       type: string
                   type: object
                 type: array
@@ -265,15 +247,9 @@ spec:
                     id:
                       description: CLB 实例的 ID。
                       type: string
-                      x-kubernetes-validations:
-                      - message: Value is immutable
-                        rule: self == oldSelf
                     region:
                       description: region of the CLB instance.
                       type: string
-                      x-kubernetes-validations:
-                      - message: Value is immutable
-                        rule: self == oldSelf
                   required:
                   - id
                   type: object
@@ -353,15 +329,9 @@ spec:
                         id:
                           description: CLB 实例的 ID。
                           type: string
-                          x-kubernetes-validations:
-                          - message: Value is immutable
-                            rule: self == oldSelf
                         region:
                           description: region of the CLB instance.
                           type: string
-                          x-kubernetes-validations:
-                          - message: Value is immutable
-                            rule: self == oldSelf
                       required:
                       - id
                       type: object
@@ -373,12 +343,6 @@ spec:
                       type: string
                     state:
                       description: CLB 监听器的状态。
-                      enum:
-                      - Bound
-                      - Available
-                      - Pending
-                      - Failed
-                      - Deleting
                       type: string
                   type: object
                 type: array
