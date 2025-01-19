@@ -14,6 +14,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
+	networkingv1alpha1 "github.com/imroc/tke-extend-network-controller/api/v1alpha1"
 	networkingv1beta1 "github.com/imroc/tke-extend-network-controller/api/v1beta1"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
@@ -32,6 +33,7 @@ var (
 func init() {
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
 
+	utilruntime.Must(networkingv1alpha1.AddToScheme(scheme))
 	utilruntime.Must(networkingv1beta1.AddToScheme(scheme))
 	// +kubebuilder:scaffold:scheme
 }
