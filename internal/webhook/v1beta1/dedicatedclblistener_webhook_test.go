@@ -28,13 +28,13 @@ var _ = Describe("DedicatedCLBListener Webhook", func() {
 	var (
 		obj       *networkingv1beta1.DedicatedCLBListener
 		oldObj    *networkingv1beta1.DedicatedCLBListener
-		validator DedicatedCLBListenerValidator
+		validator DedicatedCLBListenerCustomValidator
 	)
 
 	BeforeEach(func() {
 		obj = &networkingv1beta1.DedicatedCLBListener{}
 		oldObj = &networkingv1beta1.DedicatedCLBListener{}
-		validator = DedicatedCLBListenerValidator{}
+		validator = DedicatedCLBListenerCustomValidator{}
 		Expect(validator).NotTo(BeNil(), "Expected validator to be initialized")
 		Expect(oldObj).NotTo(BeNil(), "Expected oldObj to be initialized")
 		Expect(obj).NotTo(BeNil(), "Expected obj to be initialized")
@@ -67,4 +67,15 @@ var _ = Describe("DedicatedCLBListener Webhook", func() {
 		//     Expect(validator.ValidateUpdate(ctx, oldObj, obj)).To(BeNil())
 		// })
 	})
+
+	Context("When creating DedicatedCLBListener under Conversion Webhook", func() {
+		// TODO (user): Add logic to convert the object to the desired version and verify the conversion
+		// Example:
+		// It("Should convert the object correctly", func() {
+		//     convertedObj := &networkingv1beta1.DedicatedCLBListener{}
+		//     Expect(obj.ConvertTo(convertedObj)).To(Succeed())
+		//     Expect(convertedObj).ToNot(BeNil())
+		// })
+	})
+
 })

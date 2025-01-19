@@ -59,4 +59,23 @@ webhooks:
     resources:
     - dedicatedclblisteners
   sideEffects: None
-
+- admissionReviewVersions:
+  - v1
+  clientConfig:
+    service:
+      name: {{ include "tke-extend-network-controller.fullname" . }}-webhook-service
+      namespace: {{ .Release.Namespace | quote }}
+      path: /validate-networking-cloud-tencent-com-v1beta1-dedicatedclblistener
+  failurePolicy: Fail
+  name: vdedicatedclblistener-v1beta1.kb.io
+  rules:
+  - apiGroups:
+    - networking.cloud.tencent.com
+    apiVersions:
+    - v1beta1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - dedicatedclblisteners
+  sideEffects: None

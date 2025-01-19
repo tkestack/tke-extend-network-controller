@@ -29,7 +29,6 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
-	networkingv1beta1 "github.com/imroc/tke-extend-network-controller/api/v1beta1"
 	admissionv1 "k8s.io/api/admission/v1"
 	apimachineryruntime "k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/rest"
@@ -40,6 +39,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
+
+	networkingv1beta1 "github.com/imroc/tke-extend-network-controller/api/v1beta1"
 	// +kubebuilder:scaffold:imports
 )
 
