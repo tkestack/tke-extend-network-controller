@@ -88,7 +88,7 @@ func (v *DedicatedCLBListenerCustomValidator) ValidateDelete(ctx context.Context
 }
 
 func (v *DedicatedCLBListenerCustomValidator) validate(lis *networkingv1beta1.DedicatedCLBListener) (admission.Warnings, error) {
-	if err := r.validateLbPort(lis); err != nil {
+	if err := v.validateLbPort(lis); err != nil {
 		return nil, err
 	}
 	return nil, nil
