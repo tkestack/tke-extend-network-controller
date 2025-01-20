@@ -67,6 +67,5 @@ func (dst *DedicatedCLBService) ConvertFrom(srcRaw conversion.Hub) error {
 	src := srcRaw.(*networkingv1beta1.DedicatedCLBService)
 	log.Printf("ConvertFrom: Converting DedicatedCLBService from Hub version v1beta1 to Spoke version v1alpha1;"+
 		"source: %s/%s, target: %s/%s", src.Namespace, src.Name, dst.Namespace, dst.Name)
-
 	return nil
 }
