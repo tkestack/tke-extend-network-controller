@@ -41,10 +41,10 @@ type DedicatedCLBServiceSpec struct {
 	MaxPort int64 `json:"maxPort,omitempty"`
 	// 限制单个 CLB 的 Pod/监听器 的最大数量。
 	// +optional
-	MaxListener int64 `json:"maxListener,omitempty"`
+	MaxListener *int64 `json:"maxListener,omitempty"`
 	// Number of ports in the port range listener if not null.
 	// +optional
-	PortSegment int64 `json:"portSegment,omitempty"`
+	PortSegment *int64 `json:"portSegment,omitempty"`
 	// Pod 的标签选择器，被选中的 Pod 会被绑定到 CLB 监听器下。
 	Selector map[string]string `json:"selector"`
 	// Pod 监听的端口。
@@ -62,18 +62,18 @@ type DedicatedCLBServiceSpec struct {
 
 type LBInfo struct {
 	// +optional
-	Alias string `json:"alias"`
+	Alias *string `json:"alias"`
 	// +optional
 	Region string `json:"region"`
 	// +optional
-	VpcId string `json:"vpcId"`
+	VpcId *string `json:"vpcId"`
 	// +kubebuilder:validation:Enum=IPV4;IPV6;IPv6FullChain
 	// +optional
-	AddressIPVersion string `json:"addressIPVersion"`
+	AddressIPVersion *string `json:"addressIPVersion"`
 	// +optional
-	VipIsp string `json:"vipIsp"`
+	VipIsp *string `json:"vipIsp"`
 	// +optional
-	LoadBalancerName string `json:"loadBalancerName"`
+	LoadBalancerName *string `json:"loadBalancerName"`
 	// 创建 CLB 时的参数，JSON 格式，详细参数请参考 CreateLoadBalancer 接口：https://cloud.tencent.com/document/api/214/30692
 	// +optional
 	ExtensiveParameters *string `json:"extensiveParameters,omitempty"`
