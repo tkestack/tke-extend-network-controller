@@ -30,6 +30,28 @@ type ExistedCLB struct {
 	Alias string `json:"alias"`
 }
 
+func (e *ExistedCLB) ToCLBInfo() CLBInfo {
+	return CLBInfo{
+		LbId:   e.ID,
+		Region: e.Region,
+		Alias:  e.Alias,
+	}
+}
+
+type Target struct {
+	Pod  *TargetPods  `json:"pod,omitempty"`
+	Node *TargetNodes `json:"node,omitempty"`
+}
+
+type TargetPods struct {
+	PodSelector map[string]string `json:"podSelector"`
+}
+
+type TargetNodes struct {
+	// +optional
+	NodeSelector map[string]string `json:"nodeSelector"`
+}
+
 // DedicatedCLBServiceSpec defines the desired state of DedicatedCLBService
 type DedicatedCLBServiceSpec struct {
 	// CLB 端口范围的最小端口号。
@@ -45,8 +67,7 @@ type DedicatedCLBServiceSpec struct {
 	// Number of ports in the port range listener if not null.
 	// +optional
 	PortSegment *int64 `json:"portSegment,omitempty"`
-	// Pod 的标签选择器，被选中的 Pod 会被绑定到 CLB 监听器下。
-	Selector map[string]string `json:"selector"`
+	Target      Target `json:"target"`
 	// Pod 监听的端口。
 	Ports []DedicatedCLBServicePort `json:"ports"`
 	// 创建监听器的参数，JSON 格式，详细参数请参考 CreateListener 接口: https://cloud.tencent.com/document/api/214/30693
