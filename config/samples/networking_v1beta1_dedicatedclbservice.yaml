@@ -1,0 +1,9 @@
+apiVersion: networking.cloud.tencent.com/v1beta1
+kind: DedicatedCLBService
+metadata:
+  labels:
+    app.kubernetes.io/name: tke-extend-network-controller
+    app.kubernetes.io/managed-by: kustomize
+  name: dedicatedclbservice-sample
+spec:
+  # TODO(user): Add fields here

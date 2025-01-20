@@ -44,4 +44,17 @@ resources:
     - v1alpha1
     validation: true
     webhookVersion: v1
+- api:
+    crdVersion: v1
+    namespaced: true
+  domain: cloud.tencent.com
+  group: networking
+  kind: DedicatedCLBService
+  path: github.com/imroc/tke-extend-network-controller/api/v1beta1
+  version: v1beta1
+  webhooks:
+    conversion: true
+    spoke:
+    - v1alpha1
+    webhookVersion: v1
 version: "3"

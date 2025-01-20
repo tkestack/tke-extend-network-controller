@@ -9,6 +9,7 @@ resources:
 patches:
 # - path: patches/webhook_in_clbpodbindings.yaml
 - path: patches/webhook_in_dedicatedclblisteners.yaml
+- path: patches/webhook_in_dedicatedclbservices.yaml
   # +kubebuilder:scaffold:crdkustomizewebhookpatch
 
 configurations:
