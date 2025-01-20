@@ -60,7 +60,7 @@ type DedicatedCLBServiceSpec struct {
 	LbAutoCreate LbAutoCreate `json:"lbAutoCreate,omitempty"`
 }
 
-type LBInfo struct {
+type LBParameter struct {
 	// +optional
 	Alias *string `json:"alias"`
 	// +optional
@@ -84,11 +84,11 @@ type LbAutoCreate struct {
 	// +optional
 	Enable bool `json:"enable,omitempty"`
 	// +optional
-	LbInfo []LBInfo `json:"lbInfo"`
+	Parameters []LBParameter `json:"parameters,omitempty"`
 }
 
 type DedicatedCLBServicePort struct {
-	// 端口协议，支持 TCP、UDP。
+	// 端口协议，支持 TCP、UDP、TCPUDP。
 	Protocol string `json:"protocol"`
 	// 目标端口。
 	TargetPort int64 `json:"targetPort"`
@@ -99,28 +99,18 @@ type DedicatedCLBServicePort struct {
 
 // DedicatedCLBServiceStatus defines the observed state of DedicatedCLBService
 type DedicatedCLBServiceStatus struct {
-	// 可分配端口的 CLB 列表
 	// +optional
-	AllocatableLb []AllocatableCLBInfo `json:"allocatableLb"`
-	// 已分配完端口的 CLB 列表
-	// +optional
-	AllocatedLb []AllocatedCLBInfo `json:"allocatedLb"`
+	CLBs [][]CLBInfo `json:"clbs"`
 }
 
-type AllocatableCLBInfo struct {
+type CLBInfo struct {
 	// CLB 实例的 ID。
-	LbId string `json:"lbId"`
-	// CLB 当前已被分配的端口。
+	LbId   string `json:"lbId"`
+	Region string `json:"region"`
 	// +optional
-	CurrentPort int64 `json:"currentPort"`
+	Alias string `json:"alias"`
 	// 是否是自动创建的 CLB。如果是，删除 DedicatedCLBService 时，CLB 也会被清理。
-	AutoCreate bool `json:"autoCreate"`
-}
-
-type AllocatedCLBInfo struct {
-	// CLB 实例的 ID。
-	LbId string `json:"lbId"`
-	// 是否是自动创建的 CLB。如果是，删除 DedicatedCLBService 时，CLB 也会被清理。
+	// +optional
 	AutoCreate bool `json:"autoCreate"`
 }
 

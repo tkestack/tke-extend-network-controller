@@ -206,7 +206,7 @@ spec:
                   enable:
                     description: 是否启用自动创建 CLB 的功能，如果启用，当 CLB 不足时，会自动创建新的 CLB。
                     type: boolean
-                  lbInfo:
+                  parameters:
                     items:
                       properties:
                         addressIPVersion:
@@ -261,7 +261,7 @@ spec:
                         内部可通过 Downward API 感知到自身的外部地址。
                       type: string
                     protocol:
-                      description: 端口协议，支持 TCP、UDP。
+                      description: 端口协议，支持 TCP、UDP、TCPUDP。
                       type: string
                     targetPort:
                       description: 目标端口。
@@ -284,39 +284,26 @@ spec:
           status:
             description: DedicatedCLBServiceStatus defines the observed state of DedicatedCLBService
             properties:
-              allocatableLb:
-                description: 可分配端口的 CLB 列表
+              clbs:
                 items:
-                  properties:
-                    autoCreate:
-                      description: 是否是自动创建的 CLB。如果是，删除 DedicatedCLBService 时，CLB 也会被清理。
-                      type: boolean
-                    currentPort:
-                      description: CLB 当前已被分配的端口。
-                      format: int64
-                      type: integer
-                    lbId:
-                      description: CLB 实例的 ID。
-                      type: string
-                  required:
-                  - autoCreate
-                  - lbId
-                  type: object
-                type: array
-              allocatedLb:
-                description: 已分配完端口的 CLB 列表
-                items:
-                  properties:
-                    autoCreate:
-                      description: 是否是自动创建的 CLB。如果是，删除 DedicatedCLBService 时，CLB 也会被清理。
-                      type: boolean
-                    lbId:
-                      description: CLB 实例的 ID。
-                      type: string
-                  required:
-                  - autoCreate
-                  - lbId
-                  type: object
+                  items:
+                    properties:
+                      alias:
+                        type: string
+                      autoCreate:
+                        description: 是否是自动创建的 CLB。如果是，删除 DedicatedCLBService 时，CLB
+                          也会被清理。
+                        type: boolean
+                      lbId:
+                        description: CLB 实例的 ID。
+                        type: string
+                      region:
+                        type: string
+                    required:
+                    - lbId
+                    - region
+                    type: object
+                  type: array
                 type: array
             type: object
         type: object

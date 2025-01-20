@@ -39,12 +39,12 @@ func (src *DedicatedCLBService) ConvertTo(dstRaw conversion.Hub) error {
 	}
 	if src.Spec.LbAutoCreate.Enable {
 		dst.Spec.LbAutoCreate.Enable = true
-		lbInfo := networkingv1beta1.LBInfo{
+		lbInfo := networkingv1beta1.LBParameter{
 			ExtensiveParameters: src.Spec.LbAutoCreate.ExtensiveParameters,
 			Region:              src.Spec.LbRegion,
 			VpcId:               src.Spec.VpcId,
 		}
-		dst.Spec.LbAutoCreate.LbInfo = []networkingv1beta1.LBInfo{lbInfo}
+		dst.Spec.LbAutoCreate.Parameters = []networkingv1beta1.LBParameter{lbInfo}
 	}
 	dst.Spec.MaxListener = src.Spec.MaxPod
 	dst.Spec.MinPort = src.Spec.MinPort
