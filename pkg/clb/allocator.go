@@ -112,7 +112,7 @@ OUT:
 			for _, clb := range l.CLBs {
 				havePorts, canAllocate := clb.CanAllocate(ctx, port, req.Protocol)
 				if !havePorts { // 有 CLB 无法继续分配端口，不再尝试所有 clb，跳出外层循环
-					log.V(9).Info("no more ports", "protocol", req.Protocol, "lbId", clb.ID)
+					log.V(9).Info("no more ports", "protocol", req.Protocol, "lbId", clb.ID, "port", port)
 					break OUT
 				}
 				if !canAllocate { // 当前 port + protocol 有 clb 已分配监听器，尝试下一个 protocol

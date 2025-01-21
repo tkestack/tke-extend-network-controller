@@ -2,6 +2,7 @@ package clb
 
 import (
 	"context"
+	"reflect"
 	"sync"
 	"time"
 
@@ -74,34 +75,36 @@ const (
 * }
 **/
 
-func SyncQuota(ctx context.Context, region string) (map[string]int64, error) {
+func SyncQuota(ctx context.Context, region string) error {
 	client := GetClient(region)
 	resp, err := client.DescribeQuotaWithContext(ctx, clb.NewDescribeQuotaRequest())
 	if err != nil {
-		return nil, err
+		return err
 	}
-	m := make(map[string]int64)
+	newQuota := make(map[string]int64)
 	for _, q := range resp.Response.QuotaSet {
-		m[*q.QuotaId] = *q.QuotaLimit
+		newQuota[*q.QuotaId] = *q.QuotaLimit
+	}
+	oldQuota := quota[region]
+	if !reflect.DeepEqual(oldQuota, newQuota) {
+		clbLog.Info("sync clb quota successfully", "region", region, "quota", newQuota)
 	}
 	quotaLock.Lock()
 	_, workerStarted := quota[region]
-	quota[region] = m
+	quota[region] = newQuota
 	quotaLock.Unlock()
 	if !workerStarted {
 		go func() {
 			for {
 				time.Sleep(5 * time.Minute)
-				m, err := SyncQuota(context.Background(), region)
+				err := SyncQuota(context.Background(), region)
 				if err != nil {
 					clbLog.Error(err, "failed to sync clb quota periodically", "region", region)
-				} else {
-					clbLog.Info("sync clb quota successfully", "region", region, "quota", m)
 				}
 			}
 		}()
 	}
-	return m, nil
+	return nil
 }
 
 func GetQuota(ctx context.Context, region, id string) (int64, error) {
@@ -112,10 +115,10 @@ func GetQuota(ctx context.Context, region, id string) (int64, error) {
 	m, ok := quota[region]
 	quotaLock.Unlock()
 	if !ok {
-		var err error
-		if m, err = SyncQuota(ctx, region); err != nil {
+		if err := SyncQuota(ctx, region); err != nil {
 			return 0, err
 		}
+		m = quota[region]
 	}
 	return m[id], nil
 }
