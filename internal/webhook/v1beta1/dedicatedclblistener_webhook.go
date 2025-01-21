@@ -121,7 +121,7 @@ func (d *DedicatedCLBListenerCustomValidator) validateLbPort(lis *networkingv1be
 				allErrs,
 				field.Invalid(
 					lbPortPath, lis.Spec.Port,
-					fmt.Sprintf("lbPort is already used by othe(lis *DedicatedCLBListener) (%s/%s)", dup.Namespace, dup.Name),
+					fmt.Sprintf("lbPort is already used by other DedicatedCLBListener(%s/%s)", dup.Namespace, dup.Name),
 				),
 			)
 		}
