@@ -67,7 +67,7 @@ func (c *CLB) Init(ctx context.Context) (err error) {
 }
 
 type ListenerAssignee interface {
-	AssignListener(protocol string, port int64, clbs []CLB)
+	AssignListener(protocol string, port int64, clbs []*CLB)
 }
 
 type ListenerAllocationRequest struct {
@@ -76,7 +76,7 @@ type ListenerAllocationRequest struct {
 }
 
 type ListenerAllocator struct {
-	CLBs                     []CLB
+	CLBs                     []*CLB
 	MinPort, MaxPort         int64
 	MaxListener, PortSegment *int64
 }
