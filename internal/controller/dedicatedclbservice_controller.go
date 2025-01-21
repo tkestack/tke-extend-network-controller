@@ -171,6 +171,8 @@ func (r *DedicatedCLBServiceReconciler) diffPods(ctx context.Context, ds *networ
 		key := getListenerKey(targetPod.PodName, targetPod.Port, lis.Spec.Protocol)
 		allocatedListeners[key] = &lis
 	}
+	log := log.FromContext(ctx)
+	log.V(7).Info("diff pods", "pods", len(pods), "allocatedListeners", len(allocatedListeners), "allocatableListeners", len(allocatableListeners))
 	toAllocate := []AllocateListenerJob{}
 	for _, pod := range pods {
 		for _, port := range ds.Spec.Ports {
@@ -183,6 +185,7 @@ func (r *DedicatedCLBServiceReconciler) diffPods(ctx context.Context, ds *networ
 		}
 	}
 	if len(toAllocate) > 0 {
+		log.V(7).Info("need allocate listeners", "num", len(toAllocate))
 		toAdd, err = r.allocatedListeners(ctx, ds, toAllocate)
 	}
 	return
@@ -273,6 +276,7 @@ func (r *DedicatedCLBServiceReconciler) sync(ctx context.Context, ds *networking
 			log.V(5).Info("no pods matches the selector")
 			return nil
 		}
+		log.V(7).Info("found related pods", "num", len(pods.Items))
 		toDel, toAdd, err = r.diffPods(ctx, ds, pods.Items, listeners.Items)
 	} else if targetNode := ds.Spec.Target.Node; targetNode != nil {
 		nodes := &corev1.NodeList{}
