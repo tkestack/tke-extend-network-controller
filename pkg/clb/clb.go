@@ -56,3 +56,10 @@ func GetClient(region string) *clb.Client {
 	clients[region] = client
 	return client
 }
+
+func GetRegion(region string) string {
+  if region == "" {
+    return defaultRegion
+  }
+  return region
+}

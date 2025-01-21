@@ -194,7 +194,6 @@ spec:
                         description: region of the CLB instance.
                         type: string
                     required:
-                    - alias
                     - id
                     type: object
                   type: array

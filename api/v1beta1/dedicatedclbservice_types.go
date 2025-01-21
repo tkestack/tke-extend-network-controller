@@ -17,6 +17,7 @@ limitations under the License.
 package v1beta1
 
 import (
+	"github.com/imroc/tke-extend-network-controller/pkg/clb"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -27,13 +28,14 @@ type ExistedCLB struct {
 	// +optional
 	Region string `json:"region"`
 	// Alias of the CLB instance.
+	// +optional
 	Alias string `json:"alias"`
 }
 
 func (e *ExistedCLB) ToCLBInfo() CLBInfo {
 	return CLBInfo{
 		LbId:   e.ID,
-		Region: e.Region,
+		Region: clb.GetRegion(e.Region),
 		Alias:  e.Alias,
 	}
 }
