@@ -57,7 +57,7 @@ func (c *CLB) Init(ctx context.Context) (err error) {
 	for _, lis := range resp.Response.Listeners {
 		c.allocatedListeners[ListenerPort{Protocol: *lis.Protocol, Port: *lis.Port}] = true
 	}
-	quota, err := GetQuota(ctx, c.Region, c.ID)
+	quota, err := GetListenerQuota(ctx, c.Region)
 	if err != nil {
 		return
 	}

@@ -107,6 +107,10 @@ func SyncQuota(ctx context.Context, region string) error {
 	return nil
 }
 
+func GetListenerQuota(ctx context.Context, region string) (int64, error) {
+	return GetQuota(ctx, region, TOTAL_LISTENER_QUOTA)
+}
+
 func GetQuota(ctx context.Context, region, id string) (int64, error) {
 	if region == "" {
 		region = defaultRegion
