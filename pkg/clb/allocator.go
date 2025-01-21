@@ -4,6 +4,7 @@ import (
 	"context"
 
 	clb "github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/clb/v20180317"
+	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 type CLB struct {
@@ -90,7 +91,8 @@ func (l *ListenerAllocator) Init(ctx context.Context) (err error) {
 	return
 }
 
-func (l *ListenerAllocator) Allocate(reqs []ListenerAllocationRequest) (err error) {
+func (l *ListenerAllocator) Allocate(ctx context.Context, reqs []ListenerAllocationRequest) (err error) {
+	log := log.FromContext(ctx)
 	port := l.MinPort
 	segment := int64(1)
 	if l.PortSegment != nil {
@@ -117,6 +119,7 @@ OUT:
 			for _, clb := range l.CLBs {
 				clb.Allocate(port, req.Protocol)
 			}
+			log.V(9).Info("assign listener", "protocol", req.Protocol, "port", port, "clbs", l.CLBs)
 			req.Assignees[0].AssignListener(req.Protocol, port, l.CLBs)
 			req.Assignees = req.Assignees[1:]
 		}

@@ -233,7 +233,7 @@ func (r *DedicatedCLBServiceReconciler) allocatedListeners(ctx context.Context, 
 		if err != nil {
 			return
 		}
-		err = allocator.Allocate(reqs)
+		err = allocator.Allocate(ctx, reqs)
 		if err != nil {
 			return
 		}
