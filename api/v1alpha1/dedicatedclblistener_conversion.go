@@ -85,6 +85,7 @@ func (src *DedicatedCLBListener) ConvertTo(dstRaw conversion.Hub) error {
 	dst := dstRaw.(*v1beta1.DedicatedCLBListener)
 	log.Printf("ConvertTo: Converting DedicatedCLBListener from Spoke version v1alpha1 to Hub version v1beta1;"+
 		"source: %s/%s, target: %s/%s", src.Namespace, src.Name, dst.Namespace, dst.Name)
+	dst.ObjectMeta = src.ObjectMeta
 	dst.Spec.Port = src.Spec.LbPort
 	dst.Spec.EndPort = src.Spec.LbEndPort
 	dst.Spec.Protocol = src.Spec.Protocol
@@ -133,6 +134,7 @@ func (dst *DedicatedCLBListener) ConvertFrom(srcRaw conversion.Hub) error {
 	src := srcRaw.(*v1beta1.DedicatedCLBListener)
 	log.Printf("ConvertFrom: Converting DedicatedCLBListener from Hub version v1beta1 to Spoke version v1alpha1;"+
 		"source: %s/%s, target: %s/%s", src.Namespace, src.Name, dst.Namespace, dst.Name)
+	dst.ObjectMeta = src.ObjectMeta
 	dst.Spec.CLBs = convertBackCLBs(src.Spec.CLBs)
 	dst.Spec.LbPort = src.Spec.Port
 	dst.Spec.LbEndPort = src.Spec.EndPort
