@@ -37,6 +37,7 @@ import (
 	"github.com/imroc/tke-extend-network-controller/pkg/clb"
 	"github.com/imroc/tke-extend-network-controller/pkg/kube"
 	"github.com/imroc/tke-extend-network-controller/pkg/util"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 // DedicatedCLBServiceReconciler reconciles a DedicatedCLBService object
@@ -116,11 +117,130 @@ func (r *DedicatedCLBServiceReconciler) reconcile(ctx context.Context, ds *netwo
 	return r.sync(ctx, ds)
 }
 
-func (r *DedicatedCLBServiceReconciler) diffNodes(ctx context.Context, ds *networkingv1beta1.DedicatedCLBService, nodes []corev1.Node, listeners []networkingv1beta1.DedicatedCLBListener) (toDel, toAdd []networkingv1beta1.DedicatedCLBListener, err error) {
+func (r *DedicatedCLBServiceReconciler) diffNodes(ctx context.Context, ds *networkingv1beta1.DedicatedCLBService, nodes []corev1.Node, listeners []networkingv1beta1.DedicatedCLBListener) (toDel, toAdd []*networkingv1beta1.DedicatedCLBListener, err error) {
 	return
 }
 
-func (r *DedicatedCLBServiceReconciler) diffPods(ctx context.Context, ds *networkingv1beta1.DedicatedCLBService, pods []corev1.Pod, listeners []networkingv1beta1.DedicatedCLBListener) (toDel, toAdd []networkingv1beta1.DedicatedCLBListener, err error) {
+type AllocateListenerJob struct {
+	Service  *networkingv1beta1.DedicatedCLBService
+	Port     *networkingv1beta1.DedicatedCLBServicePort
+	Pod      *corev1.Pod
+	Node     *corev1.Node
+	Listener *networkingv1beta1.DedicatedCLBListener
+}
+
+func (j *AllocateListenerJob) AssignListener(protocol string, port int64, clbs []clb.CLB) {
+	j.Listener = &networkingv1beta1.DedicatedCLBListener{
+		ObjectMeta: metav1.ObjectMeta{
+			GenerateName: fmt.Sprintf("%s-", j.Service.Name),
+			Namespace:    j.Service.Namespace,
+		},
+		Spec: networkingv1beta1.DedicatedCLBListenerSpec{
+			Protocol:            protocol,
+			Port:                port,
+			ExtensiveParameters: j.Service.Spec.ListenerExtensiveParameters,
+		},
+	}
+	if j.Service.Spec.PortSegment != nil {
+		endPort := port + *j.Service.Spec.PortSegment - 1
+		j.Listener.Spec.EndPort = &endPort
+	}
+	if j.Pod != nil {
+		j.Listener.Spec.TargetPod = &networkingv1beta1.TargetPod{
+			PodName: j.Pod.Name,
+			Port:    j.Port.TargetPort,
+		}
+	}
+	for _, clb := range clbs {
+		j.Listener.Spec.CLBs = append(j.Listener.Spec.CLBs, networkingv1beta1.CLB{
+			ID:     clb.ID,
+			Region: clb.Region,
+		})
+	}
+}
+
+func (r *DedicatedCLBServiceReconciler) diffPods(ctx context.Context, ds *networkingv1beta1.DedicatedCLBService, pods []corev1.Pod, listeners []networkingv1beta1.DedicatedCLBListener) (toDel, toAdd []*networkingv1beta1.DedicatedCLBListener, err error) {
+	allocatedListeners := make(map[string]*networkingv1beta1.DedicatedCLBListener)     // pod-port-protocol --> listener
+	allocatableListeners := make(map[string][]*networkingv1beta1.DedicatedCLBListener) // protocol --> listeners
+	for _, lis := range listeners {
+		targetPod := lis.Spec.TargetPod
+		if targetPod == nil {
+			allocatableListeners[lis.Spec.Protocol] = append(allocatableListeners[lis.Spec.Protocol], &lis)
+			continue
+		}
+		key := getListenerKey(targetPod.PodName, targetPod.Port, lis.Spec.Protocol)
+		allocatedListeners[key] = &lis
+	}
+	toAllocate := []AllocateListenerJob{}
+	for _, pod := range pods {
+		for _, port := range ds.Spec.Ports {
+			key := getListenerKey(pod.Name, port.TargetPort, port.Protocol)
+			if _, ok := allocatedListeners[key]; ok { // 已为 Pod 分配监听器，忽略
+				continue
+			}
+			// pod 还没有分配监听器，标记分配
+			toAllocate = append(toAllocate, AllocateListenerJob{Port: &port, Pod: &pod, Service: ds})
+		}
+	}
+	if len(toAllocate) > 0 {
+		toAdd, err = r.allocatedListeners(ctx, ds, toAllocate)
+	}
+	return
+}
+
+func (r *DedicatedCLBServiceReconciler) allocatedListeners(ctx context.Context, ds *networkingv1beta1.DedicatedCLBService, toAllocate []AllocateListenerJob) (toAdd []*networkingv1beta1.DedicatedCLBListener, err error) {
+	toAllocateMap := make(map[string][]clb.ListenerAssignee) // protocol --> jobs
+	for _, job := range toAllocate {
+		toAllocateMap[job.Port.Protocol] = append(toAllocateMap[job.Port.Protocol], &job)
+	}
+	var reqs []clb.ListenerAllocationRequest
+	for protocol, jobs := range toAllocateMap {
+		reqs = append(reqs, clb.ListenerAllocationRequest{
+			Protocol:  protocol,
+			Assignees: jobs,
+		})
+	}
+
+	for _, clbInfos := range ds.Status.CLBs {
+		needAllocate := false
+		for _, req := range reqs {
+			if len(req.Assignees) > 0 {
+				needAllocate = true
+				break
+			}
+		}
+		if !needAllocate {
+			break
+		}
+		var clbs []clb.CLB
+		for _, clbInfo := range clbInfos {
+			clbs = append(clbs, clb.CLB{
+				ID:     clbInfo.LbId,
+				Region: clbInfo.Region,
+			})
+		}
+		allocator := &clb.ListenerAllocator{
+			CLBs:        clbs,
+			MinPort:     ds.Spec.MinPort,
+			MaxPort:     ds.Spec.MaxPort,
+			MaxListener: ds.Spec.MaxListener,
+			PortSegment: ds.Spec.PortSegment,
+		}
+		err = allocator.Init(ctx)
+		if err != nil {
+			return
+		}
+		err = allocator.Allocate(reqs)
+		if err != nil {
+			return
+		}
+	}
+
+	for _, job := range toAllocate {
+		if job.Listener != nil {
+			toAdd = append(toAdd, job.Listener)
+		}
+	}
 	return
 }
 
@@ -137,7 +257,7 @@ func (r *DedicatedCLBServiceReconciler) sync(ctx context.Context, ds *networking
 	); err != nil {
 		return err
 	}
-	var toDel, toAdd []networkingv1beta1.DedicatedCLBListener
+	var toDel, toAdd []*networkingv1beta1.DedicatedCLBListener
 	var err error
 	if targetPod := ds.Spec.Target.Pod; targetPod != nil {
 		pods := &corev1.PodList{}
@@ -178,13 +298,13 @@ func (r *DedicatedCLBServiceReconciler) sync(ctx context.Context, ds *networking
 
 	for _, lis := range toDel {
 		log.V(5).Info("delete listener", "listener", lis.Name)
-		if err := r.Delete(ctx, &lis); err != nil {
+		if err := r.Delete(ctx, lis); err != nil {
 			return err
 		}
 	}
 	for _, lis := range toAdd {
 		log.V(5).Info("create listener", "listener", lis.Name)
-		if err := r.Create(ctx, &lis); err != nil {
+		if err := r.Create(ctx, lis); err != nil {
 			return err
 		}
 	}

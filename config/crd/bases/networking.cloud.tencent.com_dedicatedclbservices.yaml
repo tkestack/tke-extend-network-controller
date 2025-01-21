@@ -272,14 +272,28 @@ spec:
                   - targetPort
                   type: object
                 type: array
-              selector:
-                additionalProperties:
-                  type: string
-                description: Pod 的标签选择器，被选中的 Pod 会被绑定到 CLB 监听器下。
+              target:
+                properties:
+                  node:
+                    properties:
+                      nodeSelector:
+                        additionalProperties:
+                          type: string
+                        type: object
+                    type: object
+                  pod:
+                    properties:
+                      podSelector:
+                        additionalProperties:
+                          type: string
+                        type: object
+                    required:
+                    - podSelector
+                    type: object
                 type: object
             required:
             - ports
-            - selector
+            - target
             type: object
           status:
             description: DedicatedCLBServiceStatus defines the observed state of DedicatedCLBService

@@ -50,7 +50,6 @@ func (src *DedicatedCLBService) ConvertTo(dstRaw conversion.Hub) error {
 	dst.Spec.MinPort = src.Spec.MinPort
 	dst.Spec.MaxPort = src.Spec.MaxPort
 	dst.Spec.PortSegment = src.Spec.PortSegment
-	dst.Spec.Selector = src.Spec.Selector
 	dst.Spec.ListenerExtensiveParameters = src.Spec.ListenerExtensiveParameters
 	for _, port := range src.Spec.Ports {
 		dst.Spec.Ports = append(dst.Spec.Ports, networkingv1beta1.DedicatedCLBServicePort{

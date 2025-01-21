@@ -17,6 +17,26 @@ type Listener struct {
 	ListenerName string
 }
 
+type ListenerPort struct {
+	Port     int64
+	Protocol string
+}
+
+func GetListenerPortMap(ctx context.Context, region, lbId string) (ports map[string]bool, err error) {
+	req := clb.NewDescribeListenersRequest()
+	req.LoadBalancerId = &lbId
+	client := GetClient(region)
+	resp, err := client.DescribeListenersWithContext(ctx, req)
+	if err != nil {
+		return
+	}
+	ports = make(map[string]bool)
+	for _, lis := range resp.Response.Listeners {
+		ports[fmt.Sprintf("%d/%s", *lis.Port, *lis.Protocol)] = true
+	}
+	return
+}
+
 func GetListener(ctx context.Context, region, lbId, listenerId string) (lis *Listener, err error) {
 	req := clb.NewDescribeListenersRequest()
 	req.LoadBalancerId = &lbId
