@@ -185,8 +185,8 @@ func (r *DedicatedCLBServiceReconciler) diffPods(ctx context.Context, ds *networ
 		}
 	}
 	if len(toAllocate) > 0 {
-		log.V(7).Info("need allocate listeners", "num", len(toAllocate))
 		toAdd, err = r.allocatedListeners(ctx, ds, toAllocate)
+		log.V(7).Info("need allocate listeners", "expect", len(toAllocate), "got", len(toAdd))
 	}
 	return
 }
