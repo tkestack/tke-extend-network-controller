@@ -23,12 +23,14 @@ func (c *CLB) Allocate(port int64, protocol string) {
 	c.allocatedListeners[lp] = true
 }
 
-func (c *CLB) CanAllocate(port int64, protocol string) (havePorts bool, canAllocate bool) {
+func (c *CLB) CanAllocate(ctx context.Context, port int64, protocol string) (havePorts bool, canAllocate bool) {
 	// 以下三种情况无法继续分配端口，其它 CLB 也应一起停止分配
 	if len(c.allocatedListeners) >= c.quota { // 监听器数量超配额
+		log.FromContext(ctx).V(9).Info("exceed quota when allocation", "lbId", c.ID, "port", port, "protocol", protocol)
 		return
 	}
 	if c.maxListener > 0 && len(c.allocatedListeners) >= c.maxListener { // 监听器数量超配置数量
+		log.FromContext(ctx).V(9).Info("exceed maxListener when allocation", "lbId", c.ID, "port", port, "protocol", protocol)
 		return
 	}
 	// 还有剩余端口
@@ -108,7 +110,7 @@ OUT:
 			}
 			// IN:
 			for _, clb := range l.CLBs {
-				havePorts, canAllocate := clb.CanAllocate(port, req.Protocol)
+				havePorts, canAllocate := clb.CanAllocate(ctx, port, req.Protocol)
 				if !havePorts { // 有 CLB 无法继续分配端口，不再尝试所有 clb，跳出外层循环
 					log.V(9).Info("no more ports", "protocol", req.Protocol, "lbId", clb.ID)
 					break OUT
