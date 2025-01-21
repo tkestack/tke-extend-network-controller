@@ -124,7 +124,6 @@ OUT:
 				}
 			}
 			// 当前 port + protocol 没有 clb 已分配监听器，尝试分配
-			log.V(9).Info("allocate port", "protocol", req.Protocol, "port", port, "clbs", l.CLBs)
 			for _, clb := range l.CLBs {
 				clb.Allocate(port, req.Protocol)
 			}

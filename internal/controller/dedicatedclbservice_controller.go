@@ -173,7 +173,7 @@ func (r *DedicatedCLBServiceReconciler) diffPods(ctx context.Context, ds *networ
 	}
 	log := log.FromContext(ctx)
 	log.V(7).Info("diff pods", "pods", len(pods), "allocatedListeners", len(allocatedListeners), "allocatableListeners", len(allocatableListeners))
-	toAllocate := []AllocateListenerJob{}
+	toAllocate := []*AllocateListenerJob{}
 	for _, pod := range pods {
 		for _, port := range ds.Spec.Ports {
 			key := getListenerKey(pod.Name, port.TargetPort, port.Protocol)
@@ -181,20 +181,20 @@ func (r *DedicatedCLBServiceReconciler) diffPods(ctx context.Context, ds *networ
 				continue
 			}
 			// pod 还没有分配监听器，标记分配
-			toAllocate = append(toAllocate, AllocateListenerJob{Port: &port, Pod: &pod, Service: ds})
+			toAllocate = append(toAllocate, &AllocateListenerJob{Port: &port, Pod: &pod, Service: ds})
 		}
 	}
 	if len(toAllocate) > 0 {
 		toAdd, err = r.allocatedListeners(ctx, ds, toAllocate)
-		log.V(7).Info("need allocate listeners", "expect", len(toAllocate), "got", len(toAdd))
+		log.V(7).Info("allocate listeners", "expect", len(toAllocate), "got", len(toAdd))
 	}
 	return
 }
 
-func (r *DedicatedCLBServiceReconciler) allocatedListeners(ctx context.Context, ds *networkingv1beta1.DedicatedCLBService, toAllocate []AllocateListenerJob) (toAdd []*networkingv1beta1.DedicatedCLBListener, err error) {
+func (r *DedicatedCLBServiceReconciler) allocatedListeners(ctx context.Context, ds *networkingv1beta1.DedicatedCLBService, toAllocate []*AllocateListenerJob) (toAdd []*networkingv1beta1.DedicatedCLBListener, err error) {
 	toAllocateMap := make(map[string][]clb.ListenerAssignee) // protocol --> jobs
 	for _, job := range toAllocate {
-		toAllocateMap[job.Port.Protocol] = append(toAllocateMap[job.Port.Protocol], &job)
+		toAllocateMap[job.Port.Protocol] = append(toAllocateMap[job.Port.Protocol], job)
 	}
 	var reqs []*clb.ListenerAllocationRequest
 	for protocol, jobs := range toAllocateMap {
