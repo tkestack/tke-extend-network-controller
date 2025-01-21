@@ -59,7 +59,7 @@ func runManager() {
 		viper.GetString(vpcIdFlag),
 		viper.GetString(clusterIdFlag),
 	)
-	_, err := clb.SyncQuota(context.Background(), region)
+	err := clb.SyncQuota(context.Background(), region)
 	if err != nil {
 		setupLog.Error(err, "failed to sync clb quota")
 		os.Exit(1)
