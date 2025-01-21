@@ -103,12 +103,14 @@ func (l *ListenerAllocator) Allocate(ctx context.Context, reqs []*ListenerAlloca
 	}
 OUT:
 	for {
+		tried := false
 	MIDDLE:
 		for _, req := range reqs {
 			if len(req.Assignees) == 0 { // 当前 protocol 已分配完毕，尝试下一个 protocol
 				log.V(9).Info("all allocated", "protocol", req.Protocol)
 				continue
 			}
+			tried = true
 			// IN:
 			for _, clb := range l.CLBs {
 				havePorts, canAllocate := clb.CanAllocate(ctx, port, req.Protocol)
@@ -129,6 +131,9 @@ OUT:
 			log.V(9).Info("assign listener", "protocol", req.Protocol, "port", port, "clbs", l.CLBs)
 			req.Assignees[0].AssignListener(req.Protocol, port, l.CLBs)
 			req.Assignees = req.Assignees[1:]
+		}
+		if !tried {
+			break
 		}
 		// 端口递增
 		port += segment
