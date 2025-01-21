@@ -26,7 +26,7 @@ type ExistedCLB struct {
 	ID string `json:"id"`
 	// region of the CLB instance.
 	// +optional
-	Region string `json:"region"`
+	Region *string `json:"region"`
 	// Alias of the CLB instance.
 	// +optional
 	Alias string `json:"alias"`
@@ -87,7 +87,7 @@ type LBParameter struct {
 	// +optional
 	Alias *string `json:"alias"`
 	// +optional
-	Region string `json:"region"`
+	Region *string `json:"region"`
 	// +optional
 	VpcId *string `json:"vpcId"`
 	// +kubebuilder:validation:Enum=IPV4;IPV6;IPv6FullChain

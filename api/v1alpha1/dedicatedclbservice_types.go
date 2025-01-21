@@ -27,7 +27,7 @@ import (
 type DedicatedCLBServiceSpec struct {
 	// CLB 所在地域，不填则使用 TKE 集群所在的地域。
 	// +optional
-	LbRegion string `json:"lbRegion,omitempty"`
+	LbRegion *string `json:"lbRegion,omitempty"`
 	// CLB 所在 VPC ID，不填则使用 TKE 集群所在的 VPC 的 ID。
 	// +optional
 	VpcId *string `json:"vpcId"`
