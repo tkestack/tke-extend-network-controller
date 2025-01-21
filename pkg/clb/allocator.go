@@ -103,19 +103,23 @@ OUT:
 	MIDDLE:
 		for _, req := range reqs {
 			if len(req.Assignees) == 0 { // 当前 protocol 已分配完毕，尝试下一个 protocol
+				log.V(9).Info("all allocated", "protocol", req.Protocol)
 				continue
 			}
 			// IN:
 			for _, clb := range l.CLBs {
 				havePorts, canAllocate := clb.CanAllocate(port, req.Protocol)
 				if !havePorts { // 有 CLB 无法继续分配端口，不再尝试所有 clb，跳出外层循环
+					log.V(9).Info("no more ports", "protocol", req.Protocol, "lbId", clb.ID)
 					break OUT
 				}
 				if !canAllocate { // 当前 port + protocol 有 clb 已分配监听器，尝试下一个 protocol
+					log.V(9).Info("port have been ocuppied", "protocol", req.Protocol, "lbId", clb.ID, "port", port)
 					continue MIDDLE
 				}
 			}
 			// 当前 port + protocol 没有 clb 已分配监听器，尝试分配
+			log.V(9).Info("allocate port", "protocol", req.Protocol, "port", port, "clbs", l.CLBs)
 			for _, clb := range l.CLBs {
 				clb.Allocate(port, req.Protocol)
 			}
