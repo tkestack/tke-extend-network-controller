@@ -26,11 +26,11 @@ func (c *CLB) Allocate(port int64, protocol string) {
 func (c *CLB) CanAllocate(ctx context.Context, port int64, protocol string) (havePorts bool, canAllocate bool) {
 	// 以下三种情况无法继续分配端口，其它 CLB 也应一起停止分配
 	if len(c.allocatedListeners) >= c.quota { // 监听器数量超配额
-		log.FromContext(ctx).V(9).Info("exceed quota when allocation", "lbId", c.ID, "port", port, "protocol", protocol)
+		log.FromContext(ctx).V(9).Info("exceed quota when allocation", "lbId", c.ID, "port", port, "protocol", protocol, "allocatedListeners", len(c.allocatedListeners))
 		return
 	}
 	if c.maxListener > 0 && len(c.allocatedListeners) >= c.maxListener { // 监听器数量超配置数量
-		log.FromContext(ctx).V(9).Info("exceed maxListener when allocation", "lbId", c.ID, "port", port, "protocol", protocol)
+		log.FromContext(ctx).V(9).Info("exceed maxListener when allocation", "lbId", c.ID, "port", port, "protocol", protocol, "allocatedListeners", len(c.allocatedListeners))
 		return
 	}
 	// 还有剩余端口
