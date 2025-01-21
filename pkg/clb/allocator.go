@@ -61,6 +61,7 @@ func (c *CLB) Init(ctx context.Context) (err error) {
 	if err != nil {
 		return
 	}
+	log.FromContext(ctx).V(9).Info("get listener quota", "region", c.Region, "quota", quota)
 	c.quota = int(quota)
 	return
 }
