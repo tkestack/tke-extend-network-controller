@@ -196,9 +196,9 @@ func (r *DedicatedCLBServiceReconciler) allocatedListeners(ctx context.Context, 
 	for _, job := range toAllocate {
 		toAllocateMap[job.Port.Protocol] = append(toAllocateMap[job.Port.Protocol], &job)
 	}
-	var reqs []clb.ListenerAllocationRequest
+	var reqs []*clb.ListenerAllocationRequest
 	for protocol, jobs := range toAllocateMap {
-		reqs = append(reqs, clb.ListenerAllocationRequest{
+		reqs = append(reqs, &clb.ListenerAllocationRequest{
 			Protocol:  protocol,
 			Assignees: jobs,
 		})

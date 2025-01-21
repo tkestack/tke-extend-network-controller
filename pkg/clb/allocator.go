@@ -94,7 +94,7 @@ func (l *ListenerAllocator) Init(ctx context.Context) (err error) {
 	return
 }
 
-func (l *ListenerAllocator) Allocate(ctx context.Context, reqs []ListenerAllocationRequest) (err error) {
+func (l *ListenerAllocator) Allocate(ctx context.Context, reqs []*ListenerAllocationRequest) (err error) {
 	log := log.FromContext(ctx)
 	port := l.MinPort
 	segment := int64(1)
