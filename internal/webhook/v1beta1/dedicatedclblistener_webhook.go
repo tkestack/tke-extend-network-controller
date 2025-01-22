@@ -125,7 +125,7 @@ func (d *DedicatedCLBListenerCustomValidator) validateLbPort(lis *networkingv1be
 				),
 			)
 		}
-		if lis.Spec.EndPort != nil && *lis.Spec.EndPort <= lis.Spec.Port {
+		if lis.Spec.EndPort != nil && *lis.Spec.EndPort > 0 && *lis.Spec.EndPort <= lis.Spec.Port {
 			lbEndPortPath := field.NewPath("spec").Child("endPort")
 			allErrs = append(
 				allErrs,
