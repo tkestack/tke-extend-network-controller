@@ -58,8 +58,13 @@ func GetClient(region string) *clb.Client {
 }
 
 func GetRegion(region *string) string {
-  if region == nil || *region == "" {
-    return defaultRegion
-  }
-  return *region
+	if region == nil || *region == "" {
+		return defaultRegion
+	}
+	return *region
+}
+
+type CLB struct {
+	LbId   string
+	Region string
 }

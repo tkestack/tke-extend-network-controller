@@ -7,7 +7,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
-type CLB struct {
+type CLBListenerAllocator struct {
 	ID                 string
 	Region             string
 	maxListener        int
@@ -15,7 +15,7 @@ type CLB struct {
 	quota              int
 }
 
-func (c *CLB) Allocate(port int64, protocol string) {
+func (c *CLBListenerAllocator) Allocate(port int64, protocol string) {
 	lp := ListenerPort{
 		Protocol: protocol,
 		Port:     port,
@@ -23,7 +23,7 @@ func (c *CLB) Allocate(port int64, protocol string) {
 	c.allocatedListeners[lp] = true
 }
 
-func (c *CLB) CanAllocate(ctx context.Context, port int64, protocol string) (havePorts bool, canAllocate bool) {
+func (c *CLBListenerAllocator) CanAllocate(ctx context.Context, port int64, protocol string) (havePorts bool, canAllocate bool) {
 	// 以下三种情况无法继续分配端口，其它 CLB 也应一起停止分配
 	if len(c.allocatedListeners) >= c.quota { // 监听器数量超配额
 		log.FromContext(ctx).V(9).Info("exceed quota when allocation", "lbId", c.ID, "port", port, "protocol", protocol, "allocatedListeners", len(c.allocatedListeners), "quota", c.quota)
@@ -45,7 +45,7 @@ func (c *CLB) CanAllocate(ctx context.Context, port int64, protocol string) (hav
 	return
 }
 
-func (c *CLB) Init(ctx context.Context) (err error) {
+func (c *CLBListenerAllocator) Init(ctx context.Context) (err error) {
 	req := clb.NewDescribeListenersRequest()
 	req.LoadBalancerId = &c.ID
 	client := GetClient(c.Region)
@@ -67,7 +67,7 @@ func (c *CLB) Init(ctx context.Context) (err error) {
 }
 
 type ListenerAssignee interface {
-	AssignListener(protocol string, port int64, clbs []*CLB)
+	AssignListener(protocol string, port int64, clbs []*CLBListenerAllocator)
 }
 
 type ListenerAllocationRequest struct {
@@ -75,13 +75,13 @@ type ListenerAllocationRequest struct {
 	Assignees []ListenerAssignee
 }
 
-type ListenerAllocator struct {
-	CLBs                     []*CLB
+type BatchListenerAllocator struct {
+	CLBs                     []*CLBListenerAllocator
 	MinPort, MaxPort         int64
 	MaxListener, PortSegment *int64
 }
 
-func (l *ListenerAllocator) Init(ctx context.Context) (err error) {
+func (l *BatchListenerAllocator) Init(ctx context.Context) (err error) {
 	for _, clb := range l.CLBs {
 		err = clb.Init(ctx)
 		if err != nil {
@@ -94,7 +94,7 @@ func (l *ListenerAllocator) Init(ctx context.Context) (err error) {
 	return
 }
 
-func (l *ListenerAllocator) Allocate(ctx context.Context, reqs []*ListenerAllocationRequest) (err error) {
+func (l *BatchListenerAllocator) Allocate(ctx context.Context, reqs []*ListenerAllocationRequest) (err error) {
 	log := log.FromContext(ctx)
 	port := l.MinPort
 	segment := int64(1)

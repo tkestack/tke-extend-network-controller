@@ -101,7 +101,7 @@ func (d *DedicatedCLBListenerCustomValidator) validateLbPort(lis *networkingv1be
 		err := d.List(
 			context.Background(), list,
 			client.MatchingFields{
-				"spec.lbId": clb.ID,
+				"spec.lbId": clb.LbId,
 				"spec.port": strconv.Itoa(int(lis.Spec.Port)),
 			},
 		)

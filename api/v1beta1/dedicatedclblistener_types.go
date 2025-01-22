@@ -21,8 +21,8 @@ import (
 )
 
 type CLB struct {
-	// CLB 实例的 ID。
-	ID string `json:"id"`
+	// CLB 实例的 LbId。
+	LbId string `json:"lbId"`
 	// region of the CLB instance.
 	// +optional
 	Region string `json:"region"`
@@ -83,19 +83,15 @@ type ListenerStatus struct {
 // DedicatedCLBListenerStatus defines the observed state of DedicatedCLBListener
 type DedicatedCLBListenerStatus struct {
 	ListenerStatuses []ListenerStatus `json:"listenerStatuses,omitempty"`
-	State            string           `json:"state,omitempty"`
-	// 记录 CLB 监听器的失败信息。
-	// +optional
-	Message string `json:"message,omitempty"`
 }
 
 const (
-	DedicatedCLBListenerStatePartialBound = "PartialBound"
-	DedicatedCLBListenerStateBound        = "Bound"
-	DedicatedCLBListenerStateAvailable    = "Available"
-	DedicatedCLBListenerStatePending      = "Pending"
-	DedicatedCLBListenerStateFailed       = "Failed"
-	DedicatedCLBListenerStateDeleting     = "Deleting"
+	DedicatedCLBListenerStateBound     = "Bound"
+	DedicatedCLBListenerStateAvailable = "Available"
+	DedicatedCLBListenerStatePending   = "Pending"
+	DedicatedCLBListenerStateFailed    = "Failed"
+	DedicatedCLBListenerStateDeleting  = "Deleting"
+	DedicatedCLBListenerStateDeleted   = "Deleted"
 )
 
 // +kubebuilder:object:root=true

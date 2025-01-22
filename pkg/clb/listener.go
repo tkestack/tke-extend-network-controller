@@ -11,6 +11,12 @@ import (
 )
 
 type Listener struct {
+	CLB
+	ListenerId string
+}
+
+type ListenerInfo struct {
+	Listener
 	Port         int64
 	Protocol     string
 	ListenerId   string
@@ -22,62 +28,50 @@ type ListenerPort struct {
 	Protocol string
 }
 
-func GetListenerPortMap(ctx context.Context, region, lbId string) (ports map[string]bool, err error) {
-	req := clb.NewDescribeListenersRequest()
-	req.LoadBalancerId = &lbId
-	client := GetClient(region)
-	resp, err := client.DescribeListenersWithContext(ctx, req)
-	if err != nil {
-		return
-	}
-	ports = make(map[string]bool)
-	for _, lis := range resp.Response.Listeners {
-		ports[fmt.Sprintf("%d/%s", *lis.Port, *lis.Protocol)] = true
-	}
-	return
-}
+// func GetListener(ctx context.Context, region, lbId, listenerId string) (lis *ListenerInfo, err error) {
+// 	req := clb.NewDescribeListenersRequest()
+// 	req.LoadBalancerId = &lbId
+// 	req.ListenerIds = []*string{&listenerId}
+// 	client := GetClient(region)
+// 	resp, err := client.DescribeListenersWithContext(ctx, req)
+// 	if err != nil {
+// 		return
+// 	}
+// 	if len(resp.Response.Listeners) == 0 {
+// 		return
+// 	}
+// 	if len(resp.Response.Listeners) > 1 {
+// 		err = fmt.Errorf("found %d listeners for %s", len(resp.Response.Listeners), listenerId)
+// 		return
+// 	}
+// 	lis = convertListener(resp.Response.Listeners[0])
+// 	return
+// }
 
-func GetListener(ctx context.Context, region, lbId, listenerId string) (lis *Listener, err error) {
-	req := clb.NewDescribeListenersRequest()
-	req.LoadBalancerId = &lbId
-	req.ListenerIds = []*string{&listenerId}
-	client := GetClient(region)
-	resp, err := client.DescribeListenersWithContext(ctx, req)
-	if err != nil {
-		return
-	}
-	if len(resp.Response.Listeners) == 0 {
-		return
-	}
-	if len(resp.Response.Listeners) > 1 {
-		err = fmt.Errorf("found %d listeners for %s", len(resp.Response.Listeners), listenerId)
-		return
-	}
-	lis = convertListener(resp.Response.Listeners[0])
-	return
-}
-
-func convertListener(lbLis *clb.Listener) *Listener {
-	return &Listener{
-		ListenerId:   *lbLis.ListenerId,
+func convertListener(lbLis *clb.Listener) *ListenerInfo {
+	return &ListenerInfo{
+		Listener: Listener{
+			ListenerId: *lbLis.ListenerId,
+		},
 		ListenerName: *lbLis.ListenerName,
 		Protocol:     *lbLis.Protocol,
 		Port:         *lbLis.Port,
 	}
 }
 
-func GetListenerByPort(ctx context.Context, region, lbId string, port int64, protocol string) (lis *Listener, err error) {
+func GetListenerInfoByPort(ctx context.Context, lb CLB, port ListenerPort) (lis *ListenerInfo, err error) {
 	req := clb.NewDescribeListenersRequest()
-	req.Port = &port
-	req.LoadBalancerId = &lbId
-	req.Protocol = &protocol
-	client := GetClient(region)
+	req.Port = &port.Port
+	req.LoadBalancerId = &lb.LbId
+	req.Protocol = &port.Protocol
+	client := GetClient(lb.Region)
 	resp, err := client.DescribeListenersWithContext(ctx, req)
 	if err != nil {
 		return
 	}
 	if len(resp.Response.Listeners) > 0 { // TODO: 精细化判断数量(超过1个的不可能发生的情况)
 		lis = convertListener(resp.Response.Listeners[0])
+		lis.CLB = lb
 		return
 	}
 	return
@@ -128,8 +122,8 @@ func CreateListener(ctx context.Context, region, lbId string, port int64, endPor
 	return
 }
 
-func DeleteListenerByPort(ctx context.Context, region, lbId string, port int64, protocol string) (id string, err error) {
-	lis, err := GetListenerByPort(ctx, region, lbId, port, protocol)
+func DeleteListenerByPort(ctx context.Context, lb CLB, port ListenerPort) (id string, err error) {
+	lis, err := GetListenerInfoByPort(ctx, lb, port)
 	if err != nil {
 		return
 	}
@@ -137,22 +131,22 @@ func DeleteListenerByPort(ctx context.Context, region, lbId string, port int64, 
 		return
 	}
 	id = lis.ListenerId
-	err = DeleteListener(ctx, region, lbId, id)
+	err = DeleteListener(ctx, lis.Listener)
 	return
 }
 
-func DeleteListener(ctx context.Context, region, lbId, listenerId string) error {
+func DeleteListener(ctx context.Context, lis Listener) error {
 	req := clb.NewDeleteListenerRequest()
-	req.LoadBalancerId = &lbId
-	req.ListenerId = &listenerId
-	client := GetClient(region)
-	mu := getLbLock(lbId)
+	req.LoadBalancerId = &lis.LbId
+	req.ListenerId = &lis.ListenerId
+	client := GetClient(lis.Region)
+	mu := getLbLock(lis.LbId)
 	mu.Lock()
 	defer mu.Unlock()
 	resp, err := client.DeleteListenerWithContext(ctx, req)
 	if err != nil {
 		return err
 	}
-	_, err = Wait(ctx, region, *resp.Response.RequestId, "DeleteListener")
+	_, err = Wait(ctx, lis.Region, *resp.Response.RequestId, "DeleteListener")
 	return err
 }

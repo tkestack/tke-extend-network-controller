@@ -129,7 +129,7 @@ type AllocateListenerJob struct {
 	Listener *networkingv1beta1.DedicatedCLBListener
 }
 
-func (j *AllocateListenerJob) AssignListener(protocol string, port int64, clbs []*clb.CLB) {
+func (j *AllocateListenerJob) AssignListener(protocol string, port int64, clbs []*clb.CLBListenerAllocator) {
 	j.Listener = &networkingv1beta1.DedicatedCLBListener{
 		ObjectMeta: metav1.ObjectMeta{
 			GenerateName: fmt.Sprintf("%s-", j.Service.Name),
@@ -153,7 +153,7 @@ func (j *AllocateListenerJob) AssignListener(protocol string, port int64, clbs [
 	}
 	for _, clb := range clbs {
 		j.Listener.Spec.CLBs = append(j.Listener.Spec.CLBs, networkingv1beta1.CLB{
-			ID:     clb.ID,
+			LbId:   clb.ID,
 			Region: clb.Region,
 		})
 	}
@@ -215,14 +215,14 @@ func (r *DedicatedCLBServiceReconciler) allocatedListeners(ctx context.Context, 
 		if !needAllocate {
 			break
 		}
-		var clbs []*clb.CLB
+		var clbs []*clb.CLBListenerAllocator
 		for _, clbInfo := range clbInfos {
-			clbs = append(clbs, &clb.CLB{
+			clbs = append(clbs, &clb.CLBListenerAllocator{
 				ID:     clbInfo.LbId,
 				Region: clbInfo.Region,
 			})
 		}
-		allocator := &clb.ListenerAllocator{
+		allocator := &clb.BatchListenerAllocator{
 			CLBs:        clbs,
 			MinPort:     ds.Spec.MinPort,
 			MaxPort:     ds.Spec.MaxPort,

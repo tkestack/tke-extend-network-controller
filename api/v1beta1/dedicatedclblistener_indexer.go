@@ -42,7 +42,7 @@ func indexFieldForDedicatedCLBListener(indexer client.FieldIndexer) error {
 			clbs := o.(*DedicatedCLBListener).Spec.CLBs
 			ids := make([]string, len(clbs))
 			for i, clb := range clbs {
-				ids[i] = clb.ID
+				ids[i] = clb.LbId
 			}
 			return ids
 		},

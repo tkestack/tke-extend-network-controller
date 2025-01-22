@@ -29,7 +29,7 @@ func convertBackListenerStatuses(statuses []v1beta1.ListenerStatus) []ListenerSt
 	for i, status := range statuses {
 		ret[i] = ListenerStatus{
 			CLB: CLB{
-				ID:     status.CLB.ID,
+				ID:     status.CLB.LbId,
 				Region: status.CLB.Region,
 			},
 			ListenerId: status.ListenerId,
@@ -46,7 +46,7 @@ func convertListenerStatuses(statuses []ListenerStatus) []v1beta1.ListenerStatus
 	for i, status := range statuses {
 		ret[i] = v1beta1.ListenerStatus{
 			CLB: v1beta1.CLB{
-				ID:     status.CLB.ID,
+				LbId:   status.CLB.ID,
 				Region: status.CLB.Region,
 			},
 			ListenerId: status.ListenerId,
@@ -62,7 +62,7 @@ func convertBackCLBs(clbs []v1beta1.CLB) []CLB {
 	ret := make([]CLB, len(clbs))
 	for i, clb := range clbs {
 		ret[i] = CLB{
-			ID:     clb.ID,
+			ID:     clb.LbId,
 			Region: clb.Region,
 		}
 	}
@@ -73,7 +73,7 @@ func convertCLBs(clbs []CLB) []v1beta1.CLB {
 	ret := make([]v1beta1.CLB, len(clbs))
 	for i, clb := range clbs {
 		ret[i] = v1beta1.CLB{
-			ID:     clb.ID,
+			LbId:   clb.ID,
 			Region: clb.Region,
 		}
 	}
@@ -93,7 +93,7 @@ func (src *DedicatedCLBListener) ConvertTo(dstRaw conversion.Hub) error {
 		dst.Spec.CLBs = convertCLBs(src.Spec.CLBs)
 	} else {
 		dst.Spec.CLBs = []v1beta1.CLB{{
-			ID:     src.Spec.LbId,
+			LbId:   src.Spec.LbId,
 			Region: src.Spec.LbRegion,
 		}}
 	}
@@ -116,7 +116,7 @@ func (src *DedicatedCLBListener) ConvertTo(dstRaw conversion.Hub) error {
 		dst.Status.ListenerStatuses = []v1beta1.ListenerStatus{
 			{
 				CLB: v1beta1.CLB{
-					ID:     src.Spec.LbId,
+					LbId:   src.Spec.LbId,
 					Region: src.Spec.LbRegion,
 				},
 				ListenerId: src.Status.ListenerId,
