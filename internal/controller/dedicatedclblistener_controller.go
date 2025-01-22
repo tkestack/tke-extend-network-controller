@@ -233,10 +233,25 @@ func getDedicatedCLBListenerPodFinalizerName(lis *networkingv1beta1.DedicatedCLB
 const podNameAnnotation = "dedicatedclblistener.networking.cloud.tencent.com/pod-name"
 
 func (r *DedicatedCLBListenerReconciler) ensureBackend(ctx context.Context, log logr.Logger, lis *networkingv1beta1.DedicatedCLBListener) error {
+	var target *clb.Target
+	if lis.Spec.TargetPod != nil {
+		// TODO: 获取 Pod IP 并赋值 target
+	}
 	for i := range lis.Status.ListenerStatuses {
 		ls := &lis.Status.ListenerStatuses[i]
 		if ls.ListenerId == "" {
 			continue
+		}
+		l := clb.Listener{CLB: clb.CLB(ls.CLB), ListenerId: ls.ListenerId}
+		if target == nil {
+			if err := clb.DeregisterAllTargets(ctx, l); err != nil {
+				return err
+			}
+			return nil
+		}
+		// TODO: 绑定 target
+		if err := clb.EnsureSingleTarget(ctx, l, *target); err != nil {
+			return err
 		}
 	}
 	return nil
