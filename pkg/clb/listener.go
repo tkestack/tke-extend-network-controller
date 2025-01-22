@@ -25,6 +25,7 @@ type ListenerInfo struct {
 
 type ListenerPort struct {
 	Port     int64
+	EndPort  *int64
 	Protocol string
 }
 
@@ -79,7 +80,7 @@ func GetListenerInfoByPort(ctx context.Context, lb CLB, port ListenerPort) (lis 
 
 const TkePodListenerName = "TKE-DEDICATED-POD"
 
-func CreateListener(ctx context.Context, region, lbId string, port int64, endPort *int64, protocol string, extensiveParameters *string) (id string, err error) {
+func CreateListener(ctx context.Context, lb CLB, port ListenerPort, extensiveParameters *string) (id string, err error) {
 	req := clb.NewCreateListenerRequest()
 	req.HealthCheck = &clb.HealthCheck{
 		HealthSwitch: common.Int64Ptr(0),
@@ -91,15 +92,15 @@ func CreateListener(ctx context.Context, region, lbId string, port int64, endPor
 			return
 		}
 	}
-	req.LoadBalancerId = &lbId
-	req.Ports = []*int64{&port}
-	if endPort != nil {
-		req.EndPort = common.Uint64Ptr(uint64(*endPort))
+	req.LoadBalancerId = &lb.LbId
+	req.Ports = []*int64{&port.Port}
+	if port.EndPort != nil {
+		req.EndPort = common.Uint64Ptr(uint64(*port.EndPort))
 	}
-	req.Protocol = &protocol
+	req.Protocol = &port.Protocol
 	req.ListenerNames = []*string{common.StringPtr(TkePodListenerName)}
-	client := GetClient(region)
-	mu := getLbLock(lbId)
+	client := GetClient(lb.Region)
+	mu := getLbLock(lb.LbId)
 	mu.Lock()
 	defer mu.Unlock()
 	resp, err := client.CreateListenerWithContext(ctx, req)
@@ -114,7 +115,7 @@ func CreateListener(ctx context.Context, region, lbId string, port int64, endPor
 		err = fmt.Errorf("found %d listeners created", len(resp.Response.ListenerIds))
 		return
 	}
-	_, err = Wait(ctx, region, *resp.Response.RequestId, "CreateListener")
+	_, err = Wait(ctx, lb.Region, *resp.Response.RequestId, "CreateListener")
 	if err != nil {
 		return
 	}

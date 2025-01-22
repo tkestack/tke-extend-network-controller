@@ -184,15 +184,14 @@ func (r *DedicatedCLBListenerReconciler) cleanListener(ctx context.Context, log 
 	return nil
 }
 
-func (r *DedicatedCLBListenerReconciler) syncDelete(ctx context.Context, log logr.Logger, lis *networkingv1beta1.DedicatedCLBListener) error {
-	// 确保监听器已删除
+func (r *DedicatedCLBListenerReconciler) deleteCLBListener(ctx context.Context, log logr.Logger, lis *networkingv1beta1.DedicatedCLBListener) error {
 	for i := range lis.Status.ListenerStatuses {
 		ls := &lis.Status.ListenerStatuses[i]
 		if ls.ListenerId == "" {
 			continue
 		}
 		// 删除监听器
-		log.V(5).Info("delete listener", "lbId", ls.CLB.LbId, "listenerId", ls.ListenerId)
+		log.V(5).Info("delete listener", "lbId", ls.CLB.LbId, "listenerId", ls.ListenerId, "port", lis.Spec.Port, "protocol", lis.Spec.Protocol)
 		_, err := clb.DeleteListenerByPort(ctx, clb.CLB(ls.CLB), clb.ListenerPort{Port: lis.Spec.Port, Protocol: lis.Spec.Protocol})
 		if err != nil && !clb.IsLbIdNotFoundError(err) {
 			r.Recorder.Event(lis, corev1.EventTypeWarning, "DeleteListener", err.Error())
@@ -204,6 +203,14 @@ func (r *DedicatedCLBListenerReconciler) syncDelete(ctx context.Context, log log
 		if err := r.Status().Update(ctx, lis); err != nil {
 			return err
 		}
+	}
+	return nil
+}
+
+func (r *DedicatedCLBListenerReconciler) syncDelete(ctx context.Context, log logr.Logger, lis *networkingv1beta1.DedicatedCLBListener) error {
+	// 确保监听器已删除
+	if err := r.deleteCLBListener(ctx, log, lis); err != nil {
+		return err
 	}
 	// 删除监听器后，清理后端 pod 的 finalizer
 	return r.cleanPodFinalizer(ctx, log, lis)
@@ -505,13 +512,14 @@ func (r *DedicatedCLBListenerReconciler) ensureBackend(ctx context.Context, log 
 //		return
 //	}
 func (r *DedicatedCLBListenerReconciler) ensureListener(ctx context.Context, log logr.Logger, lis *networkingv1beta1.DedicatedCLBListener) error {
+	port := clb.ListenerPort{Port: lis.Spec.Port, EndPort: lis.Spec.EndPort, Protocol: lis.Spec.Protocol}
 	for i := range lis.Status.ListenerStatuses {
 		ls := &lis.Status.ListenerStatuses[i]
 		// 如果监听器状态是 Pending，尝试创建
 		switch ls.State {
 		case "", networkingv1beta1.DedicatedCLBListenerStatePending, networkingv1beta1.DedicatedCLBListenerStateFailed:
 			log.V(5).Info("try to create listener")
-			existedLis, err := clb.GetListenerInfoByPort(ctx, clb.CLB(ls.CLB), clb.ListenerPort{Port: lis.Spec.Port, Protocol: lis.Spec.Protocol})
+			existedLis, err := clb.GetListenerInfoByPort(ctx, clb.CLB(ls.CLB), port)
 			if err != nil {
 				r.Recorder.Event(lis, corev1.EventTypeWarning, "CreateListener", fmt.Sprintf("failed to get listener by port: %s", err.Error()))
 				return err
@@ -544,7 +552,7 @@ func (r *DedicatedCLBListenerReconciler) ensureListener(ctx context.Context, log
 				}
 			} else { // 没有端口冲突，创建监听器
 				var id string
-				id, err = clb.CreateListener(ctx, ls.CLB.Region, ls.CLB.LbId, lis.Spec.Port, lis.Spec.EndPort, lis.Spec.Protocol, lis.Spec.ExtensiveParameters)
+				id, err = clb.CreateListener(ctx, clb.CLB(ls.CLB), port, lis.Spec.ExtensiveParameters)
 				if err != nil {
 					r.Recorder.Event(lis, corev1.EventTypeWarning, "CreateListener", err.Error())
 					return err
