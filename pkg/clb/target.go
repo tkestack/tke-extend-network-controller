@@ -175,10 +175,10 @@ func convertTargetsToClbTargets(targets []Target) (clbTargets []*clb.Target) {
 	return
 }
 
-func EnsureSingleTarget(ctx context.Context, lis Listener, target Target) error {
+func EnsureSingleTarget(ctx context.Context, lis Listener, target Target) (registered bool, err error) {
 	targets, err := DescribeTargets(ctx, lis)
 	if err != nil {
-		return err
+		return
 	}
 	toDel := []Target{}
 	shouldAdd := true
@@ -190,16 +190,17 @@ func EnsureSingleTarget(ctx context.Context, lis Listener, target Target) error 
 		}
 	}
 	if len(toDel) > 0 {
-		if err := DeregisterTargets(ctx, lis, toDel...); err != nil {
-			return err
+		if err = DeregisterTargets(ctx, lis, toDel...); err != nil {
+			return
 		}
 	}
 	if shouldAdd {
-		if err := RegisterTargets(ctx, lis, target); err != nil {
-			return err
+		if err = RegisterTargets(ctx, lis, target); err != nil {
+			return
 		}
+		registered = true
 	}
-	return nil
+	return
 }
 
 func RegisterTargets(ctx context.Context, lis Listener, targets ...Target) error {

@@ -234,25 +234,62 @@ const podNameAnnotation = "dedicatedclblistener.networking.cloud.tencent.com/pod
 
 func (r *DedicatedCLBListenerReconciler) ensureBackend(ctx context.Context, log logr.Logger, lis *networkingv1beta1.DedicatedCLBListener) error {
 	var target *clb.Target
-	if lis.Spec.TargetPod != nil {
-		// TODO: 获取 Pod IP 并赋值 target
+	var pod *corev1.Pod
+	if targetPod := lis.Spec.TargetPod; targetPod != nil {
+		pod = &corev1.Pod{}
+		if err := r.Get(
+			ctx,
+			client.ObjectKey{
+				Namespace: lis.Namespace,
+				Name:      targetPod.PodName,
+			},
+			pod,
+		); err != nil {
+			return err
+		}
+		target = &clb.Target{
+			TargetIP:   pod.Status.PodIP,
+			TargetPort: targetPod.Port,
+		}
 	}
+	needUpdateStatus := false
 	for i := range lis.Status.ListenerStatuses {
 		ls := &lis.Status.ListenerStatuses[i]
 		if ls.ListenerId == "" {
 			continue
 		}
-		l := clb.Listener{CLB: clb.CLB(ls.CLB), ListenerId: ls.ListenerId}
+		clbLis := clb.Listener{CLB: clb.CLB(ls.CLB), ListenerId: ls.ListenerId}
 		if target == nil {
-			if err := clb.DeregisterAllTargets(ctx, l); err != nil {
+			if err := clb.DeregisterAllTargets(ctx, clbLis); err != nil {
+				msg := fmt.Sprintf("failed to deregistered all targets: %s", err.Error())
+				r.Recorder.Event(lis, corev1.EventTypeWarning, "EnsureBackendPod", msg)
+				ls.State = networkingv1beta1.DedicatedCLBListenerStateFailed
+				ls.Message = msg
+				needUpdateStatus = true
 				return err
+			} else {
+				ls.State = networkingv1beta1.DedicatedCLBListenerStateAvailable
+				needUpdateStatus = true
+				r.Recorder.Event(lis, corev1.EventTypeNormal, "EnsureBackendPod", "successfully deregistered all targets")
 			}
 			return nil
 		}
-		// TODO: 绑定 target
-		if err := clb.EnsureSingleTarget(ctx, l, *target); err != nil {
+		if registered, err := clb.EnsureSingleTarget(ctx, clbLis, *target); err != nil {
+			ls.State = networkingv1beta1.DedicatedCLBListenerStateFailed
+			ls.Message = err.Error()
+			needUpdateStatus = true
+			r.Recorder.Event(lis, corev1.EventTypeWarning, "EnsureBackendPod", err.Error())
 			return err
+		} else {
+			if registered {
+				ls.State = networkingv1beta1.DedicatedCLBListenerStateBound
+				needUpdateStatus = true
+				r.Recorder.Event(lis, corev1.EventTypeNormal, "EnsureBackendPod", fmt.Sprintf("target %s is successfully registered to listener %s", target, ls.ListenerId))
+			}
 		}
+	}
+	if needUpdateStatus {
+		return r.Status().Update(ctx, lis)
 	}
 	return nil
 	// 没配置后端 pod，确保后端rs全被解绑，并且状态为 Available
