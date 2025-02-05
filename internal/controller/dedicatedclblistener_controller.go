@@ -235,7 +235,19 @@ const podNameAnnotation = "dedicatedclblistener.networking.cloud.tencent.com/pod
 func (r *DedicatedCLBListenerReconciler) ensureBackend(ctx context.Context, log logr.Logger, lis *networkingv1beta1.DedicatedCLBListener) error {
 	var target *clb.Target
 	var pod *corev1.Pod
+	if lis.Annotations == nil {
+		lis.Annotations = make(map[string]string)
+	}
 	if targetPod := lis.Spec.TargetPod; targetPod != nil {
+		// 确保记录当前 target pod 到注解以便 targetPod 置为 nil 后（不删除listener）可找到pod以删除pod finalizer
+		if lis.Annotations[podNameAnnotation] != targetPod.PodName {
+			log.V(6).Info("set pod name annotation", "pod", targetPod.PodName)
+			lis.Annotations[podNameAnnotation] = targetPod.PodName
+			if err := r.Update(ctx, lis); err != nil {
+				r.Recorder.Event(lis, corev1.EventTypeWarning, "EnsureBackendPod", fmt.Sprintf("failed to set pod name annotation to listener: %s", err.Error()))
+				return err
+			}
+		}
 		pod = &corev1.Pod{}
 		if err := r.Get(
 			ctx,
@@ -245,6 +257,7 @@ func (r *DedicatedCLBListenerReconciler) ensureBackend(ctx context.Context, log 
 			},
 			pod,
 		); err != nil {
+			r.Recorder.Event(lis, corev1.EventTypeWarning, "EnsureBackendPod", fmt.Sprintf("failed to get target pod: %s", err.Error()))
 			return err
 		}
 		target = &clb.Target{
@@ -289,7 +302,9 @@ func (r *DedicatedCLBListenerReconciler) ensureBackend(ctx context.Context, log 
 		}
 	}
 	if needUpdateStatus {
-		return r.Status().Update(ctx, lis)
+		if err := r.Status().Update(ctx, lis); err != nil {
+			r.Recorder.Event(lis, corev1.EventTypeWarning, "EnsureBackendPod", fmt.Sprintf("failed to update status: %s", err.Error()))
+		}
 	}
 	return nil
 	// 没配置后端 pod，确保后端rs全被解绑，并且状态为 Available
