@@ -29,13 +29,13 @@ func GetClbExternalAddress(ctx context.Context, lbId, region string) (address st
 	return
 }
 
-func IsClbExists(ctx context.Context, lbId, region string) (valid bool, err error) {
+func IsClbExists(ctx context.Context, lbId, region string) (exists bool, err error) {
 	ins, err := GetClb(ctx, lbId, region)
 	if err != nil {
 		return
 	}
 	if ins != nil {
-		valid = true
+		exists = true
 	}
 	return
 }

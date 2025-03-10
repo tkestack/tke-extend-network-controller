@@ -17,6 +17,9 @@ limitations under the License.
 package v1beta1
 
 import (
+	"context"
+	"fmt"
+
 	"github.com/imroc/tke-extend-network-controller/pkg/clb"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -32,12 +35,23 @@ type ExistedCLB struct {
 	Alias string `json:"alias"`
 }
 
-func (e *ExistedCLB) ToCLBInfo() CLBInfo {
-	return CLBInfo{
+func (e *ExistedCLB) ToCLBInfo(ctx context.Context) (*CLBInfo, error) {
+	lbInfo := &CLBInfo{
 		LbId:   e.ID,
 		Region: clb.GetRegion(e.Region),
 		Alias:  e.Alias,
 	}
+	exists, err := clb.IsClbExists(ctx, lbInfo.LbId, lbInfo.Region)
+	if err != nil {
+		return nil, err
+	}
+	if !exists {
+		lbInfo.State = "NotExist"
+		lbInfo.Message = fmt.Sprintf(`%s is not exists`, lbInfo.LbId)
+	} else {
+		lbInfo.State = "Normal"
+	}
+	return lbInfo, nil
 }
 
 type Target struct {
@@ -132,7 +146,7 @@ type CLBInfo struct {
 	// CLB 实例所在地域
 	Region string `json:"region"`
 	// CLB 实例的状态
-	State bool `json:"state"`
+	State string `json:"state"`
 	// CLB 错误信息
 	// +optional
 	Message string `json:"message"`

@@ -440,12 +440,16 @@ func (r *DedicatedCLBServiceReconciler) ensureStatus(ctx context.Context, ds *ne
 	for _, clbs := range ds.Spec.ExistedCLBs {
 		var clbInfos []networkingv1beta1.CLBInfo
 	IN:
-		for _, clb := range clbs {
-			if lbIdsInStatus[clb.ID] {
+		for _, lb := range clbs {
+			if lbIdsInStatus[lb.ID] {
 				clbInfos = nil
 				break IN
 			}
-			clbInfos = append(clbInfos, clb.ToCLBInfo())
+			lbInfo, err := lb.ToCLBInfo(ctx)
+			if err != nil {
+				return err
+			}
+			clbInfos = append(clbInfos, *lbInfo)
 		}
 		if len(clbInfos) > 0 {
 			needUpdate = true
