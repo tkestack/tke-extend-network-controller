@@ -272,7 +272,7 @@ func (r *DedicatedCLBListenerReconciler) ensureBackend(ctx context.Context, log 
 			continue
 		}
 		clbLis := clb.Listener{CLB: clb.CLB(ls.CLB), ListenerId: ls.ListenerId}
-		if target == nil {
+		if target == nil { // 没有配置后端，确保后端全解绑
 			if err := clb.DeregisterAllTargets(ctx, clbLis); err != nil {
 				msg := fmt.Sprintf("failed to deregistered all targets: %s", err.Error())
 				r.Recorder.Event(lis, corev1.EventTypeWarning, "EnsureBackendPod", msg)
@@ -284,6 +284,24 @@ func (r *DedicatedCLBListenerReconciler) ensureBackend(ctx context.Context, log 
 				ls.State = networkingv1beta1.DedicatedCLBListenerStateAvailable
 				needUpdateStatus = true
 				r.Recorder.Event(lis, corev1.EventTypeNormal, "EnsureBackendPod", "successfully deregistered all targets")
+			}
+			if podName := lis.GetAnnotations()[podNameAnnotation]; podName != "" { // 确保之前绑的 pod 的 finalizer 被清理
+				pod := &corev1.Pod{}
+				err := r.Get(
+					ctx,
+					client.ObjectKey{
+						Namespace: lis.Namespace,
+						Name:      podName,
+					},
+					pod,
+				)
+				if err == nil {
+					podFinalizerName := getDedicatedCLBListenerPodFinalizerName(lis)
+					if err = kube.RemovePodFinalizer(ctx, pod, podFinalizerName); err != nil {
+						r.Recorder.Event(lis, corev1.EventTypeWarning, "EnsureBackendPod", fmt.Sprintf("faild to remove pod finalizer: %s", err.Error()))
+						return err
+					}
+				}
 			}
 			return nil
 		}
@@ -309,7 +327,7 @@ func (r *DedicatedCLBListenerReconciler) ensureBackend(ctx context.Context, log 
 	return nil
 	// 没配置后端 pod，确保后端rs全被解绑，并且状态为 Available
 	// targetPod := lis.Spec.TargetPod
-	// podFinalizerName := getDedicatedCLBListenerPodFinalizerName(lis)
+	// podfinalizername := getdedicatedclblistenerpodfinalizername(lis)
 	// lbInfos := getLbInfos(lis.Spec.LbId)
 	// ls := getListenerInfos(lis.Status.ListenerId)
 	// if len(lbInfos) != len(ls) {
