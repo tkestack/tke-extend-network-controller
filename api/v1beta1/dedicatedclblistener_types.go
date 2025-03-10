@@ -99,7 +99,6 @@ const (
 // +kubebuilder:conversion:hub
 // +kubebuilder:subresource:status
 // +kubebuilder:printcolumn:name="Port",type="integer",JSONPath=".spec.port",description="Port of CLB Listener"
-// +kubebuilder:printcolumn:name="State",type="string",JSONPath=".status.state",description="State of the dedicated clb listener"
 
 // DedicatedCLBListener is the Schema for the dedicatedclblisteners API
 type DedicatedCLBListener struct {
