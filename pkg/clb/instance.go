@@ -12,25 +12,46 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
-func GetClbExternalAddress(ctx context.Context, lbId, region string) (address string, err error) {
-	lb, err := GetClb(ctx, lbId, region)
+func GetClbExternalAddress(ctx context.Context, lb CLB) (address string, err error) {
+	clb, err := GetClb(ctx, lb)
 	if err != nil {
 		return
 	}
-	if lb.LoadBalancerDomain != nil && *lb.LoadBalancerDomain != "" {
-		address = *lb.LoadBalancerDomain
+	if clb.LoadBalancerDomain != nil && *clb.LoadBalancerDomain != "" {
+		address = *clb.LoadBalancerDomain
 		return
 	}
-	if len(lb.LoadBalancerVips) > 0 {
-		address = *lb.LoadBalancerVips[0]
+	if len(clb.LoadBalancerVips) > 0 {
+		address = *clb.LoadBalancerVips[0]
 		return
 	}
-	err = fmt.Errorf("no external address found for clb %s", lbId)
+	err = fmt.Errorf("no external address found for clb %s", lb.LbId)
 	return
 }
 
-func IsClbExists(ctx context.Context, lbId, region string) (exists bool, err error) {
-	ins, err := GetClb(ctx, lbId, region)
+func GetAllPorts(ctx context.Context, lb CLB) (ports []*ListenerPort, err error) {
+	req := clb.NewDescribeListenersRequest()
+	req.LoadBalancerId = &lb.LbId
+	client := GetClient(lb.Region)
+	resp, err := client.DescribeListenersWithContext(ctx, req)
+	if err != nil {
+		return
+	}
+	if len(resp.Response.Listeners) == 0 {
+		return
+	}
+	for _, lis := range resp.Response.Listeners {
+		ports = append(ports, &ListenerPort{
+			Port:     *lis.Port,
+			EndPort:  lis.EndPort,
+			Protocol: *lis.Protocol,
+		})
+	}
+	return
+}
+
+func IsClbExists(ctx context.Context, lb CLB) (exists bool, err error) {
+	ins, err := GetClb(ctx, lb)
 	if err != nil {
 		return
 	}
@@ -46,37 +67,37 @@ func InitClbCache(ctx context.Context) context.Context {
 	return context.WithValue(ctx, CONTEXT_KEY_LBINFO, make(map[string]*clb.LoadBalancer))
 }
 
-func GetClb(ctx context.Context, lbId, region string) (instance *clb.LoadBalancer, err error) {
+func GetClb(ctx context.Context, lb CLB) (instance *clb.LoadBalancer, err error) {
 	lbInfos := ctx.Value(CONTEXT_KEY_LBINFO).(map[string]*clb.LoadBalancer)
 
 	// 从上下文查询缓存，如果命中直接返回
 	if lbInfos != nil {
-		if lb, ok := lbInfos[fmt.Sprintf(`%s/%s`, lbId, region)]; ok {
+		if lb, ok := lbInfos[fmt.Sprintf(`%s/%s`, lb.LbId, lb.Region)]; ok {
 			return lb, nil
 		}
 	}
 
 	// 缓存没命中，尝试从 clb api 查询
-	client := GetClient(region)
+	client := GetClient(lb.Region)
 	req := clb.NewDescribeLoadBalancersRequest()
-	req.LoadBalancerIds = []*string{&lbId}
+	req.LoadBalancerIds = []*string{&lb.LbId}
 
 	resp, err := client.DescribeLoadBalancersWithContext(ctx, req)
 	if err != nil {
 		return
 	}
 	if *resp.Response.TotalCount == 0 { // 没有查到 clb，记录下 clb 不存在
-		err = fmt.Errorf("%s is not exists in %s", lbId, region)
-		lbInfos[fmt.Sprintf(`%s/%s`, lbId, region)] = nil
+		err = fmt.Errorf("%s is not exists in %s", lb.LbId, lb.Region)
+		lbInfos[fmt.Sprintf(`%s/%s`, lb.LbId, lb.Region)] = nil
 		return
 	} else if *resp.Response.TotalCount > 1 {
-		err = fmt.Errorf("%s found %d instances in %s", lbId, *resp.Response.TotalCount, region)
+		err = fmt.Errorf("%s found %d instances in %s", lb.LbId, *resp.Response.TotalCount, lb.Region)
 		return
 	}
 	// 从 clb api 成功查到，返回并记录缓存
 	instance = resp.Response.LoadBalancerSet[0]
 	if lbInfos != nil {
-		lbInfos[fmt.Sprintf(`%s/%s`, lbId, region)] = instance
+		lbInfos[fmt.Sprintf(`%s/%s`, lb.LbId, lb.Region)] = instance
 	}
 	return
 }
@@ -123,7 +144,7 @@ func Create(ctx context.Context, region, vpcId string, extensiveParameters *stri
 	}
 	for _, lbId := range ids {
 		for {
-			lb, err := GetClb(ctx, lbId, region)
+			lb, err := GetClb(ctx, CLB{LbId: lbId, Region: region})
 			if err != nil {
 				return nil, err
 			}

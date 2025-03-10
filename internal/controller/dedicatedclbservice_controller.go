@@ -185,13 +185,13 @@ func (r *DedicatedCLBServiceReconciler) diffPods(ctx context.Context, ds *networ
 		}
 	}
 	if len(toAllocate) > 0 {
-		toAdd, err = r.allocatedListeners(ctx, ds, toAllocate)
+		toAdd, err = r.allocateListeners(ctx, ds, toAllocate)
 		log.V(7).Info("allocate listeners", "expect", len(toAllocate), "got", len(toAdd))
 	}
 	return
 }
 
-func (r *DedicatedCLBServiceReconciler) allocatedListeners(ctx context.Context, ds *networkingv1beta1.DedicatedCLBService, toAllocate []*AllocateListenerJob) (toAdd []*networkingv1beta1.DedicatedCLBListener, err error) {
+func (r *DedicatedCLBServiceReconciler) allocateListeners(ctx context.Context, ds *networkingv1beta1.DedicatedCLBService, toAllocate []*AllocateListenerJob) (toAdd []*networkingv1beta1.DedicatedCLBListener, err error) {
 	toAllocateMap := make(map[string][]clb.ListenerAssignee) // protocol --> jobs
 	for _, job := range toAllocate {
 		toAllocateMap[job.Port.Protocol] = append(toAllocateMap[job.Port.Protocol], job)
