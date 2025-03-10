@@ -310,11 +310,19 @@ spec:
                       lbId:
                         description: CLB 实例的 ID。
                         type: string
+                      message:
+                        description: CLB 错误信息
+                        type: string
                       region:
+                        description: CLB 实例所在地域
+                        type: string
+                      state:
+                        description: CLB 实例的状态
                         type: string
                     required:
                     - lbId
                     - region
+                    - state
                     type: object
                   type: array
                 type: array
