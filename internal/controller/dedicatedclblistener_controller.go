@@ -238,7 +238,7 @@ func (r *DedicatedCLBListenerReconciler) ensureBackend(ctx context.Context, log 
 	if lis.Annotations == nil {
 		lis.Annotations = make(map[string]string)
 	}
-	if targetPod := lis.Spec.TargetPod; targetPod != nil {
+	if targetPod := lis.Spec.TargetPod; targetPod != nil { // 配置了后端 Pod，确保 CLB 监听器绑定了该 Pod
 		// 确保记录当前 target pod 到注解以便 targetPod 置为 nil 后（不删除listener）可找到pod以删除pod finalizer
 		if lis.Annotations[podNameAnnotation] != targetPod.PodName {
 			log.V(6).Info("set pod name annotation", "pod", targetPod.PodName)
@@ -248,6 +248,7 @@ func (r *DedicatedCLBListenerReconciler) ensureBackend(ctx context.Context, log 
 				return err
 			}
 		}
+		// 查询 Pod 并转换为代表 RS 的 Target 对象
 		pod = &corev1.Pod{}
 		if err := r.Get(
 			ctx,
@@ -265,10 +266,13 @@ func (r *DedicatedCLBListenerReconciler) ensureBackend(ctx context.Context, log 
 			TargetPort: targetPod.Port,
 		}
 	}
-	needUpdateStatus := false
+
+	needUpdateStatus := false // 记录是否需要更新 status
+
+	// 从 status 里遍历关联的 CLB 监听器，确保每个监听器都绑定了 Target
 	for i := range lis.Status.ListenerStatuses {
 		ls := &lis.Status.ListenerStatuses[i]
-		if ls.ListenerId == "" {
+		if ls.ListenerId == "" { // 无效监听器，忽略
 			continue
 		}
 		clbLis := clb.Listener{CLB: clb.CLB(ls.CLB), ListenerId: ls.ListenerId}
@@ -305,6 +309,7 @@ func (r *DedicatedCLBListenerReconciler) ensureBackend(ctx context.Context, log 
 			}
 			return nil
 		}
+		// 配置了后端，确保绑定该 Target
 		if registered, err := clb.EnsureSingleTarget(ctx, clbLis, *target); err != nil {
 			ls.State = networkingv1beta1.DedicatedCLBListenerStateFailed
 			ls.Message = err.Error()
