@@ -128,8 +128,14 @@ type DedicatedCLBServiceStatus struct {
 
 type CLBInfo struct {
 	// CLB 实例的 ID。
-	LbId   string `json:"lbId"`
+	LbId string `json:"lbId"`
+	// CLB 实例所在地域
 	Region string `json:"region"`
+	// CLB 实例的状态
+	State bool `json:"state"`
+	// CLB 错误信息
+	// +optional
+	Message string `json:"message"`
 	// +optional
 	Alias string `json:"alias"`
 	// 是否是自动创建的 CLB。如果是，删除 DedicatedCLBService 时，CLB 也会被清理。

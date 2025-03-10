@@ -248,6 +248,7 @@ func (r *DedicatedCLBServiceReconciler) allocatedListeners(ctx context.Context, 
 }
 
 func (r *DedicatedCLBServiceReconciler) sync(ctx context.Context, ds *networkingv1beta1.DedicatedCLBService) error {
+	ctx = clb.InitClbCache(ctx)
 	if err := r.ensureStatus(ctx, ds); err != nil {
 		return err
 	}
@@ -427,6 +428,7 @@ func (r *DedicatedCLBServiceReconciler) sync(ctx context.Context, ds *networking
 // 	})
 // }
 
+// 保证 spec 中定义的 clb 同步到 status 里
 func (r *DedicatedCLBServiceReconciler) ensureStatus(ctx context.Context, ds *networkingv1beta1.DedicatedCLBService) error {
 	lbIdsInStatus := make(map[string]bool)
 	for _, clbInfos := range ds.Status.CLBs {

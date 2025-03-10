@@ -29,7 +29,34 @@ func GetClbExternalAddress(ctx context.Context, lbId, region string) (address st
 	return
 }
 
+func IsClbExists(ctx context.Context, lbId, region string) (valid bool, err error) {
+	ins, err := GetClb(ctx, lbId, region)
+	if err != nil {
+		return
+	}
+	if ins != nil {
+		valid = true
+	}
+	return
+}
+
+const CONTEXT_KEY_LBINFO = "__lb_info"
+
+func InitClbCache(ctx context.Context) context.Context {
+	return context.WithValue(ctx, CONTEXT_KEY_LBINFO, make(map[string]*clb.LoadBalancer))
+}
+
 func GetClb(ctx context.Context, lbId, region string) (instance *clb.LoadBalancer, err error) {
+	lbInfos := ctx.Value(CONTEXT_KEY_LBINFO).(map[string]*clb.LoadBalancer)
+
+	// 从上下文查询缓存，如果命中直接返回
+	if lbInfos != nil {
+		if lb, ok := lbInfos[fmt.Sprintf(`%s/%s`, lbId, region)]; ok {
+			return lb, nil
+		}
+	}
+
+	// 缓存没命中，尝试从 clb api 查询
 	client := GetClient(region)
 	req := clb.NewDescribeLoadBalancersRequest()
 	req.LoadBalancerIds = []*string{&lbId}
@@ -38,14 +65,19 @@ func GetClb(ctx context.Context, lbId, region string) (instance *clb.LoadBalance
 	if err != nil {
 		return
 	}
-	if *resp.Response.TotalCount == 0 {
+	if *resp.Response.TotalCount == 0 { // 没有查到 clb，记录下 clb 不存在
 		err = fmt.Errorf("%s is not exists in %s", lbId, region)
+		lbInfos[fmt.Sprintf(`%s/%s`, lbId, region)] = nil
 		return
 	} else if *resp.Response.TotalCount > 1 {
 		err = fmt.Errorf("%s found %d instances in %s", lbId, *resp.Response.TotalCount, region)
 		return
 	}
+	// 从 clb api 成功查到，返回并记录缓存
 	instance = resp.Response.LoadBalancerSet[0]
+	if lbInfos != nil {
+		lbInfos[fmt.Sprintf(`%s/%s`, lbId, region)] = instance
+	}
 	return
 }
 
