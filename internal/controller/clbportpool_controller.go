@@ -191,10 +191,6 @@ func (r *CLBPortPoolReconciler) ensureLb(ctx context.Context, pool *networkingv1
 	if err := r.ensureExistedLB(ctx, pool); err != nil {
 		return err
 	}
-	// 确保状态为 Active
-	if err := r.ensureState(ctx, pool, networkingv1alpha1.CLBPortPoolStateActive); err != nil {
-		return errors.WithStack(err)
-	}
 	// 确保所有 lb 都被添加到分配器的缓存中
 	if err := r.ensureLbInAllocator(ctx, pool); err != nil {
 		return err
@@ -202,6 +198,10 @@ func (r *CLBPortPoolReconciler) ensureLb(ctx context.Context, pool *networkingv1
 	// 同步 clb 信息到 status
 	if err := r.ensureLbStatus(ctx, pool); err != nil {
 		return err
+	}
+	// lb准备就绪，确保状态为 Active
+	if err := r.ensureState(ctx, pool, networkingv1alpha1.CLBPortPoolStateActive); err != nil {
+		return errors.WithStack(err)
 	}
 	return nil
 }
