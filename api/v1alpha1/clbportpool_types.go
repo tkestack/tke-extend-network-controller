@@ -166,7 +166,7 @@ func (p *CreateLBParameters) ExportCreateLoadBalancerRequest() *clb.CreateLoadBa
 		req.VpcId = p.VpcId
 	}
 	if p.VpcId == nil {
-		*p.VpcId = clusterinfo.VpcId
+		p.VpcId = &clusterinfo.VpcId
 	}
 	if p.Vip != nil {
 		req.Vip = p.Vip
