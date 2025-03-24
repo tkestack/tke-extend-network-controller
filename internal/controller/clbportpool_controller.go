@@ -60,7 +60,17 @@ func (r *CLBPortPoolReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 
 // 清理端口池
 func (r *CLBPortPoolReconciler) cleanup(ctx context.Context, pool *networkingv1alpha1.CLBPortPool) (result ctrl.Result, err error) {
+	// 从全局端口分配器缓存中移除该端口池
 	portpool.Allocator.RemovePool(pool.Name)
+	// 删除自动创建的 CLB
+	for _, lb := range pool.Status.LoadbalancerStatuses {
+		if !util.GetValue(lb.AutoCreated) {
+			continue
+		}
+		if err := clb.Delete(ctx, pool.GetRegion(), lb.LoadbalancerID); err != nil {
+			return result, errors.WithStack(err)
+		}
+	}
 	return
 }
 
