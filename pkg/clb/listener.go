@@ -12,9 +12,22 @@ import (
 
 type Listener struct {
 	Port         int64
+	EndPort      int64
 	Protocol     string
 	ListenerId   string
 	ListenerName string
+}
+
+func GetListenerNum(ctx context.Context, region, lbId string) (num int64, err error) {
+	req := clb.NewDescribeListenersRequest()
+	req.LoadBalancerId = &lbId
+	client := GetClient(region)
+	resp, err := client.DescribeListenersWithContext(ctx, req)
+	if err != nil {
+		return
+	}
+	num = int64(len(resp.Response.Listeners))
+	return
 }
 
 func GetListener(ctx context.Context, region, lbId, listenerId string) (lis *Listener, err error) {
@@ -38,12 +51,16 @@ func GetListener(ctx context.Context, region, lbId, listenerId string) (lis *Lis
 }
 
 func convertListener(lbLis *clb.Listener) *Listener {
-	return &Listener{
+	lis := &Listener{
 		ListenerId:   *lbLis.ListenerId,
 		ListenerName: *lbLis.ListenerName,
 		Protocol:     *lbLis.Protocol,
 		Port:         *lbLis.Port,
 	}
+	if lbLis.EndPort != nil {
+		lis.EndPort = *lbLis.EndPort
+	}
+	return lis
 }
 
 func GetListenerByPort(ctx context.Context, region, lbId string, port int64, protocol string) (lis *Listener, err error) {

@@ -2,7 +2,10 @@ package kube
 
 import (
 	"context"
+	"time"
 
+	"github.com/imroc/tke-extend-network-controller/internal/constant"
+	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
@@ -23,6 +26,18 @@ func SetPodAnnotation(ctx context.Context, pod *corev1.Pod, name, value string) 
 		}
 		pod.Annotations[name] = value
 	}, false, false)
+}
+
+func PatchLastUpdateTime(ctx context.Context, obj client.Object) error {
+	pod := &corev1.Pod{}
+	if err := apiReader.Get(ctx, client.ObjectKeyFromObject(obj), pod); err != nil {
+		return errors.WithStack(err)
+	}
+	if pod.Annotations == nil {
+		pod.Annotations = make(map[string]string)
+	}
+	pod.Annotations[constant.LastUpdateTime] = time.Now().String()
+	return apiClient.Update(ctx, pod)
 }
 
 func AddPodFinalizer(ctx context.Context, pod client.Object, finalizerName string) error {

@@ -1,0 +1,66 @@
+apiVersion: networking.cloud.tencent.com/v1alpha1
+kind: CLBNodeBinding
+metadata:
+  name: gameserver-0
+  namespace: test
+spec:
+  ports:
+  - port: 8000
+    protocol: TCPUDP
+    pools: [port-pool-ctcc, port-pool-cucc]
+    allocateSamePortAcrossPools: true # 让多个端口池分配出来的端口号完全相同
+  - port: 8101
+    protocol: TCP
+    pools: [port-pool-ctcc, port-pool-cucc]
+status:
+  state: Bound
+  message: ""
+  portBindings:
+  - port: 8000
+    endPort: 8099
+    protocol: TCP
+    pool: port-pool-ctcc
+    loadbalancerId: lb-ku486mr3
+    loadbalancerPort: 8088
+    loadbalancerEndPort: 8100
+    listenerId: lbl-ku486mr3
+  - port: 8000
+    endPort: 8099
+    protocol: TCP
+    pool: port-pool-cucc
+    loadbalancerId: lb-ku486mr3
+    loadbalancerPort: 8088
+    loadbalancerEndPort: 8100
+    listenerId: lbl-ku486mr3
+  - port: 8000
+    endPort: 8099
+    protocol: UDP
+    pool: port-pool-ctcc
+    loadbalancerId: lb-ku486mr3
+    loadbalancerPort: 8088
+    loadbalancerEndPort: 8100
+    listenerId: lbl-ku486mr3
+  - port: 8000
+    endPort: 8099
+    protocol: UDP
+    pool: port-pool-cucc
+    loadbalancerId: lb-ku486mr3
+    loadbalancerPort: 8088
+    loadbalancerEndPort: 8100
+    listenerId: lbl-ku486mr3
+  - port: 8101
+    endPort: 8099
+    protocol: TCP
+    pool: port-pool-cucc
+    loadbalancerId: lb-ku486mr3
+    loadbalancerPort: 8088
+    loadbalancerEndPort: 8100
+    listenerId: lbl-ku486mr3
+  - port: 8001
+    endPort: 8099
+    protocol: TCP
+    pool: port-pool-ctcc
+    loadbalancerId: lb-ku486mr3
+    loadbalancerPort: 8088
+    loadbalancerEndPort: 8100
+    listenerId: lbl-ku486mr3

@@ -212,3 +212,7 @@ generate-docs:
 .PHONY: helm-docs
 helm-docs:
 	./hack/helm-docs.sh
+
+.PHONY: copy-crds-to-chart
+copy-crds-to-chart:
+	cp ./config/crd/bases/networking.cloud.tencent.com_*.yaml  ./charts/tke-extend-network-controller/templates/

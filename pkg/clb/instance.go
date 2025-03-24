@@ -3,9 +3,12 @@ package clb
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"time"
 
+	networkingv1alpha1 "github.com/imroc/tke-extend-network-controller/api/v1alpha1"
+	"github.com/imroc/tke-extend-network-controller/pkg/clusterinfo"
 	"github.com/imroc/tke-extend-network-controller/pkg/util"
 	clb "github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/clb/v20180317"
 	"github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common"
@@ -29,6 +32,8 @@ func GetClbExternalAddress(ctx context.Context, lbId, region string) (address st
 	return
 }
 
+var ErrLbIdNotFound = errors.New("lb id not found")
+
 func GetClb(ctx context.Context, lbId, region string) (instance *clb.LoadBalancer, err error) {
 	client := GetClient(region)
 	req := clb.NewDescribeLoadBalancersRequest()
@@ -39,11 +44,7 @@ func GetClb(ctx context.Context, lbId, region string) (instance *clb.LoadBalance
 		return
 	}
 	if *resp.Response.TotalCount == 0 {
-		err = fmt.Errorf("%s is not exists in %s", lbId, region)
-		return
-	} else if *resp.Response.TotalCount > 1 {
-		err = fmt.Errorf("%s found %d instances in %s", lbId, *resp.Response.TotalCount, region)
-		return
+		return nil, ErrLbIdNotFound
 	}
 	instance = resp.Response.LoadBalancerSet[0]
 	return
@@ -52,7 +53,7 @@ func GetClb(ctx context.Context, lbId, region string) (instance *clb.LoadBalance
 // TODO: 支持部分成功
 func Create(ctx context.Context, region, vpcId, extensiveParameters string, num int) (ids []string, err error) {
 	if vpcId == "" {
-		vpcId = defaultVpcId
+		vpcId = clusterinfo.VpcId
 	}
 	req := clb.NewCreateLoadBalancerRequest()
 	req.LoadBalancerType = common.StringPtr("OPEN")
@@ -61,7 +62,7 @@ func Create(ctx context.Context, region, vpcId, extensiveParameters string, num 
 	req.Tags = append(req.Tags,
 		&clb.TagInfo{
 			TagKey:   common.StringPtr("tke-clusterId"), // 与集群关联
-			TagValue: common.StringPtr(clusterId),
+			TagValue: common.StringPtr(clusterinfo.ClusterId),
 		},
 		&clb.TagInfo{
 			TagKey:   common.StringPtr("tke-createdBy-flag"), // 用于删除集群时自动清理集群关联的自动创建的 CLB
@@ -79,7 +80,7 @@ func Create(ctx context.Context, region, vpcId, extensiveParameters string, num 
 	if err != nil {
 		return
 	}
-	ids = util.ConvertStringPointSlice(resp.Response.LoadBalancerIds)
+	ids = util.ConvertPtrSlice(resp.Response.LoadBalancerIds)
 	if len(ids) == 0 {
 		ids, err = Wait(ctx, region, *resp.Response.RequestId, "CreateLoadBalancer")
 		if err != nil {
@@ -130,4 +131,49 @@ func Delete(ctx context.Context, region string, lbIds ...string) error {
 	}
 	_, err = Wait(ctx, region, *resp.Response.RequestId, "DeleteLoadBalancer")
 	return err
+}
+
+// 创建单个 CLB
+func CreateCLB(ctx context.Context, region string, p *networkingv1alpha1.CreateLBParameters) (lbId string, err error) {
+	req := ConvertCreateLoadBalancerRequest(p)
+	client := GetClient(region)
+	resp, err := client.CreateLoadBalancerWithContext(ctx, req)
+	if err != nil {
+		return
+	}
+	ids := resp.Response.LoadBalancerIds
+	if len(ids) == 0 || *ids[0] == "" {
+		err = fmt.Errorf("no loadbalancer created")
+		return
+	}
+	lbId = *ids[0]
+	if _, err = Wait(ctx, region, *resp.Response.RequestId, "CreateLoadBalancer"); err != nil {
+		return
+	}
+	return
+}
+
+func CreateCLBAsync(ctx context.Context, region string, req *clb.CreateLoadBalancerRequest) (lbId string, result <-chan error, err error) {
+	client := GetClient(region)
+	resp, err := client.CreateLoadBalancerWithContext(ctx, req)
+	if err != nil {
+		return
+	}
+	ids := resp.Response.LoadBalancerIds
+	if len(ids) == 0 || *ids[0] == "" {
+		err = fmt.Errorf("no loadbalancer created")
+		return
+	}
+	lbId = *ids[0]
+	ret := make(chan error)
+	result = ret
+	go func() {
+		if _, err := Wait(ctx, region, *resp.Response.RequestId, "CreateLoadBalancer"); err != nil {
+			log.FromContext(ctx).Error(err, "clb create task failed", "lbId", lbId)
+			ret <- err
+			return
+		}
+		ret <- nil
+	}()
+	return
 }

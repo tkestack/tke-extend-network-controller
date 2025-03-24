@@ -37,6 +37,7 @@ func StripPodUnusedFields(obj any) (any, error) {
 	}
 
 	pod.ObjectMeta = metav1.ObjectMeta{
+		UID:               pod.UID,
 		Namespace:         pod.Namespace,
 		Name:              pod.Name,
 		DeletionTimestamp: pod.DeletionTimestamp,
@@ -44,6 +45,7 @@ func StripPodUnusedFields(obj any) (any, error) {
 		ResourceVersion:   pod.ResourceVersion,
 		Labels:            pod.Labels,
 		Annotations:       pod.Annotations,
+		OwnerReferences:   pod.OwnerReferences,
 	}
 
 	return obj, nil

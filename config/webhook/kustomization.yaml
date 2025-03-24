@@ -6,3 +6,11 @@ namePrefix: tke-extend-network-controller-
 
 configurations:
   - kustomizeconfig.yaml
+
+patches:
+  - path: patch-match-conditions.yaml
+    target:
+      group: admissionregistration.k8s.io
+      version: v1
+      kind: ValidatingWebhookConfiguration
+      name: validating-webhook-configuration

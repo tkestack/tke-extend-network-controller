@@ -16,7 +16,7 @@ const (
 	stateField          = "status.state"
 )
 
-func indexFieldForDedicatedCLBListener(indexer client.FieldIndexer) error {
+func IndexFieldForDedicatedCLBListener(indexer client.FieldIndexer) error {
 	if err := indexer.IndexField(
 		context.TODO(), &DedicatedCLBListener{}, backendPodNameField,
 		func(o client.Object) []string {

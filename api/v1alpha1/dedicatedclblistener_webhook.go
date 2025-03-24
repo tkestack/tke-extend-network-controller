@@ -21,7 +21,7 @@ import (
 	"fmt"
 	"strconv"
 
-	"github.com/imroc/tke-extend-network-controller/pkg/clb"
+	"github.com/imroc/tke-extend-network-controller/pkg/clusterinfo"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -50,7 +50,7 @@ var _ webhook.Defaulter = &DedicatedCLBListener{}
 // Default implements webhook.Defaulter so a webhook will be registered for the type
 func (r *DedicatedCLBListener) Default() {
 	dedicatedclblistenerlog.Info("default", "name", r.Name)
-	r.Spec.LbRegion = clb.DefaultRegion()
+	r.Spec.LbRegion = clusterinfo.Region
 	r.Status.State = DedicatedCLBListenerStatePending
 }
 

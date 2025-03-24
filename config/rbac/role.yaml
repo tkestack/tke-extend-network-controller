@@ -35,6 +35,110 @@ rules:
   - create
   - patch
 - apiGroups:
+  - ""
+  resources:
+  - pods
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - ""
+  resources:
+  - pods/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - ""
+  resources:
+  - pods/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - networking.cloud.tencent.com
+  resources:
+  - clbnodebindings
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - networking.cloud.tencent.com
+  resources:
+  - clbnodebindings/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - networking.cloud.tencent.com
+  resources:
+  - clbnodebindings/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - networking.cloud.tencent.com
+  resources:
+  - clbpodbindings
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - networking.cloud.tencent.com
+  resources:
+  - clbpodbindings/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - networking.cloud.tencent.com
+  resources:
+  - clbpodbindings/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - networking.cloud.tencent.com
+  resources:
+  - clbportpools
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - networking.cloud.tencent.com
+  resources:
+  - clbportpools/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - networking.cloud.tencent.com
+  resources:
+  - clbportpools/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
   - networking.cloud.tencent.com
   resources:
   - dedicatedclblisteners

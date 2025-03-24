@@ -1,9 +1,14 @@
 package util
 
-func ConvertStringPointSlice(s []*string) []string {
-	ss := make([]string, len(s))
-	for i := range s {
-		ss[i] = *s[i]
+func ConvertPtrSlice[T any](ptrSlice []*T) []T {
+	valueSlice := make([]T, len(ptrSlice))
+	for i, ptr := range ptrSlice {
+		if ptr != nil {
+			valueSlice[i] = *ptr
+		} else {
+			var zero T // 自动填充类型的零值
+			valueSlice[i] = zero
+		}
 	}
-	return ss
+	return valueSlice
 }

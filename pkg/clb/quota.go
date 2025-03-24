@@ -5,6 +5,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/imroc/tke-extend-network-controller/pkg/clusterinfo"
 	clb "github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/clb/v20180317"
 )
 
@@ -96,7 +97,7 @@ func SyncQuota(ctx context.Context, region string) (map[string]int64, error) {
 				if err != nil {
 					clbLog.Error(err, "failed to sync clb quota periodically", "region", region)
 				} else {
-					clbLog.Info("sync clb quota successfully", "region", region, "quota", m)
+					clbLog.V(2).Info("sync clb quota successfully", "region", region, "quota", m)
 				}
 			}
 		}()
@@ -106,7 +107,7 @@ func SyncQuota(ctx context.Context, region string) (map[string]int64, error) {
 
 func GetQuota(ctx context.Context, region, id string) (int64, error) {
 	if region == "" {
-		region = defaultRegion
+		region = clusterinfo.Region
 	}
 	quotaLock.Lock()
 	m, ok := quota[region]

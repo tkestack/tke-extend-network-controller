@@ -1,0 +1,24 @@
+apiVersion: networking.cloud.tencent.com/v1alpha1
+kind: CLBListener
+metadata:
+  name: lb-xxx-tcp-8000-8100
+  namespace: test
+  labels:
+    networking.cloud.tencent.com/clb-port-pool: xxx
+  ownerReferences:
+  - blockOwnerDeletion: true
+    controller: true
+    kind: CLBPortPool
+    name: port-pool-ctcc
+spec:
+  startPort: 8000
+  endPort: 8100
+  loadbalancerID: lb-xxx
+  protocol: TCP
+  backends:
+  - ip: 1.1.1.1
+    port: 9000
+status:
+  listenerID: lbl-xxx
+  message: ""
+  state: Synced

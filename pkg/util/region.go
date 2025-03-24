@@ -6,7 +6,16 @@ import (
 	"net/http"
 	"strings"
 	"time"
+
+	"github.com/imroc/tke-extend-network-controller/pkg/clusterinfo"
 )
+
+func GetRegionFromPtr(region *string) string {
+	if region == nil {
+		return clusterinfo.Region
+	}
+	return *region
+}
 
 func GetCurrentRegion() (string, error) {
 	client := &http.Client{

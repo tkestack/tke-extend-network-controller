@@ -1,0 +1,10 @@
+apiVersion: networking.cloud.tencent.com/v1alpha1
+kind: CLB
+metadata:
+  name: test
+spec:
+  autoCreate:
+    enabled: true
+    parameters:
+      vipIsp: CTCC
+      bandwidthPackageId: bwp-40ykow69

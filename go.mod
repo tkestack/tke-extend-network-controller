@@ -11,8 +11,8 @@ require (
 	github.com/spf13/cobra v1.8.1
 	github.com/spf13/pflag v1.0.5
 	github.com/spf13/viper v1.19.0
-	github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/clb v1.0.966
-	github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common v1.0.966
+	github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/clb v1.0.1120
+	github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common v1.0.1120
 	k8s.io/api v0.30.2
 	k8s.io/apimachinery v0.30.2
 	k8s.io/client-go v0.30.2
