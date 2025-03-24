@@ -48,14 +48,18 @@ type CLBPortPoolSpec struct {
 }
 
 func (pool *CLBPortPool) CanCreateLB() bool {
-	// 检查是否启用自动创建
+	// 还未初始化的端口池，不能创建负载均衡器
+	if pool.Status.State == "" || pool.Status.State == CLBPortPoolStatePending {
+		return false
+	}
+	// 没有显式启用自动创建的端口池，不能创建负载均衡器
 	if pool.Spec.AutoCreate == nil {
 		return false
 	}
 	if !pool.Spec.AutoCreate.Enabled {
 		return false
 	}
-	// 检查是否达到 lb 上限
+	// 自动创建的 CLB 数量达到配置上限的端口池，不能创建负载均衡器
 	if !util.IsZero(pool.Spec.AutoCreate.MaxLoadBalancers) {
 		// 检查是否已创建了足够的 CLB
 		num := uint16(0)
@@ -69,7 +73,7 @@ func (pool *CLBPortPool) CanCreateLB() bool {
 			return false
 		}
 	}
-	// 检查状态
+	// 其余情况，允许创建负载均衡器
 	return true
 }
 
