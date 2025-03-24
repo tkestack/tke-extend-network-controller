@@ -52,6 +52,7 @@ const (
 	CLBPodBindingStatePending    CLBPodBindingState = "Pending"
 	CLBPodBindingStateBound      CLBPodBindingState = "Bound"
 	CLBPodBindingStateWaitForPod CLBPodBindingState = "WaitForPod"
+	CLBPodBindingStateWaitForLB  CLBPodBindingState = "WaitForLB"
 	CLBPodBindingStateDisabled   CLBPodBindingState = "Disabled"
 	CLBPodBindingStateFailed     CLBPodBindingState = "Failed"
 	CLBPodBindingStateDeleting   CLBPodBindingState = "Deleting"
