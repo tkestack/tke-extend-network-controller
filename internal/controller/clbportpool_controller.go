@@ -199,7 +199,7 @@ func (r *CLBPortPoolReconciler) ensureLb(ctx context.Context, pool *networkingv1
 	if err := r.ensureLbStatus(ctx, pool); err != nil {
 		return err
 	}
-	// lb准备就绪，确保状态为 Active
+	// lb 准备就绪，确保状态为 Active
 	if err := r.ensureState(ctx, pool, networkingv1alpha1.CLBPortPoolStateActive); err != nil {
 		return errors.WithStack(err)
 	}

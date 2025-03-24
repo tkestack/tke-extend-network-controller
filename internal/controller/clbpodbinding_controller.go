@@ -89,7 +89,7 @@ func (r *CLBPodBindingReconciler) sync(ctx context.Context, pb *networkingv1alph
 			return result, errors.WithStack(err)
 		} else if err == portpool.ErrWaitLBScale {
 			result.RequeueAfter = 3 * time.Second
-			return result, err
+			return result, nil
 		}
 	}
 	return result, err
