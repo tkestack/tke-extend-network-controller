@@ -245,8 +245,10 @@ spec:
                 description: 状态信息
                 type: string
               state:
-                description: '状态: Active/Error'
+                description: '状态: Pending/Active/Scaling'
                 type: string
+            required:
+            - state
             type: object
         type: object
     served: true

@@ -56,7 +56,7 @@ func (pa *PortAllocator) AddPool(
 	name, region string,
 	startPort uint16,
 	endPort, segmentLength *uint16,
-	createLoadBalancer func(ctx context.Context) (string, error),
+	notifyCreateLoadBalancer func(ctx context.Context) error,
 ) error {
 	pa.mu.Lock()
 	defer pa.mu.Unlock()
@@ -83,13 +83,13 @@ func (pa *PortAllocator) AddPool(
 	}
 
 	pool := &PortPool{
-		Name:               name,
-		Region:             region,
-		StartPort:          startPort,
-		EndPort:            finalEndPort,
-		SegmentLength:      finalSegmentLength,
-		CreateLoadBalancer: createLoadBalancer,
-		cache:              make(map[string]map[ProtocolPort]struct{}),
+		Name:                     name,
+		Region:                   region,
+		StartPort:                startPort,
+		EndPort:                  finalEndPort,
+		SegmentLength:            finalSegmentLength,
+		NotifyCreateLoadBalancer: notifyCreateLoadBalancer,
+		cache:                    make(map[string]map[ProtocolPort]struct{}),
 	}
 
 	pa.pools[name] = pool

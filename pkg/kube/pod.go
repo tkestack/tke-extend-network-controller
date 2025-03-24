@@ -28,7 +28,7 @@ func SetPodAnnotation(ctx context.Context, pod *corev1.Pod, name, value string) 
 	}, false, false)
 }
 
-func PatchLastUpdateTime(ctx context.Context, obj client.Object) error {
+func PatchPodLastUpdateTime(ctx context.Context, obj client.Object) error {
 	pod := &corev1.Pod{}
 	if err := apiReader.Get(ctx, client.ObjectKeyFromObject(obj), pod); err != nil {
 		return errors.WithStack(err)

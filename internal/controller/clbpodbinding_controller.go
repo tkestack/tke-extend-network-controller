@@ -18,14 +18,17 @@ package controller
 
 import (
 	"context"
+	"time"
 
 	"github.com/imroc/tke-extend-network-controller/internal/constant"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/tools/record"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -33,7 +36,6 @@ import (
 	networkingv1alpha1 "github.com/imroc/tke-extend-network-controller/api/v1alpha1"
 	"github.com/imroc/tke-extend-network-controller/internal/portpool"
 	"github.com/imroc/tke-extend-network-controller/pkg/clb"
-	"github.com/imroc/tke-extend-network-controller/pkg/kube"
 	"github.com/imroc/tke-extend-network-controller/pkg/util"
 	"github.com/pkg/errors"
 )
@@ -41,7 +43,8 @@ import (
 // CLBPodBindingReconciler reconciles a CLBPodBinding object
 type CLBPodBindingReconciler struct {
 	client.Client
-	Scheme *runtime.Scheme
+	Scheme   *runtime.Scheme
+	Recorder record.EventRecorder
 }
 
 // +kubebuilder:rbac:groups=networking.cloud.tencent.com,resources=clbpodbindings,verbs=get;list;watch;create;update;patch;delete
@@ -67,26 +70,29 @@ type portKey struct {
 	Pool     string
 }
 
-func (r *CLBPodBindingReconciler) sync(ctx context.Context, pb *networkingv1alpha1.CLBPodBinding) error {
+func (r *CLBPodBindingReconciler) sync(ctx context.Context, pb *networkingv1alpha1.CLBPodBinding) (result ctrl.Result, err error) {
 	// 确保 State 不为空
 	if pb.Status.State == "" {
 		pb.Status.State = networkingv1alpha1.CLBPodBindingStatePending
-		if err := r.Status().Update(ctx, pb); err != nil {
-			return errors.WithStack(err)
+		if err = r.Status().Update(ctx, pb); err != nil {
+			return result, errors.WithStack(err)
 		}
 	}
 	// 确保所有端口都已分配且绑定 Pod
 	if err := r.ensurePorts(ctx, pb); err != nil {
-		if !apierrors.IsConflict(err) && err != portpool.ErrLBCreated {
+		if !apierrors.IsConflict(err) && err != portpool.ErrWaitLBScale {
 			pb.Status.State = networkingv1alpha1.CLBPodBindingStateFailed
 			pb.Status.Message = err.Error()
 			if err := r.Status().Update(ctx, pb); err != nil {
-				return errors.WithStack(err)
+				return result, errors.WithStack(err)
 			}
-			return errors.WithStack(err)
+			return result, errors.WithStack(err)
+		} else if err == portpool.ErrWaitLBScale {
+			result.RequeueAfter = 3 * time.Second
+			return result, err
 		}
 	}
-	return nil
+	return result, err
 }
 
 func (r *CLBPodBindingReconciler) ensurePorts(ctx context.Context, pb *networkingv1alpha1.CLBPodBinding) error {
@@ -386,16 +392,16 @@ func (r *CLBPodBindingReconciler) ensureState(ctx context.Context, pb *networkin
 }
 
 // 清理 CLBPodBinding
-func (r *CLBPodBindingReconciler) cleanup(ctx context.Context, pb *networkingv1alpha1.CLBPodBinding) error {
+func (r *CLBPodBindingReconciler) cleanup(ctx context.Context, pb *networkingv1alpha1.CLBPodBinding) (result ctrl.Result, err error) {
 	log := log.FromContext(ctx)
 	log.Info("cleanup CLBPodBinding")
-	if err := r.ensureState(ctx, pb, networkingv1alpha1.CLBPodBindingStateDeleting); err != nil {
-		return errors.WithStack(err)
+	if err = r.ensureState(ctx, pb, networkingv1alpha1.CLBPodBindingStateDeleting); err != nil {
+		return result, errors.WithStack(err)
 	}
 	for _, binding := range pb.Status.PortBindings {
 		// 解绑 lb
 		if _, err := clb.DeleteListenerByPort(ctx, binding.Region, binding.LoadbalancerId, int64(binding.LoadbalancerPort), binding.Protocol); err != nil {
-			return errors.Wrapf(err, "failed to delete listener (%s/%d/%s)", binding.LoadbalancerId, binding.LoadbalancerPort, binding.Protocol)
+			return result, errors.Wrapf(err, "failed to delete listener (%s/%d/%s)", binding.LoadbalancerId, binding.LoadbalancerPort, binding.Protocol)
 		}
 		// 释放端口
 		portpool.Allocator.Release(binding.Pool, binding.LoadbalancerId, portFromPortBindingStatus(&binding))
@@ -404,15 +410,18 @@ func (r *CLBPodBindingReconciler) cleanup(ctx context.Context, pb *networkingv1a
 	pod := &corev1.Pod{}
 	if err := r.Get(ctx, client.ObjectKeyFromObject(pb), pod); err != nil {
 		if apierrors.IsNotFound(err) { // Pod 没有重建出来，忽略
-			return nil
+			return result, nil
 		}
-		return errors.WithStack(err)
+		return result, errors.WithStack(err)
 	}
 	if !pod.DeletionTimestamp.IsZero() { // 忽略正在删除的 Pod
-		return nil
+		return result, nil
 	}
-	// 新的同名 Pod 已经创建，触发一次 Pod 对账，以便让新的 CLBPodBinding 创建出来
-	return kube.PatchLastUpdateTime(ctx, pb)
+	// 新的同名 Pod 已经创建，通知 PodController 重新对账 Pod，以便让新的 CLBPodBinding 创建出来
+	podEventSource <- event.TypedGenericEvent[client.Object]{
+		Object: pod,
+	}
+	return result, nil
 }
 
 // SetupWithManager sets up the controller with the Manager.

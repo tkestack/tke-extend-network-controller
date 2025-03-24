@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"time"
 
-	networkingv1alpha1 "github.com/imroc/tke-extend-network-controller/api/v1alpha1"
 	"github.com/imroc/tke-extend-network-controller/pkg/clusterinfo"
 	"github.com/imroc/tke-extend-network-controller/pkg/util"
 	clb "github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/clb/v20180317"
@@ -134,8 +133,7 @@ func Delete(ctx context.Context, region string, lbIds ...string) error {
 }
 
 // 创建单个 CLB
-func CreateCLB(ctx context.Context, region string, p *networkingv1alpha1.CreateLBParameters) (lbId string, err error) {
-	req := ConvertCreateLoadBalancerRequest(p)
+func CreateCLB(ctx context.Context, region string, req *clb.CreateLoadBalancerRequest) (lbId string, err error) {
 	client := GetClient(region)
 	resp, err := client.CreateLoadBalancerWithContext(ctx, req)
 	if err != nil {

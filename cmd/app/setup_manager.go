@@ -9,7 +9,6 @@ import (
 	"github.com/imroc/tke-extend-network-controller/internal/portpool"
 	builtinwebhook "github.com/imroc/tke-extend-network-controller/internal/webhook/v1"
 	webhook "github.com/imroc/tke-extend-network-controller/internal/webhook/v1alpha1"
-	"github.com/imroc/tke-extend-network-controller/pkg/util"
 	"github.com/spf13/viper"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
@@ -69,8 +68,9 @@ func SetupManager(mgr ctrl.Manager) {
 
 	// CLBPortPool cotroller and webhook
 	if err := (&controller.CLBPortPoolReconciler{
-		Client: mgr.GetClient(),
-		Scheme: mgr.GetScheme(),
+		Client:   mgr.GetClient(),
+		Scheme:   mgr.GetScheme(),
+		Recorder: mgr.GetEventRecorderFor("clbportpool-controller"),
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "CLBPortPool")
 		os.Exit(1)
@@ -82,8 +82,9 @@ func SetupManager(mgr ctrl.Manager) {
 
 	// CLBPodBinding cotroller and webhook
 	if err := (&controller.CLBPodBindingReconciler{
-		Client: mgr.GetClient(),
-		Scheme: mgr.GetScheme(),
+		Client:   mgr.GetClient(),
+		Scheme:   mgr.GetScheme(),
+		Recorder: mgr.GetEventRecorderFor("clbpodbinding-controller"),
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "CLBPodBinding")
 		os.Exit(1)
@@ -95,8 +96,9 @@ func SetupManager(mgr ctrl.Manager) {
 
 	// Pod controller and webhook
 	if err := (&controller.PodReconciler{
-		Client: mgr.GetClient(),
-		Scheme: mgr.GetScheme(),
+		Client:   mgr.GetClient(),
+		Scheme:   mgr.GetScheme(),
+		Recorder: mgr.GetEventRecorderFor("pod-controller"),
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "Pod")
 		os.Exit(1)
@@ -135,11 +137,11 @@ func (i *initCache) Start(ctx context.Context) error {
 	for _, pp := range ppl.Items {
 		if err := portpool.Allocator.AddPool(
 			pp.Name,
-			util.GetRegionFromPtr(pp.Spec.Region),
+			pp.GetRegion(),
 			pp.Spec.StartPort,
 			pp.Spec.EndPort,
 			pp.Spec.SegmentLength,
-			controller.GetCreateLoadBalancerFunc(i.Client, pp.Name),
+			controller.GetNotifyCreateLoadBalancerFunc(i.Client, pp.Name),
 		); err != nil {
 			return err
 		}

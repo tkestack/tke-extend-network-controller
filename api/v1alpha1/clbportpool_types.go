@@ -47,6 +47,36 @@ type CLBPortPoolSpec struct {
 	AutoCreate *AutoCreateConfig `json:"autoCreate,omitempty"`
 }
 
+func (pool *CLBPortPool) CanCreateLB() bool {
+	// 检查是否启用自动创建
+	if pool.Spec.AutoCreate == nil {
+		return false
+	}
+	if !pool.Spec.AutoCreate.Enabled {
+		return false
+	}
+	// 检查是否达到 lb 上限
+	if !util.IsZero(pool.Spec.AutoCreate.MaxLoadBalancers) {
+		// 检查是否已创建了足够的 CLB
+		num := uint16(0)
+		for _, lbStatus := range pool.Status.LoadbalancerStatuses {
+			if lbStatus.AutoCreated != nil && *lbStatus.AutoCreated {
+				num++
+			}
+		}
+		// 如果已创建数量已满，则直接返回
+		if num >= *pool.Spec.AutoCreate.MaxLoadBalancers {
+			return false
+		}
+	}
+	// 检查状态
+	return true
+}
+
+func (pool *CLBPortPool) GetRegion() string {
+	return util.GetRegionFromPtr(pool.Spec.Region)
+}
+
 // AutoCreateConfig 定义自动创建CLB的配置
 type AutoCreateConfig struct {
 	// 是否启用自动创建
@@ -220,13 +250,21 @@ type InternetAccessible struct {
 
 // CLBPortPoolStatus defines the observed state of CLBPortPool.
 type CLBPortPoolStatus struct {
-	// 状态: Active/Error
-	State *string `json:"state,omitempty"`
+	// 状态: Pending/Active/Scaling
+	State CLBPortPoolState `json:"state"`
 	// 状态信息
 	Message *string `json:"message,omitempty"`
 	// 负载均衡器状态列表
 	LoadbalancerStatuses []LoadBalancerStatus `json:"loadbalancerStatuses,omitempty"`
 }
+
+type CLBPortPoolState string
+
+const (
+	CLBPortPoolStatePending CLBPortPoolState = "Pending"
+	CLBPortPoolStateActive  CLBPortPoolState = "Active"
+	CLBPortPoolStateScaling CLBPortPoolState = "Scaling"
+)
 
 // LoadBalancerStatus 定义负载均衡器状态
 type LoadBalancerStatus struct {

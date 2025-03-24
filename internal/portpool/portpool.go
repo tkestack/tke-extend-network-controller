@@ -43,14 +43,14 @@ func (pas PortAllocations) Release() {
 
 // PortPool 管理单个端口池的状态
 type PortPool struct {
-	mu                 sync.Mutex
-	Name               string
-	Region             string
-	StartPort          uint16
-	EndPort            uint16
-	SegmentLength      uint16
-	CreateLoadBalancer func(ctx context.Context) (string, error)
-	cache              map[string]map[ProtocolPort]struct{}
+	mu                       sync.Mutex
+	Name                     string
+	Region                   string
+	StartPort                uint16
+	EndPort                  uint16
+	SegmentLength            uint16
+	NotifyCreateLoadBalancer func(ctx context.Context) error
+	cache                    map[string]map[ProtocolPort]struct{}
 }
 
 // 分配指定端口

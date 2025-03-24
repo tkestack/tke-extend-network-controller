@@ -238,6 +238,24 @@ _Appears in:_
 | `autoCreate` _[AutoCreateConfig](#autocreateconfig)_ | 自动创建配置 |  |  |
 
 
+#### CLBPortPoolState
+
+_Underlying type:_ _string_
+
+
+
+
+
+_Appears in:_
+- [CLBPortPoolStatus](#clbportpoolstatus)
+
+| Field | Description |
+| --- | --- |
+| `Pending` |  |
+| `Active` |  |
+| `Scaling` |  |
+
+
 #### CLBPortPoolStatus
 
 
@@ -251,7 +269,7 @@ _Appears in:_
 
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
-| `state` _string_ | 状态: Active/Error |  |  |
+| `state` _[CLBPortPoolState](#clbportpoolstate)_ | 状态: Pending/Active/Scaling |  |  |
 | `message` _string_ | 状态信息 |  |  |
 | `loadbalancerStatuses` _[LoadBalancerStatus](#loadbalancerstatus) array_ | 负载均衡器状态列表 |  |  |
 

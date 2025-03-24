@@ -68,17 +68,15 @@ LOOP_POOL:
 			}
 			// 该端口池中无法分配此端口，尝试下一个端口
 		}
-		// 该端口池所有端口都无法分配，或者监听器数量超配额，为保证事务性，释放已分配的端口，并尝试新建 CLB 来补充端口池
+		// 该端口池所有端口都无法分配，或者监听器数量超配额，为保证事务性，释放已分配的端口，并尝试通知端口池扩容 CLB 来补充端口池
 		allocatedPorts.Release()
-		lbId, err := pool.CreateLoadBalancer(ctx)
+		// 尝试通知端口池扩容 CLB
+		err := pool.NotifyCreateLoadBalancer(ctx)
 		if err != nil { // 创建失败，返回错误
 			return nil, errors.WithStack(err)
 		}
-		if lbId == "" { // 没有启用自动创建，返回端口不足的错误
-			return nil, fmt.Errorf("port pool %s have no available port and auto create clb is not enabled", pool.Name)
-		}
-		// lb 创建成功，重新入队重新对账
-		return nil, ErrLBCreated
+		// 成功通知端口池扩容，或者已经通知过，重新入队重新对账
+		return nil, ErrWaitLBScale
 	}
 	// 所有端口池都分配成功，返回结果
 	return allocatedPorts, nil

@@ -26,6 +26,8 @@ import (
 	"strings"
 	"time"
 
+	"sigs.k8s.io/controller-runtime/pkg/event"
+
 	networkingv1alpha1 "github.com/imroc/tke-extend-network-controller/api/v1alpha1"
 	"github.com/imroc/tke-extend-network-controller/internal/constant"
 	"github.com/imroc/tke-extend-network-controller/pkg/util"
@@ -34,18 +36,21 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/tools/record"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
+	"sigs.k8s.io/controller-runtime/pkg/source"
 )
 
 // PodReconciler reconciles a Pod object
 type PodReconciler struct {
 	client.Client
-	Scheme *runtime.Scheme
+	Scheme   *runtime.Scheme
+	Recorder record.EventRecorder
 }
 
 // +kubebuilder:rbac:groups=core,resources=pods,verbs=get;list;watch;create;update;patch;delete
@@ -63,7 +68,7 @@ type PodReconciler struct {
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.20.2/pkg/reconcile
 func (r *PodReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	// return ReconcilePodWithFinalizer(ctx, req, r.Client, &corev1.Pod{}, r.sync, r.cleanup)
-	return ReconcileWithResult(ctx, req, r.Client, &corev1.Pod{}, r.sync)
+	return Reconcile(ctx, req, r.Client, &corev1.Pod{}, r.sync)
 }
 
 func (r *PodReconciler) sync(ctx context.Context, pod *corev1.Pod) (result ctrl.Result, err error) {
@@ -73,13 +78,13 @@ func (r *PodReconciler) sync(ctx context.Context, pod *corev1.Pod) (result ctrl.
 	// 获取 Pod 的注解
 	enablePortMappings := pod.Annotations[constant.EnableCLBPortMappingsKey]
 	if enablePortMappings == "" {
-		log.FromContext(ctx).Info("skip pod without enable-clb-port-mapping annotation")
+		log.FromContext(ctx).V(10).Info("skip pod without enable-clb-port-mapping annotation")
 		return
 	}
 
 	portMappings := pod.Annotations[constant.CLBPortMappingsKey]
 	if portMappings == "" {
-		log.FromContext(ctx).Info("skip pod without clb-port-mapping annotation")
+		log.FromContext(ctx).V(10).Info("skip pod without clb-port-mapping annotation")
 		return
 	}
 
@@ -103,10 +108,12 @@ func (r *PodReconciler) sync(ctx context.Context, pod *corev1.Pod) (result ctrl.
 						return result, errors.WithStack(err)
 					}
 				}
-				log.FromContext(ctx).Info("create clbpodbinding", "pb", *pb)
+				log.FromContext(ctx).V(10).Info("create clbpodbinding", "pb", *pb)
 				if err := r.Create(ctx, pb); err != nil {
+					r.Recorder.Event(pod, corev1.EventTypeWarning, "CreateCLBPodBinding", fmt.Sprintf("create CLBPodBinding %s failed: %s", pod.Name, err.Error()))
 					return result, errors.WithStack(err)
 				}
+				r.Recorder.Event(pod, corev1.EventTypeNormal, "CreateCLBPodBinding", fmt.Sprintf("create CLBPodBinding %s successfully", pod.Name))
 			} else { // 其它错误，直接返回错误
 				return result, errors.WithStack(err)
 			}
@@ -116,17 +123,33 @@ func (r *PodReconciler) sync(ctx context.Context, pod *corev1.Pod) (result ctrl.
 				result.RequeueAfter = time.Second
 				return result, nil
 			}
+			podRecreated := false
+			for _, ref := range pb.OwnerReferences {
+				if ref.Kind == pod.Kind && ref.Name == pod.Name && ref.APIVersion == pod.APIVersion {
+					if ref.UID != pod.UID {
+						podRecreated = true
+					}
+					break
+				}
+			}
+			if podRecreated { // 检测到 Pod 已被重建，CLBPodBinding 在等待被 GC 清理，重新入队，以便被 GC 清理后重新对账让新的 CLBPodBinding 被创建出来
+				result.RequeueAfter = 3 * time.Second
+				r.Recorder.Event(pod, corev1.EventTypeNormal, "WaitCLBPodBindingGC", "wait old clbpodbinding to be deleted")
+				return result, nil
+			}
 			// CLBPodBinding 存在且没有被删除，对账 spec 是否符合预期
 			spec, err := generateCLBPodBindingSpec(portMappings, enablePortMappings)
 			if err != nil {
 				return result, errors.Wrap(err, "failed to generate CLBPodBinding spec")
 			}
-			if !reflect.DeepEqual(pb.Spec, spec) { // spec 不一致，更新
+			if !reflect.DeepEqual(pb.Spec, *spec) { // spec 不一致，更新
 				pb.Spec = *spec
-				log.FromContext(ctx).Info("update clbpodbinding")
+				log.FromContext(ctx).Info("update clbpodbinding", "oldSpec", pb.Spec, "newSpec", *spec)
 				if err := r.Update(ctx, pb); err != nil {
+					r.Recorder.Eventf(pod, corev1.EventTypeWarning, "CLBPodBindingChanged", "update CLBPodBinding %s failed: %s", pod.Name, err.Error())
 					return result, errors.WithStack(err)
 				}
+				r.Recorder.Eventf(pod, corev1.EventTypeNormal, "CLBPodBindingChanged", "update CLBPodBinding %s successfully", pod.Name)
 			}
 		}
 	default:
@@ -135,6 +158,8 @@ func (r *PodReconciler) sync(ctx context.Context, pod *corev1.Pod) (result ctrl.
 	return
 }
 
+var podEventSource = make(chan event.TypedGenericEvent[client.Object])
+
 // SetupWithManager sets up the controller with the Manager.
 func (r *PodReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
@@ -142,6 +167,7 @@ func (r *PodReconciler) SetupWithManager(mgr ctrl.Manager) error {
 			&corev1.Pod{},
 			handler.EnqueueRequestsFromMapFunc(r.findObjectsForPod),
 		).
+		WatchesRawSource(source.Channel(podEventSource, &handler.EnqueueRequestForObject{})).
 		Named("pod").
 		Complete(r)
 }
