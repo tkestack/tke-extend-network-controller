@@ -5,7 +5,6 @@
 本文中的功能将在 2.0.0 版本中正式发布，目前处于预览阶段，可通过以下 helm 安装方式测试和体验：
 
 ```bash
-```bash
 helm repo add tke-extend-network-controller https://tkestack.github.io/tke-extend-network-controller
 helm upgrade --install --devel -f values.yaml \
   --namespace tke-extend-network-controller --create-namespace \
