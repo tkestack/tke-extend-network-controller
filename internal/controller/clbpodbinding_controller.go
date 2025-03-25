@@ -18,6 +18,8 @@ package controller
 
 import (
 	"context"
+	"encoding/json"
+	"fmt"
 	"time"
 
 	"github.com/imroc/tke-extend-network-controller/internal/constant"
@@ -194,6 +196,80 @@ func (r *CLBPodBindingReconciler) ensurePodBindings(ctx context.Context, pb *net
 			return errors.WithStack(err)
 		}
 	}
+	// 确保 status 注解正确
+	if err := r.ensurePodStatusAnnotation(ctx, pb, pod); err != nil {
+		return errors.WithStack(err)
+	}
+	return nil
+}
+
+type PortBindingStatus struct {
+	networkingv1alpha1.PortBindingStatus `json:",inline"`
+	Hostname                             *string  `json:"hostname,omitempty"`
+	Ips                                  []string `json:"ips,omitempty"`
+}
+
+func lbStatusKey(poolName, lbId string) string {
+	return fmt.Sprintf("%s/%s", poolName, lbId)
+}
+
+func (r *CLBPodBindingReconciler) ensurePodStatusAnnotation(ctx context.Context, pb *networkingv1alpha1.CLBPodBinding, pod *corev1.Pod) error {
+	lbStatuses := make(map[string]*networkingv1alpha1.LoadBalancerStatus)
+	getLbStatus := func(poolName, lbId string) (*networkingv1alpha1.LoadBalancerStatus, error) {
+		status, exists := lbStatuses[lbStatusKey(poolName, lbId)]
+		if exists {
+			return status, nil
+		}
+		pp := &networkingv1alpha1.CLBPortPool{}
+		if err := r.Get(ctx, client.ObjectKey{Name: poolName}, pp); err != nil {
+			return nil, errors.WithStack(err)
+		}
+		for i := range pp.Status.LoadbalancerStatuses {
+			status := &pp.Status.LoadbalancerStatuses[i]
+			lbStatuses[lbStatusKey(poolName, status.LoadbalancerID)] = status
+		}
+		status, exists = lbStatuses[lbStatusKey(poolName, lbId)]
+		if exists {
+			return status, nil
+		}
+		return nil, errors.Errorf("loadbalancer %s not found in pool %s", lbId, poolName)
+	}
+	statuses := []PortBindingStatus{}
+	for _, binding := range pb.Status.PortBindings {
+		status, err := getLbStatus(binding.Pool, binding.LoadbalancerId)
+		if err != nil {
+			return errors.WithStack(err)
+		}
+		statuses = append(statuses, PortBindingStatus{
+			PortBindingStatus: binding,
+			Hostname:          status.Hostname,
+			Ips:               status.Ips,
+		})
+	}
+	val, err := json.Marshal(statuses)
+	if err != nil {
+		return errors.WithStack(err)
+	}
+	patchMap := map[string]any{
+		"metadata": map[string]any{
+			"annotations": map[string]string{
+				constant.CLBPortMappingStatuslKey: string(val),
+			},
+		},
+	}
+	patch, err := json.Marshal(patchMap)
+	if err != nil {
+		return errors.WithStack(err)
+	}
+	if pod.Annotations != nil {
+		if pod.Annotations[constant.CLBPortMappingStatuslKey] == string(val) { // 注解符合预期，无需更新
+			return nil
+		}
+	}
+	if err := r.Patch(ctx, pod, client.RawPatch(types.StrategicMergePatchType, patch)); err != nil {
+		return errors.WithStack(err)
+	}
+	log.FromContext(ctx).V(10).Info("patch clb port mapping status success", "value", string(val))
 	return nil
 }
 
