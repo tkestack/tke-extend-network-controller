@@ -260,7 +260,8 @@ func (r *CLBPodBindingReconciler) ensurePodStatusAnnotation(ctx context.Context,
 	patchMap := map[string]any{
 		"metadata": map[string]any{
 			"annotations": map[string]string{
-				constant.CLBPortMappingStatuslKey: string(val),
+				constant.CLBPortMappingResultKey:  string(val),
+				constant.CLBPortMappingStatuslKey: "Ready",
 			},
 		},
 	}
