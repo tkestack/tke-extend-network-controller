@@ -1,5 +1,9 @@
 # 版本说明
 
+## v2.0.0-alpha.1 (2025-03-15)
+
+支持了一套全新的 API，抢先体验参考 [使用 CLB 端口池为 Pod 映射公网地址](./docs/clb-port-pool.md)。
+
 ## v1.1.2 (2024-11-4)
 
 * 修复：解决DedicatedCLBListener的TargetPod置为nil后导致pod finalizer泄露问题。
