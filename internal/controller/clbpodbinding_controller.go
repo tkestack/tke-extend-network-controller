@@ -270,7 +270,7 @@ func (r *CLBPodBindingReconciler) ensurePodStatusAnnotation(ctx context.Context,
 		return errors.WithStack(err)
 	}
 	if pod.Annotations != nil {
-		if pod.Annotations[constant.CLBPortMappingStatuslKey] == string(val) { // 注解符合预期，无需更新
+		if pod.Annotations[constant.CLBPortMappingResultKey] == string(val) { // 注解符合预期，无需更新
 			return nil
 		}
 	}
