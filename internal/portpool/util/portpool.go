@@ -15,18 +15,18 @@ type PortPool struct {
 }
 
 func (p *PortPool) TryNotifyCreateLB(ctx context.Context) (int, error) {
-	pp := networkingv1alpha1.CLBPortPool{}
-	if err := p.Get(ctx, client.ObjectKeyFromObject(p.CLBPortPool), &pp); err != nil {
+	pp := &networkingv1alpha1.CLBPortPool{}
+	if err := p.Get(ctx, client.ObjectKeyFromObject(p.CLBPortPool), pp); err != nil {
 		return 0, errors.WithStack(err)
 	}
 	if !pp.CanCreateLB() {
 		return -1, nil
 	}
-	if p.CLBPortPool.Status.State == networkingv1alpha1.CLBPortPoolStateScaling { // 已经在扩容了
+	if pp.Status.State == networkingv1alpha1.CLBPortPoolStateScaling { // 已经在扩容了
 		return 2, nil
 	}
-	p.CLBPortPool.Status.State = networkingv1alpha1.CLBPortPoolStateScaling
-	if err := p.Client.Status().Update(ctx, p.CLBPortPool); err != nil {
+	pp.Status.State = networkingv1alpha1.CLBPortPoolStateScaling
+	if err := p.Client.Status().Update(ctx, pp); err != nil {
 		return 0, errors.WithStack(err)
 	}
 	return 1, nil // 成功通知扩容
