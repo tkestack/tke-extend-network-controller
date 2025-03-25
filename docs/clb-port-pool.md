@@ -2,6 +2,10 @@
 
 ## 创建端口池 (CLBPortPool)
 
+使用 CLB 为 Pod 分配公网地址映射，需要先创建端口池，每个端口池对应一组相同属性的 CLB，可以动态追加已有 CLB 实例 ID，也可以在端口不足时自动创建新的 CLB。
+
+通过创建 CLBPortPool 这个自定义资源来声明端口池，示例：
+
 ```yaml
 apiVersion: networking.cloud.tencent.com/v1alpha1
 kind: CLBPortPool
@@ -124,7 +128,6 @@ annotations:
 annotations:
     networking.cloud.tencent.com/clb-port-mapping-result: '[{"port":8000,"protocol":"TCP","pool":"pool-test","region":"ap-chengdu","loadbalancerId":"lb-04iq85jh","loadbalancerPort":30170,"loadbalancerEndPort":30179,"listenerId":"lbl-bjoyr92j","endPort":8009,"hostname":"lb-04iq85jh-w49ru3xpmdynoigk.clb.cd-tencentclb.work"},{"port":8000,"protocol":"UDP","pool":"pool-test","region":"ap-chengdu","loadbalancerId":"lb-04iq85jh","loadbalancerPort":30170,"loadbalancerEndPort":30179,"listenerId":"lbl-6dg9wfs5","endPort":8009,"hostname":"lb-04iq85jh-w49ru3xpmdynoigk.clb.cd-tencentclb.work"}]'
     networking.cloud.tencent.com/clb-port-mapping-status: Ready
-
 ```
 
 ## 多线接入
