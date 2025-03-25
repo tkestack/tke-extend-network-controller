@@ -320,7 +320,7 @@ LOOP_PORT:
 		// 未分配端口，执行分配
 		allocated, err := portpool.Allocator.Allocate(ctx, port.Pools, port.Protocol, util.GetValue(port.UseSamePortAcrossPools))
 		if err != nil {
-			return err
+			return errors.WithStack(err)
 		}
 		for _, allocatedPort := range allocated {
 			binding := networkingv1alpha1.PortBindingStatus{
@@ -367,7 +367,7 @@ LOOP_PORT:
 	if err := r.Status().Update(ctx, pb); err != nil {
 		// 更新状态失败，释放已分配端口
 		allocatedPorts.Release()
-		return err
+		return errors.WithStack(err)
 	}
 	return nil
 }

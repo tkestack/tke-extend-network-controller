@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"sync"
 
+	"github.com/pkg/errors"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -79,16 +80,24 @@ func (pa *PortAllocator) RemovePool(name string) {
 func (pa *PortAllocator) getPortPools(pools []string) (PortPools, error) {
 	pa.mu.RLock()
 	defer pa.mu.RUnlock()
-	return pa.pools.Sub(pools...)
+	pp, err := pa.pools.Sub(pools...)
+	if err != nil {
+		return nil, errors.WithStack(err)
+	}
+	return pp, nil
 }
 
 // Allocate 分配一个端口
 func (pa *PortAllocator) Allocate(ctx context.Context, pools []string, protocol string, useSamePortAcrossPools bool) (PortAllocations, error) {
 	portPools, err := pa.getPortPools(pools)
 	if err != nil {
-		return nil, err
+		return nil, errors.WithStack(err)
 	}
-	return portPools.AllocatePort(ctx, protocol, useSamePortAcrossPools)
+	if ports, err := portPools.AllocatePort(ctx, protocol, useSamePortAcrossPools); err != nil {
+		return nil, errors.WithStack(err)
+	} else {
+		return ports, nil
+	}
 }
 
 // Release 释放一个端口

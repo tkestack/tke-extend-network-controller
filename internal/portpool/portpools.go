@@ -45,7 +45,11 @@ LOOP_POOL:
 		for port := startPort; port <= endPort; port += segmentLength { // 遍历该端口池的所有端口号
 			select {
 			case <-ctx.Done():
-				return nil, ctx.Err()
+				allocatedPorts.Release()
+				if err := ctx.Err(); err != nil {
+					return nil, errors.WithStack(err)
+				}
+				return nil, nil
 			default:
 			}
 			endPort := uint16(0)
@@ -106,7 +110,11 @@ LOOP_PORT:
 		for _, pool := range pp { // 在所有端口池中查找可用端口，TCP 和 UDP 端口号相同且都未被分配，则分配此端口号
 			select {
 			case <-ctx.Done():
-				return nil, ctx.Err()
+				allocatedPorts.Release()
+				if err := ctx.Err(); err != nil {
+					return nil, errors.WithStack(err)
+				}
+				return nil, nil
 			default:
 			}
 			results, err := pool.AllocatePort(ctx, portsToAllocate...)
@@ -175,9 +183,14 @@ func (pp PortPools) AllocatePort(ctx context.Context, protocol string, useSamePo
 	}
 
 	if useSamePortAcrossPools {
-		return pp.allocateSamePortAcrossPools(ctx, startPort, endPort, segmentLength, getPortsToAllocate)
+		ports, err = pp.allocateSamePortAcrossPools(ctx, startPort, endPort, segmentLength, getPortsToAllocate)
+	} else {
+		ports, err = pp.allocatePortAcrossPools(ctx, startPort, endPort, segmentLength, getPortsToAllocate)
 	}
-	return pp.allocatePortAcrossPools(ctx, startPort, endPort, segmentLength, getPortsToAllocate)
+	if err != nil {
+		return nil, errors.WithStack(err)
+	}
+	return ports, nil
 }
 
 func (pp PortPools) ReleasePort(lbId string, port uint16, protocol string) {
