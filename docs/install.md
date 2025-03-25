@@ -46,6 +46,7 @@
 
 ```yaml
 vpcID: "" # TKE 集群所在 VPC ID (vpc-xxx)
+region: "" # TKE 集群所在地域，如 ap-guangzhou
 clusterID: "" # TKE 集群 ID (cls-xxx)
 secretID: "" # 腾讯云子账号的 SecretID
 secretKey: "" # 腾讯云子账号的 SecretKey
