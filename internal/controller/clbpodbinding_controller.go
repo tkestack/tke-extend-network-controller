@@ -79,7 +79,8 @@ func (r *CLBPodBindingReconciler) sync(ctx context.Context, pb *networkingv1alph
 		}
 	}
 	// 确保所有端口都已分配且绑定 Pod
-	if err := r.ensurePorts(ctx, pb); err != nil {
+	if err := r.ensureCLBPodBinding(ctx, pb); err != nil {
+		// 如果是等待端口池扩容 CLB，确保状态为 WaitForLB，并重新入队，以便在 CLB 扩容完成后能自动分配端口并绑定 Pod
 		if errors.Is(err, portpool.ErrWaitLBScale) {
 			if err := r.ensureState(ctx, pb, networkingv1alpha1.CLBPodBindingStateWaitForLB); err != nil {
 				return result, errors.WithStack(err)
@@ -87,6 +88,7 @@ func (r *CLBPodBindingReconciler) sync(ctx context.Context, pb *networkingv1alph
 			result.RequeueAfter = 3 * time.Second
 			return result, nil
 		}
+		// 其它非资源冲突的错误，将错误记录到状态中方便排障
 		if !apierrors.IsConflict(err) {
 			pb.Status.State = networkingv1alpha1.CLBPodBindingStateFailed
 			pb.Status.Message = err.Error()
@@ -99,7 +101,7 @@ func (r *CLBPodBindingReconciler) sync(ctx context.Context, pb *networkingv1alph
 	return result, err
 }
 
-func (r *CLBPodBindingReconciler) ensurePorts(ctx context.Context, pb *networkingv1alpha1.CLBPodBinding) error {
+func (r *CLBPodBindingReconciler) ensureCLBPodBinding(ctx context.Context, pb *networkingv1alpha1.CLBPodBinding) error {
 	// 确保所有端口都被分配
 	if err := r.ensurePortAllocated(ctx, pb); err != nil {
 		return errors.WithStack(err)
@@ -177,13 +179,14 @@ func (r *CLBPodBindingReconciler) ensurePodBindings(ctx context.Context, pb *net
 		}
 		return nil
 	}
+	// Pod 准备就绪，将 CLB 监听器绑定到 Pod
 	for i := range pb.Status.PortBindings {
 		binding := &pb.Status.PortBindings[i]
 		if err := r.ensurePortBound(ctx, pod, binding); err != nil {
 			return errors.WithStack(err)
 		}
 	}
-	// 所有端口都已绑定，更新状态
+	// 所有端口都已绑定，更新状态并将绑定信息写入 pod 注解
 	if pb.Status.State != networkingv1alpha1.CLBPodBindingStateBound {
 		pb.Status.State = networkingv1alpha1.CLBPodBindingStateBound
 		pb.Status.Message = ""
