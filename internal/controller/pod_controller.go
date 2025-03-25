@@ -26,6 +26,7 @@ import (
 	"strings"
 	"time"
 
+	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/event"
 
 	networkingv1alpha1 "github.com/imroc/tke-extend-network-controller/api/v1alpha1"
@@ -161,13 +162,16 @@ func (r *PodReconciler) sync(ctx context.Context, pod *corev1.Pod) (result ctrl.
 var podEventSource = make(chan event.TypedGenericEvent[client.Object])
 
 // SetupWithManager sets up the controller with the Manager.
-func (r *PodReconciler) SetupWithManager(mgr ctrl.Manager) error {
+func (r *PodReconciler) SetupWithManager(mgr ctrl.Manager, workers int) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		Watches(
 			&corev1.Pod{},
 			handler.EnqueueRequestsFromMapFunc(r.findObjectsForPod),
 		).
 		WatchesRawSource(source.Channel(podEventSource, &handler.EnqueueRequestForObject{})).
+		WithOptions(controller.Options{
+			MaxConcurrentReconciles: workers,
+		}).
 		Named("pod").
 		Complete(r)
 }

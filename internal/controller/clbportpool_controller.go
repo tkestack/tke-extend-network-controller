@@ -28,6 +28,7 @@ import (
 	"k8s.io/client-go/tools/record"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller"
 
 	networkingv1alpha1 "github.com/imroc/tke-extend-network-controller/api/v1alpha1"
 	"github.com/imroc/tke-extend-network-controller/internal/portpool"
@@ -272,9 +273,12 @@ func (r *CLBPortPoolReconciler) sync(ctx context.Context, pool *networkingv1alph
 }
 
 // SetupWithManager sets up the controller with the Manager.
-func (r *CLBPortPoolReconciler) SetupWithManager(mgr ctrl.Manager) error {
+func (r *CLBPortPoolReconciler) SetupWithManager(mgr ctrl.Manager, workers int) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&networkingv1alpha1.CLBPortPool{}).
+		WithOptions(controller.Options{
+			MaxConcurrentReconciles: workers,
+		}).
 		Named("clbportpool").
 		Complete(r)
 }

@@ -30,6 +30,7 @@ import (
 	"k8s.io/client-go/tools/record"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/log"
@@ -515,13 +516,16 @@ func (r *CLBPodBindingReconciler) cleanup(ctx context.Context, pb *networkingv1a
 }
 
 // SetupWithManager sets up the controller with the Manager.
-func (r *CLBPodBindingReconciler) SetupWithManager(mgr ctrl.Manager) error {
+func (r *CLBPodBindingReconciler) SetupWithManager(mgr ctrl.Manager, workers int) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&networkingv1alpha1.CLBPodBinding{}).
 		Watches(
 			&corev1.Pod{},
 			handler.EnqueueRequestsFromMapFunc(r.findObjectsForPod),
 		).
+		WithOptions(controller.Options{
+			MaxConcurrentReconciles: workers,
+		}).
 		Named("clbpodbinding").
 		Complete(r)
 }
