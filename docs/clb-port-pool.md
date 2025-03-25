@@ -215,6 +215,13 @@ spec:
 3. 追加 useSamePortAcrossPools 选项表示最终每个端口池分配相同的端口号。
 4. 综上，最终每个 Pod 的每个端口会被映射三个公网地址，算上 TCP 和 UDP 同时监听，每个 Pod 端口使用 6 个 CLB 监听器映射公网地址；玩家连上自己运营商对应的 CLB 映射地址，如果玩家的网络环境 UDP 无法正常工作，自动 fallback 到 TCP 协议进行通信。
 
+## TODO
+
+- CLB端口段+HostPort 形成的端口池实现大规模单 Pod 单 DS 端口映射。
+- 与 Agones 和 OKG 联动，映射信息写入 GameServer CR。
+- 通过 EIP、NATGW 等方式映射。
+- 优雅停机，避免缩容导致游戏中断。
+
 ## CRD 字段参考
 
 关于 CRD 字段的详细说明，请参考 [API 参考](./api.md)。
