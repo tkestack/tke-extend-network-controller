@@ -14,7 +14,7 @@ spec:
     enabled: true # 是否启用在 CLB 端口不足时自动创建 CLB
 ```
 
-## 指定 Pod 注解
+## 指定 Pod 注解映射公网地址
 
 在 Pod Template 中指定注解，声明从 CLB 端口池为 Pod 分配公网地址映射，可以是任意类型的工作负载，比如：
 1. Kubernetes 自带的 Deployment、Statusfulset。
@@ -48,6 +48,56 @@ spec:
 1. 指定注解 `networking.cloud.tencent.com/enable-clb-port-mapping` 为 `true` 开启使用 CLB 端口池为 Pod 映射公网地址。
 2. 指定注解 `networking.cloud.tencent.com/clb-port-mapping` 配置映射规则，`8000 TCP pool-test`，其中 `8000` 表示 Pod 监听的端口号，`UDP` 表示端口协议（支持 TCP、UDP 和 TCPUDP），`pool-test` 表示 CLB 端口池名称，可指定多行配置多个端口映射。
 
+## 通过 Downward API 获取 Pod 映射公网地址
+
+当配置好 Pod 注解后，会为 Pod 自动分配 CLB 公网地址的映射，并将映射的结果写到 Pod 注解中：
+
+```yaml
+annotations:
+    networking.cloud.tencent.com/clb-port-mapping-result: '[{"port":8000,"protocol":"TCP","pool":"pool-test","region":"ap-chengdu","loadbalancerId":"lb-04iq85jh","loadbalancerPort":30210,"listenerId":"lbl-dt94u61x","hostname":"lb-04iq85jh-w49ru3xpmdynoigk.clb.cd-tencentclb.work"},{"port":8000,"protocol":"UDP","pool":"pool-test","region":"ap-chengdu","loadbalancerId":"lb-04iq85jh","loadbalancerPort":30210,"listenerId":"lbl-467wodtz","hostname":"lb-04iq85jh-w49ru3xpmdynoigk.clb.cd-tencentclb.work"}]'
+    networking.cloud.tencent.com/clb-port-mapping-status: Ready
+```
+
+可以将注解的内容通过 Downward API 挂载到容器中，然后在容器中读取注解内容，获取 Pod 映射的公网地址：
+
+
+```yaml
+    spec:
+      containers:
+        - ...
+          volumeMounts:
+            - name: podinfo
+              mountPath: /etc/podinfo
+      volumes:
+        - name: podinfo
+          downwardAPI:
+            items:
+              - path: "clb-port-mapping"
+                fieldRef:
+                  fieldPath: metadata.annotations['networking.cloud.tencent.com/clb-port-mapping-result']
+```
+
+进程启动时可轮询指定文件（本例中文件路径为 `/etc/podinfo/clb-port-mapping`），当文件内容为空说明此时 Pod 还未绑定到 CLB，当读取到内容时说明已经绑定成功，其内容格式为 JSON 数组，每个元素代表一个端口映射，可参考上面给出的注解示例。
+
+## 单 Pod 多 DS 映射
+
+如果单个 Pod 中运行了多个 DS（比如 10 个），使用 CLB 的端口段特性可节约 CLB 监听器数量（默认情况下，1 个 CLB 只能创建 50 个监听器）。
+
+配置方法是定义端口池时指定端口段长度（segmentLength），指定后，分配的 CLB 监听器会使用端口段，即 1 个监听器映射后端连续的 segmentLength 个端口，示例：
+
+```yaml
+apiVersion: networking.cloud.tencent.com/v1alpha1
+kind: CLBPortPool
+metadata:
+  name: pool-test
+spec:
+  startPort: 30000
+  segmentLength: 10 # 端口段长度，10 表示 1 个 CLB 监听器映射 Pod 中连续的 10 个端口，即 10 个 DS 的地址
+  exsistedLoadBalancerIDs: [lb-04iq85jh]
+  autoCreate:
+    enabled: true
+```
+
 ## TCP 和 UDP 同时接入
 
 有些情况下，玩家的网络环境 UDP 可能无法正常工作，游戏客户端自动 fallback 到 TCP 协议进行通信。
@@ -67,6 +117,15 @@ annotations:
 ![](./images/tcpudp.png)
 
 > Pod 的一个端口同时监听 TCP 和 UDP 协议，CLB 映射公网地址时，会分别使用 TCP 和 UDP 两个相同端口号的不同监听器进行映射。
+
+自动生成的映射结果的注解示例如下：
+
+```yaml
+annotations:
+    networking.cloud.tencent.com/clb-port-mapping-result: '[{"port":8000,"protocol":"TCP","pool":"pool-test","region":"ap-chengdu","loadbalancerId":"lb-04iq85jh","loadbalancerPort":30170,"loadbalancerEndPort":30179,"listenerId":"lbl-bjoyr92j","endPort":8009,"hostname":"lb-04iq85jh-w49ru3xpmdynoigk.clb.cd-tencentclb.work"},{"port":8000,"protocol":"UDP","pool":"pool-test","region":"ap-chengdu","loadbalancerId":"lb-04iq85jh","loadbalancerPort":30170,"loadbalancerEndPort":30179,"listenerId":"lbl-6dg9wfs5","endPort":8009,"hostname":"lb-04iq85jh-w49ru3xpmdynoigk.clb.cd-tencentclb.work"}]'
+    networking.cloud.tencent.com/clb-port-mapping-status: Ready
+
+```
 
 ## 多线接入
 
