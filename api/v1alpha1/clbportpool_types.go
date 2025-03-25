@@ -167,13 +167,13 @@ func (p *CreateLBParameters) ExportCreateLoadBalancerRequest() *clb.CreateLoadBa
 		req.DynamicVip = p.DynamicVip
 	}
 	if p.DynamicVip == nil {
-		p.DynamicVip = util.GetPtr(true)
+		req.DynamicVip = util.GetPtr(true)
 	}
 	if p.VpcId != nil {
 		req.VpcId = p.VpcId
 	}
-	if util.IsZero(p.VpcId) {
-		p.VpcId = &clusterinfo.VpcId
+	if util.IsZero(req.VpcId) {
+		req.VpcId = &clusterinfo.VpcId
 	}
 	if p.Vip != nil {
 		req.Vip = p.Vip
