@@ -80,7 +80,7 @@ func (r *CLBPodBindingReconciler) sync(ctx context.Context, pb *networkingv1alph
 	}
 	// 确保所有端口都已分配且绑定 Pod
 	if err := r.ensurePorts(ctx, pb); err != nil {
-		if err == portpool.ErrWaitLBScale {
+		if err == errors.Cause(portpool.ErrWaitLBScale) {
 			if err := r.ensureState(ctx, pb, networkingv1alpha1.CLBPodBindingStateWaitForLB); err != nil {
 				return result, errors.WithStack(err)
 			}
