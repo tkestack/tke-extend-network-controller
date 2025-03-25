@@ -70,13 +70,19 @@ LOOP_POOL:
 		}
 		// 该端口池所有端口都无法分配，或者监听器数量超配额，为保证事务性，释放已分配的端口，并尝试通知端口池扩容 CLB 来补充端口池
 		allocatedPorts.Release()
-		// 尝试通知端口池扩容 CLB
-		err := pool.NotifyCreateLoadBalancer(ctx)
-		if err != nil { // 创建失败，返回错误
+		// 检查端口池是否可以创建 CLB
+		result, err := pool.TryNotifyCreateLB(ctx)
+		if err != nil {
 			return nil, errors.WithStack(err)
 		}
-		// 成功通知端口池扩容，或者已经通知过，重新入队重新对账
-		return nil, ErrWaitLBScale
+		switch result {
+		case -1: // 不能自动创建，返回端口不足的错误
+			return nil, ErrNoPortAvailable
+		case 2, 1: // 已经通知过或通知成功，重新入队
+			return nil, ErrWaitLBScale
+		default: // 不可能的状态
+			return nil, ErrUnknown
+		}
 	}
 	// 所有端口池都分配成功，返回结果
 	return allocatedPorts, nil
@@ -129,15 +135,15 @@ func (pp PortPools) AllocatePort(ctx context.Context, protocol string, useSamePo
 	endPort := uint16(65535)
 	segmentLength := uint16(0)
 	for _, portPool := range pp {
-		if portPool.StartPort > startPort {
-			startPort = portPool.StartPort
+		if portPool.GetStartPort() > startPort {
+			startPort = portPool.GetStartPort()
 		}
-		if portPool.EndPort < endPort {
-			endPort = portPool.EndPort
+		if portPool.GetEndPort() < endPort {
+			endPort = portPool.GetEndPort()
 		}
 		if segmentLength == 0 {
-			segmentLength = portPool.SegmentLength
-		} else if segmentLength != portPool.SegmentLength {
+			segmentLength = portPool.GetSegmentLength()
+		} else if segmentLength != portPool.GetSegmentLength() {
 			err = ErrSegmentLengthNotEqual
 			return
 		}

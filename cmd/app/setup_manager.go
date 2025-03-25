@@ -7,6 +7,7 @@ import (
 	networkingv1alpha1 "github.com/imroc/tke-extend-network-controller/api/v1alpha1"
 	"github.com/imroc/tke-extend-network-controller/internal/controller"
 	"github.com/imroc/tke-extend-network-controller/internal/portpool"
+	portpoolutil "github.com/imroc/tke-extend-network-controller/internal/portpool/util"
 	builtinwebhook "github.com/imroc/tke-extend-network-controller/internal/webhook/v1"
 	webhook "github.com/imroc/tke-extend-network-controller/internal/webhook/v1alpha1"
 	"github.com/spf13/viper"
@@ -134,15 +135,9 @@ func (i *initCache) Start(ctx context.Context) error {
 	if err := i.List(ctx, ppl); err != nil {
 		return err
 	}
-	for _, pp := range ppl.Items {
-		if err := portpool.Allocator.AddPool(
-			pp.Name,
-			pp.GetRegion(),
-			pp.Spec.StartPort,
-			pp.Spec.EndPort,
-			pp.Spec.SegmentLength,
-			controller.GetNotifyCreateLoadBalancerFunc(i.Client, pp.Name),
-		); err != nil {
+	for index := range ppl.Items {
+		pp := &ppl.Items[index]
+		if err := portpool.Allocator.AddPool(portpoolutil.NewPortPool(pp, i.Client)); err != nil {
 			return err
 		}
 		lbIds := []string{}

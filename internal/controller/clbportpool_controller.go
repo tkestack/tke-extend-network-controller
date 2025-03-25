@@ -20,6 +20,7 @@ import (
 	"context"
 	"reflect"
 
+	portpoolutil "github.com/imroc/tke-extend-network-controller/internal/portpool/util"
 	"github.com/pkg/errors"
 	clbsdk "github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/clb/v20180317"
 	corev1 "k8s.io/api/core/v1"
@@ -74,23 +75,6 @@ func (r *CLBPortPoolReconciler) cleanup(ctx context.Context, pool *networkingv1a
 	return
 }
 
-func GetNotifyCreateLoadBalancerFunc(apiClient client.Client, poolName string) func(ctx context.Context) error {
-	return func(ctx context.Context) error {
-		pool := &networkingv1alpha1.CLBPortPool{}
-		if err := apiClient.Get(context.Background(), client.ObjectKey{Name: poolName}, pool); err != nil {
-			return err
-		}
-		if !pool.CanCreateLB() || pool.Status.State == networkingv1alpha1.CLBPortPoolStateScaling { // 忽略未启用自动创建或正在扩容的端口池
-			return nil
-		}
-		pool.Status.State = networkingv1alpha1.CLBPortPoolStateScaling
-		if err := apiClient.Status().Update(ctx, pool); err != nil {
-			return errors.WithStack(err)
-		}
-		return nil
-	}
-}
-
 func (r *CLBPortPoolReconciler) ensureState(ctx context.Context, pool *networkingv1alpha1.CLBPortPool, state networkingv1alpha1.CLBPortPoolState) error {
 	if pool.Status.State != state {
 		pool.Status.State = state
@@ -143,7 +127,7 @@ func (r *CLBPortPoolReconciler) ensureExistedLB(ctx context.Context, pool *netwo
 	return nil
 }
 
-func (r *CLBPortPoolReconciler) ensureLbInAllocator(ctx context.Context, pool *networkingv1alpha1.CLBPortPool) error {
+func (r *CLBPortPoolReconciler) ensureLbInAllocator(_ context.Context, pool *networkingv1alpha1.CLBPortPool) error {
 	// 同步lbId列表到端口池
 	allLbIds := []string{}
 	for _, lbStatus := range pool.Status.LoadbalancerStatuses {
@@ -243,16 +227,9 @@ func (r *CLBPortPoolReconciler) createLB(ctx context.Context, pool *networkingv1
 	return nil
 }
 
-func (r *CLBPortPoolReconciler) ensureAllocatorCache(ctx context.Context, pool *networkingv1alpha1.CLBPortPool) error {
+func (r *CLBPortPoolReconciler) ensureAllocatorCache(_ context.Context, pool *networkingv1alpha1.CLBPortPool) error {
 	if !portpool.Allocator.IsPoolExists(pool.Name) { // 分配器缓存中不存在，则添加
-		if err := portpool.Allocator.AddPool(
-			pool.Name,
-			pool.GetRegion(),
-			pool.Spec.StartPort,
-			pool.Spec.EndPort,
-			pool.Spec.SegmentLength,
-			GetNotifyCreateLoadBalancerFunc(r.Client, pool.Name),
-		); err != nil {
+		if err := portpool.Allocator.AddPool(portpoolutil.NewPortPool(pool, r.Client)); err != nil {
 			return errors.WithStack(err)
 		}
 	}

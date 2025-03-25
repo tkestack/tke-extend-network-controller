@@ -81,8 +81,7 @@ func (r *CLBPodBindingReconciler) sync(ctx context.Context, pb *networkingv1alph
 	// 确保所有端口都已分配且绑定 Pod
 	if err := r.ensurePorts(ctx, pb); err != nil {
 		if err == portpool.ErrWaitLBScale {
-			pb.Status.State = networkingv1alpha1.CLBPodBindingStateWaitForLB
-			if err := r.Status().Update(ctx, pb); err != nil {
+			if err := r.ensureState(ctx, pb, networkingv1alpha1.CLBPodBindingStateWaitForLB); err != nil {
 				return result, errors.WithStack(err)
 			}
 			result.RequeueAfter = 3 * time.Second
@@ -327,20 +326,19 @@ LOOP_PORT:
 			binding := networkingv1alpha1.PortBindingStatus{
 				Port:             port.Port,
 				Protocol:         allocatedPort.Protocol,
-				Pool:             allocatedPort.Name,
+				Pool:             allocatedPort.GetName(),
 				LoadbalancerId:   allocatedPort.LbId,
 				LoadbalancerPort: allocatedPort.Port,
-				Region:           allocatedPort.Region,
+				Region:           allocatedPort.GetRegion(),
 			}
-			if allocatedPort.ProtocolPort.EndPort > 0 {
-				binding.LoadbalancerEndPort = &allocatedPort.ProtocolPort.EndPort
+			if allocatedPort.EndPort > 0 {
+				binding.LoadbalancerEndPort = &allocatedPort.EndPort
 			}
 			pb.Status.PortBindings = append(pb.Status.PortBindings, binding)
 		}
 		allocatedPorts = append(allocatedPorts, allocated...)
 	}
 
-	// TODO: bindings 中剩余的端口为多余的端口，需清理
 	if len(bindings) > 0 {
 		for _, binding := range bindings {
 			_, err := clb.DeleteListenerByPort(ctx, binding.Region, binding.LoadbalancerId, int64(binding.LoadbalancerPort), binding.Protocol)

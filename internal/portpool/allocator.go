@@ -52,47 +52,20 @@ func (pa *PortAllocator) EnsureLbIds(name string, lbIds []string) error {
 }
 
 // AddPool 添加新的端口池
-func (pa *PortAllocator) AddPool(
-	name, region string,
-	startPort uint16,
-	endPort, segmentLength *uint16,
-	notifyCreateLoadBalancer func(ctx context.Context) error,
-) error {
+func (pa *PortAllocator) AddPool(pp CLBPortPool) error {
 	pa.mu.Lock()
 	defer pa.mu.Unlock()
 
-	if _, exists := pa.pools[name]; exists {
+	if _, exists := pa.pools[pp.GetName()]; exists {
 		return nil
 	}
 
-	// 处理默认结束端口
-	finalEndPort := uint16(65535)
-	if endPort != nil {
-		if *endPort < startPort {
-			return fmt.Errorf("endPort must be greater than startPort")
-		}
-		finalEndPort = *endPort
-	}
-
-	finalSegmentLength := uint16(1)
-	if segmentLength != nil {
-		if *segmentLength < 1 {
-			return fmt.Errorf("segmentLength must be greater than 0")
-		}
-		finalSegmentLength = *segmentLength
-	}
-
 	pool := &PortPool{
-		Name:                     name,
-		Region:                   region,
-		StartPort:                startPort,
-		EndPort:                  finalEndPort,
-		SegmentLength:            finalSegmentLength,
-		NotifyCreateLoadBalancer: notifyCreateLoadBalancer,
-		cache:                    make(map[string]map[ProtocolPort]struct{}),
+		CLBPortPool: pp,
+		cache:       make(map[string]map[ProtocolPort]struct{}),
 	}
 
-	pa.pools[name] = pool
+	pa.pools[pp.GetName()] = pool
 	return nil
 }
 

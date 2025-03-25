@@ -41,16 +41,20 @@ func (pas PortAllocations) Release() {
 	}
 }
 
+type CLBPortPool interface {
+	GetName() string
+	GetRegion() string
+	GetStartPort() uint16
+	GetEndPort() uint16
+	GetSegmentLength() uint16
+	TryNotifyCreateLB(ctx context.Context) (int, error)
+}
+
 // PortPool 管理单个端口池的状态
 type PortPool struct {
-	mu                       sync.Mutex
-	Name                     string
-	Region                   string
-	StartPort                uint16
-	EndPort                  uint16
-	SegmentLength            uint16
-	NotifyCreateLoadBalancer func(ctx context.Context) error
-	cache                    map[string]map[ProtocolPort]struct{}
+	CLBPortPool
+	mu    sync.Mutex
+	cache map[string]map[ProtocolPort]struct{}
 }
 
 // 分配指定端口
@@ -58,7 +62,7 @@ func (pp *PortPool) AllocatePort(ctx context.Context, ports ...ProtocolPort) ([]
 	pp.mu.Lock()
 	defer pp.mu.Unlock()
 	// 获取监听器数量配额
-	quota, err := clb.GetQuota(ctx, pp.Region, clb.TOTAL_LISTENER_QUOTA)
+	quota, err := clb.GetQuota(ctx, pp.GetRegion(), clb.TOTAL_LISTENER_QUOTA)
 	if err != nil {
 		return nil, err
 	}
@@ -124,7 +128,7 @@ func (pp *PortPool) EnsureLbIds(lbIds []string) {
 	}
 	// 添加缺失的lb
 	for _, lbId := range lbToAdd {
-		ppLog.Info("add lbId to PortPool", "lbId", lbId, "pool", pp.Name)
+		ppLog.Info("add lbId to PortPool", "lbId", lbId, "pool", pp.GetName())
 		pp.cache[lbId] = make(map[ProtocolPort]struct{})
 	}
 }

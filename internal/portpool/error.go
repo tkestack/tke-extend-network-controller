@@ -10,5 +10,6 @@ var (
 	ErrSegmentLengthNotEqual = errors.New("segment length is not equal across all port pools")
 	ErrLBCreated             = errors.New("new clb created")
 	ErrWaitLBScale           = errors.New("waiting for clb scale")
+	ErrUnknown               = errors.New("unknown error")
 	ErrListenerQuotaExceeded = errors.New("listener quota exceeded")
 )
