@@ -102,6 +102,8 @@ spec:
     enabled: true
 ```
 
+**注意**：CLB 端口段特性需通过 [工单申请](https://console.cloud.tencent.com/workorder/category?level1_id=6&level2_id=163&source=14&data_title=%E8%B4%9F%E8%BD%BD%E5%9D%87%E8%A1%A1&step=1) 开通使用。
+
 ## TCP 和 UDP 同时接入
 
 有些情况下，玩家的网络环境 UDP 可能无法正常工作，游戏客户端自动 fallback 到 TCP 协议进行通信。
