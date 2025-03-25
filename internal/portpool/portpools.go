@@ -38,7 +38,7 @@ func (pp PortPools) allocatePortAcrossPools(
 	startPort, endPort, segmentLength uint16,
 	getPortsToAllocate func(port, endPort uint16) (ports []ProtocolPort),
 ) (PortAllocations, error) {
-	log.FromContext(ctx).Info("allocatePortAcrossPools", "pools", pp.Names())
+	log.FromContext(ctx).Info("allocatePortAcrossPools", "pools", pp.Names(), "startPort", startPort, "endPort", endPort, "segmentLength", segmentLength)
 	var allocatedPorts PortAllocations
 LOOP_POOL:
 	for _, pool := range pp { // 遍历所有端口池（由于不需要保证所有端口池的端口号相同，因此外层循环直接遍历端口池）
@@ -94,7 +94,7 @@ func (pp PortPools) allocateSamePortAcrossPools(
 	startPort, endPort, segmentLength uint16,
 	getPortsToAllocate func(port, endPort uint16) (ports []ProtocolPort),
 ) (PortAllocations, error) {
-	log.FromContext(ctx).Info("allocateSamePortAcrossPools", "pools", pp.Names())
+	log.FromContext(ctx).Info("allocateSamePortAcrossPools", "pools", pp.Names(), "startPort", startPort, "endPort", endPort, "segmentLength", segmentLength)
 LOOP_PORT:
 	for port := startPort; port <= endPort; port += segmentLength { // 遍历所有端口号，确保所有端口池都能分配到相同端口号
 		endPort := uint16(0)

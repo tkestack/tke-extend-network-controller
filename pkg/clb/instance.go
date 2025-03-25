@@ -134,6 +134,7 @@ func Delete(ctx context.Context, region string, lbIds ...string) error {
 
 // 创建单个 CLB
 func CreateCLB(ctx context.Context, region string, req *clb.CreateLoadBalancerRequest) (lbId string, err error) {
+	log.FromContext(ctx).V(10).Info("CreateLoadBalancer", "req", *req)
 	client := GetClient(region)
 	resp, err := client.CreateLoadBalancerWithContext(ctx, req)
 	if err != nil {
