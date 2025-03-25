@@ -16,7 +16,7 @@ spec:
 
 ## 指定 Pod 注解
 
-在 Pod Template 中指定注解，从 CLB 端口池为 Pod 分配公网地址映射，可以是任意类型的工作负载，比如：
+在 Pod Template 中指定注解，声明从 CLB 端口池为 Pod 分配公网地址映射，可以是任意类型的工作负载，比如：
 1. Kubernetes 自带的 Deployment、Statusfulset。
 2. OpenKruise 的 Advanced Deployment 或 Advanced Statusfulset。
 3. 开源的游戏专用工作负载，如 OpenKruiseGame 的 GameServerSet、Agones 的 Fleet。
