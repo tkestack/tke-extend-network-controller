@@ -53,4 +53,11 @@ secretKey: "" # 腾讯云子账号的 SecretKey
 
 配置完成后单击【完成】即可安装到集群。
 
-如果您使用 GitOps 管理应用，不想通过 TKE 应用市场安装，也可以从 [GitHub](https://github.com/tkestack/charts/tree/main/incubator/tke-extend-network-controller) 下载 chart 通过 helm 命令安装。
+另外您也可以通过 helm 安装：
+
+```bash
+helm repo add tke-extend-network-controller https://tkestack.github.io/tke-extend-network-controller
+helm upgrade --install --devel -f values.yaml \
+  --namespace tke-extend-network-controller --create-namespace \
+  tke-extend-network-controller tke-extend-network-controller/tke-extend-network-controller
+```
