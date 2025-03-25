@@ -268,9 +268,10 @@ type CLBPortPoolStatus struct {
 type CLBPortPoolState string
 
 const (
-	CLBPortPoolStatePending CLBPortPoolState = "Pending"
-	CLBPortPoolStateActive  CLBPortPoolState = "Active"
-	CLBPortPoolStateScaling CLBPortPoolState = "Scaling"
+	CLBPortPoolStatePending  CLBPortPoolState = "Pending"
+	CLBPortPoolStateActive   CLBPortPoolState = "Active"
+	CLBPortPoolStateScaling  CLBPortPoolState = "Scaling"
+	CLBPortPoolStateDeleting CLBPortPoolState = "Deleting"
 )
 
 // LoadBalancerStatus 定义负载均衡器状态
