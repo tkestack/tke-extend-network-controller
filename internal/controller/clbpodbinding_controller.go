@@ -205,6 +205,7 @@ func (r *CLBPodBindingReconciler) ensurePodBindings(ctx context.Context, pb *net
 
 type PortBindingStatus struct {
 	networkingv1alpha1.PortBindingStatus `json:",inline"`
+	EndPort                              *uint16  `json:"endPort,omitempty"`
 	Hostname                             *string  `json:"hostname,omitempty"`
 	Ips                                  []string `json:"ips,omitempty"`
 }
@@ -240,8 +241,14 @@ func (r *CLBPodBindingReconciler) ensurePodStatusAnnotation(ctx context.Context,
 		if err != nil {
 			return errors.WithStack(err)
 		}
+		var endPort *uint16
+		if !util.IsZero(binding.LoadbalancerEndPort) {
+			val := binding.Port + (*binding.LoadbalancerEndPort - binding.LoadbalancerPort)
+			endPort = &val
+		}
 		statuses = append(statuses, PortBindingStatus{
 			PortBindingStatus: binding,
+			EndPort:           endPort,
 			Hostname:          status.Hostname,
 			Ips:               status.Ips,
 		})
