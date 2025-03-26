@@ -76,7 +76,7 @@ type portKey struct {
 func (r *CLBPodBindingReconciler) sync(ctx context.Context, pb *networkingv1alpha1.CLBPodBinding) (result ctrl.Result, err error) {
 	// 确保 State 不为空
 	if pb.Status.State == "" {
-		pb.Status.State = networkingv1alpha1.CLBPodBindingStatePending
+		pb.Status.State = networkingv1alpha1.CLBBindingStatePending
 		if err = r.Status().Update(ctx, pb); err != nil {
 			return result, errors.WithStack(err)
 		}
@@ -85,7 +85,7 @@ func (r *CLBPodBindingReconciler) sync(ctx context.Context, pb *networkingv1alph
 	if err := r.ensureCLBPodBinding(ctx, pb); err != nil {
 		// 如果是等待端口池扩容 CLB，确保状态为 WaitForLB，并重新入队，以便在 CLB 扩容完成后能自动分配端口并绑定 Pod
 		if errors.Is(err, portpool.ErrWaitLBScale) {
-			if err := r.ensureState(ctx, pb, networkingv1alpha1.CLBPodBindingStateWaitForLB); err != nil {
+			if err := r.ensureState(ctx, pb, networkingv1alpha1.CLBBindingStateWaitForLB); err != nil {
 				return result, errors.WithStack(err)
 			}
 			result.RequeueAfter = 3 * time.Second
@@ -93,7 +93,7 @@ func (r *CLBPodBindingReconciler) sync(ctx context.Context, pb *networkingv1alph
 		}
 		// 其它非资源冲突的错误，将错误记录到状态中方便排障
 		if !apierrors.IsConflict(err) {
-			pb.Status.State = networkingv1alpha1.CLBPodBindingStateFailed
+			pb.Status.State = networkingv1alpha1.CLBBindingStateFailed
 			pb.Status.Message = err.Error()
 			if err := r.Status().Update(ctx, pb); err != nil {
 				return result, errors.WithStack(err)
@@ -141,8 +141,8 @@ func (r *CLBPodBindingReconciler) ensureListeners(ctx context.Context, pb *netwo
 func (r *CLBPodBindingReconciler) ensurePodBindings(ctx context.Context, pb *networkingv1alpha1.CLBPodBinding) error {
 	log.FromContext(ctx).V(10).Info("ensurePodBindings")
 	ensureWaitForPod := func(msg string) error {
-		if pb.Status.State != networkingv1alpha1.CLBPodBindingStateWaitForPod {
-			pb.Status.State = networkingv1alpha1.CLBPodBindingStateWaitForPod
+		if pb.Status.State != networkingv1alpha1.CLBBindingStateWaitForPod {
+			pb.Status.State = networkingv1alpha1.CLBBindingStateWaitForPod
 			pb.Status.Message = msg
 			if err := r.Status().Update(ctx, pb); err != nil {
 				return errors.WithStack(err)
@@ -190,8 +190,8 @@ func (r *CLBPodBindingReconciler) ensurePodBindings(ctx context.Context, pb *net
 		}
 	}
 	// 所有端口都已绑定，更新状态并将绑定信息写入 pod 注解
-	if pb.Status.State != networkingv1alpha1.CLBPodBindingStateBound {
-		pb.Status.State = networkingv1alpha1.CLBPodBindingStateBound
+	if pb.Status.State != networkingv1alpha1.CLBBindingStateBound {
+		pb.Status.State = networkingv1alpha1.CLBBindingStateBound
 		pb.Status.Message = ""
 		if err := r.Status().Update(ctx, pb); err != nil {
 			return errors.WithStack(err)
@@ -471,7 +471,7 @@ func portFromPortBindingStatus(status *networkingv1alpha1.PortBindingStatus) por
 	return port
 }
 
-func (r *CLBPodBindingReconciler) ensureState(ctx context.Context, pb *networkingv1alpha1.CLBPodBinding, state networkingv1alpha1.CLBPodBindingState) error {
+func (r *CLBPodBindingReconciler) ensureState(ctx context.Context, pb *networkingv1alpha1.CLBPodBinding, state networkingv1alpha1.CLBBindingState) error {
 	if pb.Status.State == state {
 		return nil
 	}
@@ -486,7 +486,7 @@ func (r *CLBPodBindingReconciler) ensureState(ctx context.Context, pb *networkin
 func (r *CLBPodBindingReconciler) cleanup(ctx context.Context, pb *networkingv1alpha1.CLBPodBinding) (result ctrl.Result, err error) {
 	log := log.FromContext(ctx)
 	log.Info("cleanup CLBPodBinding")
-	if err = r.ensureState(ctx, pb, networkingv1alpha1.CLBPodBindingStateDeleting); err != nil {
+	if err = r.ensureState(ctx, pb, networkingv1alpha1.CLBBindingStateDeleting); err != nil {
 		return result, errors.WithStack(err)
 	}
 	for _, binding := range pb.Status.PortBindings {

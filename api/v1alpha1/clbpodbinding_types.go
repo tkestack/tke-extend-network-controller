@@ -46,22 +46,23 @@ type PortEntry struct {
 	UseSamePortAcrossPools *bool `json:"useSamePortAcrossPools,omitempty"`
 }
 
-type CLBPodBindingState string
+type CLBBindingState string
 
 const (
-	CLBPodBindingStatePending    CLBPodBindingState = "Pending"
-	CLBPodBindingStateBound      CLBPodBindingState = "Bound"
-	CLBPodBindingStateWaitForPod CLBPodBindingState = "WaitForPod"
-	CLBPodBindingStateWaitForLB  CLBPodBindingState = "WaitForLB"
-	CLBPodBindingStateDisabled   CLBPodBindingState = "Disabled"
-	CLBPodBindingStateFailed     CLBPodBindingState = "Failed"
-	CLBPodBindingStateDeleting   CLBPodBindingState = "Deleting"
+	CLBBindingStatePending     CLBBindingState = "Pending"
+	CLBBindingStateBound       CLBBindingState = "Bound"
+	CLBBindingStateWaitForPod  CLBBindingState = "WaitForPod"
+	CLBBindingStateWaitForNode CLBBindingState = "WaitForNode"
+	CLBBindingStateWaitForLB   CLBBindingState = "WaitForLB"
+	CLBBindingStateDisabled    CLBBindingState = "Disabled"
+	CLBBindingStateFailed      CLBBindingState = "Failed"
+	CLBBindingStateDeleting    CLBBindingState = "Deleting"
 )
 
 // CLBPodBindingStatus defines the observed state of CLBPodBinding.
 type CLBPodBindingStatus struct {
 	// 绑定状态
-	State CLBPodBindingState `json:"state"`
+	State CLBBindingState `json:"state"`
 	// 状态信息
 	Message string `json:"message,omitempty"`
 	// 端口绑定详情

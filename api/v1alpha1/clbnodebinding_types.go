@@ -25,17 +25,21 @@ import (
 
 // CLBNodeBindingSpec defines the desired state of CLBNodeBinding.
 type CLBNodeBindingSpec struct {
-	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
-	// Important: Run "make" to regenerate code after modifying this file
-
-	// Foo is an example field of CLBNodeBinding. Edit clbnodebinding_types.go to remove/update
-	Foo string `json:"foo,omitempty"`
+	// 网络隔离
+	// +optional
+	Disabled *bool `json:"disabled,omitempty"`
+	// 需要绑定的端口配置列表
+	Ports []PortEntry `json:"ports"`
 }
 
 // CLBNodeBindingStatus defines the observed state of CLBNodeBinding.
 type CLBNodeBindingStatus struct {
-	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
-	// Important: Run "make" to regenerate code after modifying this file
+	// 绑定状态
+	State CLBBindingState `json:"state"`
+	// 状态信息
+	Message string `json:"message,omitempty"`
+	// 端口绑定详情
+	PortBindings []PortBindingStatus `json:"portBindings,omitempty"`
 }
 
 // +kubebuilder:object:root=true
