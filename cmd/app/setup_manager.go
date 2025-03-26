@@ -5,11 +5,8 @@ import (
 	"os"
 
 	networkingv1alpha1 "github.com/imroc/tke-extend-network-controller/api/v1alpha1"
-	"github.com/imroc/tke-extend-network-controller/internal/controller"
 	"github.com/imroc/tke-extend-network-controller/internal/portpool"
 	portpoolutil "github.com/imroc/tke-extend-network-controller/internal/portpool/util"
-	builtinwebhook "github.com/imroc/tke-extend-network-controller/internal/webhook/v1"
-	webhook "github.com/imroc/tke-extend-network-controller/internal/webhook/v1alpha1"
 	"github.com/spf13/viper"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
@@ -36,78 +33,9 @@ func SetupManager(mgr ctrl.Manager) {
 	if workers <= 0 {
 		workers = 1
 	}
-	// DedicatedCLBService controller
-	if err := (&controller.DedicatedCLBServiceReconciler{
-		Client:    mgr.GetClient(),
-		Scheme:    mgr.GetScheme(),
-		APIReader: mgr.GetAPIReader(),
-		Recorder:  mgr.GetEventRecorderFor("dedicatedclbservice-controller"),
-	}).SetupWithManager(mgr, workers); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "DedicatedCLBService")
-		os.Exit(1)
-	}
 
-	// DedicatedCLBListener controller and index and webhook
-	if err := (&controller.DedicatedCLBListenerReconciler{
-		Client:    mgr.GetClient(),
-		Scheme:    mgr.GetScheme(),
-		APIReader: mgr.GetAPIReader(),
-		Recorder:  mgr.GetEventRecorderFor("dedicatedclblistener-controller"),
-	}).SetupWithManager(mgr, workers); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "CLBListenerReconciler")
-		os.Exit(1)
-	}
-	indexer := mgr.GetFieldIndexer()
-	if err := networkingv1alpha1.IndexFieldForDedicatedCLBListener(indexer); err != nil {
-		setupLog.Error(err, "unable to index DedicatedCLBListener")
-		os.Exit(1)
-	}
-	if err := (&networkingv1alpha1.DedicatedCLBListener{}).SetupWebhookWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create webhook", "webhook", "DedicatedCLBListener")
-		os.Exit(1)
-	}
-
-	// CLBPortPool cotroller and webhook
-	if err := (&controller.CLBPortPoolReconciler{
-		Client:   mgr.GetClient(),
-		Scheme:   mgr.GetScheme(),
-		Recorder: mgr.GetEventRecorderFor("clbportpool-controller"),
-	}).SetupWithManager(mgr, workers); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "CLBPortPool")
-		os.Exit(1)
-	}
-	if err := webhook.SetupCLBPortPoolWebhookWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create webhook", "webhook", "CLBPortPool")
-		os.Exit(1)
-	}
-
-	// CLBPodBinding cotroller and webhook
-	if err := (&controller.CLBPodBindingReconciler{
-		Client:   mgr.GetClient(),
-		Scheme:   mgr.GetScheme(),
-		Recorder: mgr.GetEventRecorderFor("clbpodbinding-controller"),
-	}).SetupWithManager(mgr, workers); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "CLBPodBinding")
-		os.Exit(1)
-	}
-	if err := webhook.SetupCLBPodBindingWebhookWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create webhook", "webhook", "CLBPodBinding")
-		os.Exit(1)
-	}
-
-	// Pod controller and webhook
-	if err := (&controller.PodReconciler{
-		Client:   mgr.GetClient(),
-		Scheme:   mgr.GetScheme(),
-		Recorder: mgr.GetEventRecorderFor("pod-controller"),
-	}).SetupWithManager(mgr, workers); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "Pod")
-		os.Exit(1)
-	}
-	if err := builtinwebhook.SetupPodWebhookWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create webhook", "webhook", "Pod")
-		os.Exit(1)
-	}
+	SetupControllers(mgr, workers)
+	SetupWebhooks(mgr)
 
 	if err := mgr.AddHealthzCheck("healthz", healthz.Ping); err != nil {
 		setupLog.Error(err, "unable to set up health check")

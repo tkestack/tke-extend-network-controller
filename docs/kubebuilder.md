@@ -17,4 +17,6 @@ kubebuilder create webhook --group networking --version v1alpha1 --kind CLBPodBi
 
 kubebuilder create api --group core --kind Pod --version v1 --controller=true --resource=false
 kubebuilder create webhook --group core --version v1 --kind Pod --defaulting --programmatic-validation
+
+kubebuilder create api --group core --kind Node --version v1 --controller=true --resource=false
 ```

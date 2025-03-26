@@ -12,6 +12,10 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
+type ObjectWrapper interface {
+	GetObject() client.Object
+}
+
 func Reconcile[T client.Object](ctx context.Context, req ctrl.Request, apiClient client.Client, obj T, sync func(ctx context.Context, obj T) (ctrl.Result, error)) (ctrl.Result, error) {
 	if err := apiClient.Get(ctx, req.NamespacedName, obj); err != nil {
 		return ctrl.Result{}, client.IgnoreNotFound(err)

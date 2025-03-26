@@ -71,4 +71,10 @@ resources:
   webhooks:
     validation: true
     webhookVersion: v1
+- controller: true
+  core: true
+  group: core
+  kind: Node
+  path: k8s.io/api/core/v1
+  version: v1
 version: "3"

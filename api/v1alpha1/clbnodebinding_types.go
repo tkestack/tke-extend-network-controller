@@ -32,27 +32,18 @@ type CLBNodeBindingSpec struct {
 	Ports []PortEntry `json:"ports"`
 }
 
-// CLBNodeBindingStatus defines the observed state of CLBNodeBinding.
-type CLBNodeBindingStatus struct {
-	// 绑定状态
-	State CLBBindingState `json:"state"`
-	// 状态信息
-	Message string `json:"message,omitempty"`
-	// 端口绑定详情
-	PortBindings []PortBindingStatus `json:"portBindings,omitempty"`
-}
-
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
 // +kubebuilder:resource:scope=Cluster,shortName=cnb
+// +kubebuilder:printcolumn:name="State",type="string",JSONPath=".status.state",description="State"
 
 // CLBNodeBinding is the Schema for the clbnodebindings API.
 type CLBNodeBinding struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	Spec   CLBNodeBindingSpec   `json:"spec,omitempty"`
-	Status CLBNodeBindingStatus `json:"status,omitempty"`
+	Spec   CLBBindingSpec   `json:"spec,omitempty"`
+	Status CLBBindingStatus `json:"status,omitempty"`
 }
 
 // +kubebuilder:object:root=true

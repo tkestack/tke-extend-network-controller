@@ -1,8 +1,16 @@
 # 版本说明
 
-## v2.0.0-alpha.1 (2025-03-15)
+## v2.0.0-alpha.2 (2025-03-27)
 
-- 支持了一套全新的 API，抢先体验参考 [使用 CLB 端口池为 Pod 映射公网地址](./docs/clb-port-pool.md)。
+- 支持通过定义 CLBNodeBinding 实现从 CLB 端口池中为 Node 端口映射，并将映射结果写入 Node 注解。
+- 支持通过定义 Node 注解自动生成 CLBNodeBinding，可结合节点池的 Annotation 配置，为存量和增量节点自动配置注解。
+
+## v2.0.0-alpha.1 (2025-03-25)
+
+- 支持 CLBPortPool 定义 CLB 端口池，用于分配端口映射，支持端口段用单个监听器映射多个端口。
+- 支持通过定义 CLBPodBinding 实现从 CLB 端口池中为 Pod 端口映射，并将映射结果写入 Pod 注解。
+- 支持通过定义 Pod 注解自动生成 CLBPodBinding，可结合任意工作负载类型使用，实现自动映射。
+- 抢先体验参考 [使用 CLB 端口池为 Pod 映射公网地址](./docs/clb-port-pool.md)。
 
 ## v1.1.2 (2024-11-4)
 

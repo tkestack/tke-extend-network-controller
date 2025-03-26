@@ -44,7 +44,7 @@ spec:
           metadata:
             type: object
           spec:
-            description: CLBPodBindingSpec defines the desired state of CLBPodBinding.
+            description: CLBBindingSpec defines the desired state of CLBPodBinding.
             properties:
               disabled:
                 description: 网络隔离
@@ -82,7 +82,7 @@ spec:
             - ports
             type: object
           status:
-            description: CLBPodBindingStatus defines the observed state of CLBPodBinding.
+            description: CLBBindingStatus defines the observed state of CLBPodBinding.
             properties:
               message:
                 description: 状态信息

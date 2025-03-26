@@ -19,18 +19,25 @@ package controller
 import (
 	"context"
 
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/tools/record"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/log"
+	"sigs.k8s.io/controller-runtime/pkg/handler"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	networkingv1alpha1 "github.com/imroc/tke-extend-network-controller/api/v1alpha1"
+	"github.com/imroc/tke-extend-network-controller/internal/clbbinding"
+	"github.com/imroc/tke-extend-network-controller/internal/constant"
 )
 
 // CLBNodeBindingReconciler reconciles a CLBNodeBinding object
 type CLBNodeBindingReconciler struct {
 	client.Client
-	Scheme *runtime.Scheme
+	Scheme   *runtime.Scheme
+	Recorder record.EventRecorder
 }
 
 // +kubebuilder:rbac:groups=networking.cloud.tencent.com,resources=clbnodebindings,verbs=get;list;watch;create;update;patch;delete
@@ -47,17 +54,52 @@ type CLBNodeBindingReconciler struct {
 // For more details, check Reconcile and its Result here:
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.20.2/pkg/reconcile
 func (r *CLBNodeBindingReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	_ = log.FromContext(ctx)
+	return ReconcileWithFinalizer(ctx, req, r.Client, &networkingv1alpha1.CLBNodeBinding{}, r.sync, r.cleanup)
+}
 
-	// TODO(user): your logic here
+func (r *CLBNodeBindingReconciler) cleanup(ctx context.Context, pb *networkingv1alpha1.CLBNodeBinding) (result ctrl.Result, err error) {
+	rr := CLBBindingReconciler[*clbbinding.CLBNodeBinding]{
+		Client:   r.Client,
+		Scheme:   r.Scheme,
+		Recorder: r.Recorder,
+	}
+	return rr.cleanup(ctx, clbbinding.WrapCLBNodeBinding(pb))
+}
 
-	return ctrl.Result{}, nil
+func (r *CLBNodeBindingReconciler) sync(ctx context.Context, pb *networkingv1alpha1.CLBNodeBinding) (result ctrl.Result, err error) {
+	rr := CLBBindingReconciler[*clbbinding.CLBNodeBinding]{
+		Client:   r.Client,
+		Scheme:   r.Scheme,
+		Recorder: r.Recorder,
+	}
+	return rr.sync(ctx, clbbinding.WrapCLBNodeBinding(pb))
 }
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *CLBNodeBindingReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&networkingv1alpha1.CLBNodeBinding{}).
+		Watches(
+			&corev1.Node{},
+			handler.EnqueueRequestsFromMapFunc(r.findObjectsForNode),
+		).
 		Named("clbnodebinding").
 		Complete(r)
+}
+
+func (r *CLBNodeBindingReconciler) findObjectsForNode(ctx context.Context, node client.Object) []reconcile.Request {
+	if time := node.GetDeletionTimestamp(); time != nil && time.IsZero() { // 忽略正在删除的 Pod，默认情况下，Pod 删除完后会自动 GC 删除掉关联的 CLBNodeBinding
+		return []reconcile.Request{}
+	}
+	if anno := node.GetAnnotations(); anno == nil || anno[constant.EnableCLBPortMappingsKey] == "" {
+		return []reconcile.Request{}
+	}
+	return []reconcile.Request{
+		{
+			NamespacedName: types.NamespacedName{
+				Name:      node.GetName(),
+				Namespace: node.GetNamespace(),
+			},
+		},
+	}
 }
