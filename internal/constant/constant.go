@@ -5,6 +5,7 @@ const (
 	CLBPortMappingsKey       = "networking.cloud.tencent.com/clb-port-mapping"
 	CLBPortMappingStatuslKey = "networking.cloud.tencent.com/clb-port-mapping-status"
 	CLBPortMappingResultKey  = "networking.cloud.tencent.com/clb-port-mapping-result"
+	EnableCLBHostPortMapping = "networking.cloud.tencent.com/enable-clb-host-port-mapping"
 	Finalizer                = "networking.cloud.tencent.com/finalizer"
 	Ratain                   = "networking.cloud.tencent.com/retain"
 	LastUpdateTime           = "networking.cloud.tencent.com/last-update-time"

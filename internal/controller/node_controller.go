@@ -20,11 +20,15 @@ import (
 	"context"
 
 	"github.com/imroc/tke-extend-network-controller/internal/clbbinding"
+	"github.com/imroc/tke-extend-network-controller/internal/constant"
 	"github.com/imroc/tke-extend-network-controller/pkg/eventsource"
 	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 )
 
@@ -64,9 +68,24 @@ func (r *NodeReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		For(&corev1.Node{}).
 		Watches(
 			&corev1.Node{},
-			handler.EnqueueRequestsFromMapFunc(findObjectsForCLBPortMapping),
+			handler.EnqueueRequestsFromMapFunc(r.findObjectsForNode),
 		).
 		WatchesRawSource(source.Channel(eventsource.Node, &handler.EnqueueRequestForObject{})).
 		Named("node").
 		Complete(r)
+}
+
+// 过滤带有 networking.cloud.tencent.com/enable-clb-port-mapping 注解的 Node
+func (r *NodeReconciler) findObjectsForNode(_ context.Context, obj client.Object) []reconcile.Request {
+	if anno := obj.GetAnnotations(); anno == nil || anno[constant.EnableCLBPortMappingsKey] == "" {
+		return []reconcile.Request{}
+	}
+	return []reconcile.Request{
+		{
+			NamespacedName: types.NamespacedName{
+				Name:      obj.GetName(),
+				Namespace: obj.GetNamespace(),
+			},
+		},
+	}
 }

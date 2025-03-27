@@ -14,13 +14,11 @@ import (
 	"github.com/imroc/tke-extend-network-controller/internal/constant"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/record"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/log"
-	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	networkingv1alpha1 "github.com/imroc/tke-extend-network-controller/api/v1alpha1"
 	"github.com/imroc/tke-extend-network-controller/internal/clbbinding"
@@ -622,19 +620,4 @@ func (r *CLBBindingReconciler[T]) syncObject(ctx context.Context, obj client.Obj
 		log.FromContext(ctx).Info("skip invalid enable-clb-port-mapping value", "value", enablePortMappings)
 	}
 	return
-}
-
-// 过滤带有 networking.cloud.tencent.com/enable-clb-port-mapping 注解的 Pod 或 Node
-func findObjectsForCLBPortMapping(_ context.Context, obj client.Object) []reconcile.Request {
-	if anno := obj.GetAnnotations(); anno == nil || anno[constant.EnableCLBPortMappingsKey] == "" {
-		return []reconcile.Request{}
-	}
-	return []reconcile.Request{
-		{
-			NamespacedName: types.NamespacedName{
-				Name:      obj.GetName(),
-				Namespace: obj.GetNamespace(),
-			},
-		},
-	}
 }

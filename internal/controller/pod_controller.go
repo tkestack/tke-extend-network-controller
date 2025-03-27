@@ -22,14 +22,17 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 
 	"github.com/imroc/tke-extend-network-controller/internal/clbbinding"
+	"github.com/imroc/tke-extend-network-controller/internal/constant"
 	"github.com/imroc/tke-extend-network-controller/pkg/eventsource"
 	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/record"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 )
 
@@ -75,7 +78,7 @@ func (r *PodReconciler) SetupWithManager(mgr ctrl.Manager, workers int) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		Watches(
 			&corev1.Pod{},
-			handler.EnqueueRequestsFromMapFunc(findObjectsForCLBPortMapping),
+			handler.EnqueueRequestsFromMapFunc(r.findObjectsForPod),
 		).
 		WatchesRawSource(source.Channel(eventsource.Pod, &handler.EnqueueRequestForObject{})).
 		WithOptions(controller.Options{
@@ -83,4 +86,18 @@ func (r *PodReconciler) SetupWithManager(mgr ctrl.Manager, workers int) error {
 		}).
 		Named("pod").
 		Complete(r)
+}
+
+func (r *PodReconciler) findObjectsForPod(_ context.Context, obj client.Object) []reconcile.Request {
+	if anno := obj.GetAnnotations(); anno != nil && (anno[constant.EnableCLBPortMappingsKey] == "" || anno[constant.EnableCLBHostPortMapping] == "") {
+		return []reconcile.Request{
+			{
+				NamespacedName: types.NamespacedName{
+					Name:      obj.GetName(),
+					Namespace: obj.GetNamespace(),
+				},
+			},
+		}
+	}
+	return nil
 }
