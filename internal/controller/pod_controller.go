@@ -63,12 +63,17 @@ func (r *PodReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.R
 }
 
 func (r *PodReconciler) sync(ctx context.Context, pod *corev1.Pod) (result ctrl.Result, err error) {
-	result, err = r.syncObject(ctx, pod, clbbinding.NewCLBPodBinding())
-	if err != nil {
-		return result, errors.WithStack(err)
+	// 获取 obj 的注解
+	if pod.Annotations[constant.EnableCLBPortMappingsKey] != "" {
+		result, err = r.syncObject(ctx, pod, clbbinding.NewCLBPodBinding())
+		if err != nil {
+			return result, errors.WithStack(err)
+		}
+		if result.Requeue || result.RequeueAfter > 0 { // 重新入队
+			return result, nil
+		}
 	}
-	if result.Requeue || result.RequeueAfter > 0 { // 重新入队
-		return result, nil
+	if pod.Annotations[constant.EnableCLBHostPortMapping] != "" {
 	}
 	return
 }
@@ -89,7 +94,7 @@ func (r *PodReconciler) SetupWithManager(mgr ctrl.Manager, workers int) error {
 }
 
 func (r *PodReconciler) findObjectsForPod(_ context.Context, obj client.Object) []reconcile.Request {
-	if anno := obj.GetAnnotations(); anno != nil && (anno[constant.EnableCLBPortMappingsKey] == "" || anno[constant.EnableCLBHostPortMapping] == "") {
+	if anno := obj.GetAnnotations(); anno != nil && (anno[constant.EnableCLBPortMappingsKey] != "" || anno[constant.EnableCLBHostPortMapping] != "") {
 		return []reconcile.Request{
 			{
 				NamespacedName: types.NamespacedName{

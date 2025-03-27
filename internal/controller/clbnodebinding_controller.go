@@ -21,13 +21,16 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/record"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	networkingv1alpha1 "github.com/imroc/tke-extend-network-controller/api/v1alpha1"
 	"github.com/imroc/tke-extend-network-controller/internal/clbbinding"
+	"github.com/imroc/tke-extend-network-controller/internal/constant"
 )
 
 // CLBNodeBindingReconciler reconciles a CLBNodeBinding object
@@ -78,8 +81,22 @@ func (r *CLBNodeBindingReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		For(&networkingv1alpha1.CLBNodeBinding{}).
 		Watches(
 			&corev1.Node{},
-			handler.EnqueueRequestsFromMapFunc(findObjectsForCLBPortMapping),
+			handler.EnqueueRequestsFromMapFunc(r.findObjectsForNode),
 		).
 		Named("clbnodebinding").
 		Complete(r)
+}
+
+func (r *CLBNodeBindingReconciler) findObjectsForNode(_ context.Context, node client.Object) []reconcile.Request {
+	if anno := node.GetAnnotations(); anno != nil && anno[constant.EnableCLBPortMappingsKey] != "" {
+		return []reconcile.Request{
+			{
+				NamespacedName: types.NamespacedName{
+					Name:      node.GetName(),
+					Namespace: node.GetNamespace(),
+				},
+			},
+		}
+	}
+	return nil
 }

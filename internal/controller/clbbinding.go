@@ -536,12 +536,6 @@ func (r *CLBBindingReconciler[T]) syncObject(ctx context.Context, obj client.Obj
 		return
 	}
 	anno := obj.GetAnnotations()
-	// 获取 obj 的注解
-	enablePortMappings := anno[constant.EnableCLBPortMappingsKey]
-	if enablePortMappings == "" {
-		log.FromContext(ctx).V(10).Info("skip without enable-clb-port-mapping annotation")
-		return
-	}
 
 	portMappings := anno[constant.CLBPortMappingsKey]
 	if portMappings == "" {
@@ -549,6 +543,8 @@ func (r *CLBBindingReconciler[T]) syncObject(ctx context.Context, obj client.Obj
 		return
 	}
 
+	// 获取 obj 的注解
+	enablePortMappings := anno[constant.EnableCLBPortMappingsKey]
 	switch enablePortMappings {
 	case "true", "false": // 确保 CLBobjBinding 存在且符合预期
 		// 获取 obj 对应的 CLBobjBinding
