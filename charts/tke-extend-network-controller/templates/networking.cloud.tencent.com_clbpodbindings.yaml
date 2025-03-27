@@ -82,7 +82,7 @@ spec:
             - ports
             type: object
           status:
-            description: CLBPodBindingStatus defines the observed state of CLBPodBinding.
+            description: CLBBindingStatus defines the observed state of CLBPodBinding.
             properties:
               message:
                 description: 状态信息
