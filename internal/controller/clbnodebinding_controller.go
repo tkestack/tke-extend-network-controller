@@ -21,16 +21,13 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/record"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
-	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	networkingv1alpha1 "github.com/imroc/tke-extend-network-controller/api/v1alpha1"
 	"github.com/imroc/tke-extend-network-controller/internal/clbbinding"
-	"github.com/imroc/tke-extend-network-controller/internal/constant"
 )
 
 // CLBNodeBindingReconciler reconciles a CLBNodeBinding object
@@ -81,25 +78,8 @@ func (r *CLBNodeBindingReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		For(&networkingv1alpha1.CLBNodeBinding{}).
 		Watches(
 			&corev1.Node{},
-			handler.EnqueueRequestsFromMapFunc(r.findObjectsForNode),
+			handler.EnqueueRequestsFromMapFunc(findObjectsForCLBPortMapping),
 		).
 		Named("clbnodebinding").
 		Complete(r)
-}
-
-func (r *CLBNodeBindingReconciler) findObjectsForNode(ctx context.Context, node client.Object) []reconcile.Request {
-	if time := node.GetDeletionTimestamp(); time != nil && time.IsZero() { // 忽略正在删除的 Pod，默认情况下，Pod 删除完后会自动 GC 删除掉关联的 CLBNodeBinding
-		return []reconcile.Request{}
-	}
-	if anno := node.GetAnnotations(); anno == nil || anno[constant.EnableCLBPortMappingsKey] == "" {
-		return []reconcile.Request{}
-	}
-	return []reconcile.Request{
-		{
-			NamespacedName: types.NamespacedName{
-				Name:      node.GetName(),
-				Namespace: node.GetNamespace(),
-			},
-		},
-	}
 }
