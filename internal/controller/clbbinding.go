@@ -531,7 +531,7 @@ func generateCLBBindingSpec(anno, enablePortMappings string) (*networkingv1alpha
 	return spec, nil
 }
 
-func (r *CLBBindingReconciler[T]) syncObject(ctx context.Context, obj client.Object, binding T) (result ctrl.Result, err error) {
+func (r *CLBBindingReconciler[T]) syncCLBBinding(ctx context.Context, obj client.Object, binding T) (result ctrl.Result, err error) {
 	if !obj.GetDeletionTimestamp().IsZero() { // 忽略正在删除的 Object
 		return
 	}

@@ -65,7 +65,7 @@ func (r *PodReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.R
 func (r *PodReconciler) sync(ctx context.Context, pod *corev1.Pod) (result ctrl.Result, err error) {
 	// 获取 obj 的注解
 	if pod.Annotations[constant.EnableCLBPortMappingsKey] != "" {
-		result, err = r.syncObject(ctx, pod, clbbinding.NewCLBPodBinding())
+		result, err = r.syncCLBBinding(ctx, pod, clbbinding.NewCLBPodBinding())
 		if err != nil {
 			return result, errors.WithStack(err)
 		}
@@ -74,7 +74,15 @@ func (r *PodReconciler) sync(ctx context.Context, pod *corev1.Pod) (result ctrl.
 		}
 	}
 	if pod.Annotations[constant.EnableCLBHostPortMapping] != "" {
+		result, err = r.syncCLBHostPortMapping(ctx, pod)
+		if err != nil {
+			return result, errors.WithStack(err)
+		}
 	}
+	return
+}
+
+func (r *PodReconciler) syncCLBHostPortMapping(ctx context.Context, pod *corev1.Pod) (result ctrl.Result, err error) {
 	return
 }
 

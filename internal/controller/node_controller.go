@@ -55,7 +55,7 @@ func (r *NodeReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.
 }
 
 func (r *NodeReconciler) sync(ctx context.Context, node *corev1.Node) (result ctrl.Result, err error) {
-	result, err = r.syncObject(ctx, node, clbbinding.NewCLBNodeBinding())
+	result, err = r.syncCLBBinding(ctx, node, clbbinding.NewCLBNodeBinding())
 	if err != nil {
 		return result, errors.WithStack(err)
 	}
