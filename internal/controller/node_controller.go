@@ -65,7 +65,6 @@ func (r *NodeReconciler) sync(ctx context.Context, node *corev1.Node) (result ct
 // SetupWithManager sets up the controller with the Manager.
 func (r *NodeReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&corev1.Node{}).
 		Watches(
 			&corev1.Node{},
 			handler.EnqueueRequestsFromMapFunc(r.findObjectsForNode),
@@ -77,15 +76,15 @@ func (r *NodeReconciler) SetupWithManager(mgr ctrl.Manager) error {
 
 // 过滤带有 networking.cloud.tencent.com/enable-clb-port-mapping 注解的 Node
 func (r *NodeReconciler) findObjectsForNode(_ context.Context, obj client.Object) []reconcile.Request {
-	if anno := obj.GetAnnotations(); anno == nil || anno[constant.EnableCLBPortMappingsKey] == "" {
-		return []reconcile.Request{}
-	}
-	return []reconcile.Request{
-		{
-			NamespacedName: types.NamespacedName{
-				Name:      obj.GetName(),
-				Namespace: obj.GetNamespace(),
+	if anno := obj.GetAnnotations(); anno != nil && anno[constant.EnableCLBPortMappingsKey] != "" {
+		return []reconcile.Request{
+			{
+				NamespacedName: types.NamespacedName{
+					Name:      obj.GetName(),
+					Namespace: obj.GetNamespace(),
+				},
 			},
-		},
+		}
 	}
+	return []reconcile.Request{}
 }
