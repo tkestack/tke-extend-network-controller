@@ -1,5 +1,9 @@
 # 版本说明
 
+## v2.0.0-alpha.3 (2025-04-10)
+
+- 支持 HostPort 端口映射，Pod 注解声明 `networking.cloud.tencent.com/enable-clb-hostport-mapping: "true"` 后自动为 container 中声明的 hostPort 从节点已被分配的端口段中算出所有被映射的端口并将映射回写到 pod 注解 `networking.cloud.tencent.com/clb-hostport-mapping-result` 中。
+
 ## v2.0.0-alpha.2 (2025-03-27)
 
 - 支持通过定义 CLBNodeBinding 实现从 CLB 端口池中为 Node 端口映射，并将映射结果写入 Node 注解。
