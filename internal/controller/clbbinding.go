@@ -52,7 +52,7 @@ func (r *CLBBindingReconciler[T]) sync(ctx context.Context, bd T) (result ctrl.R
 		}
 	}
 	// 确保所有端口都已分配且绑定 obj
-	if err := r.ensureCLBobjBinding(ctx, bd); err != nil {
+	if err := r.ensureCLBBinding(ctx, bd); err != nil {
 		// 如果是等待端口池扩容 CLB，确保状态为 WaitForLB，并重新入队，以便在 CLB 扩容完成后能自动分配端口并绑定 obj
 		if errors.Is(err, portpool.ErrWaitLBScale) {
 			if err := r.ensureState(ctx, bd, networkingv1alpha1.CLBBindingStateWaitForLB); err != nil {
@@ -74,7 +74,7 @@ func (r *CLBBindingReconciler[T]) sync(ctx context.Context, bd T) (result ctrl.R
 	return result, err
 }
 
-func (r *CLBBindingReconciler[T]) ensureCLBobjBinding(ctx context.Context, bd clbbinding.CLBBinding) error {
+func (r *CLBBindingReconciler[T]) ensureCLBBinding(ctx context.Context, bd clbbinding.CLBBinding) error {
 	// 确保所有端口都被分配
 	if err := r.ensurePortAllocated(ctx, bd); err != nil {
 		return errors.WithStack(err)
