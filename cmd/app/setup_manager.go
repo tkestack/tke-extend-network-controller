@@ -83,8 +83,19 @@ func (i *initCache) Start(ctx context.Context) error {
 		return err
 	}
 	for _, pb := range pbl.Items {
-		for _, podBinding := range pb.Status.PortBindings {
-			if err := portpool.Allocator.MarkAllocated(podBinding.Pool, podBinding.LoadbalancerId, podBinding.LoadbalancerPort, podBinding.LoadbalancerEndPort, podBinding.Protocol); err != nil {
+		for _, bd := range pb.Status.PortBindings {
+			if err := portpool.Allocator.MarkAllocated(bd.Pool, bd.LoadbalancerId, bd.LoadbalancerPort, bd.LoadbalancerEndPort, bd.Protocol); err != nil {
+				return err
+			}
+		}
+	}
+	npbl := &networkingv1alpha1.CLBNodeBindingList{}
+	if err := i.List(ctx, npbl); err != nil {
+		return err
+	}
+	for _, pb := range npbl.Items {
+		for _, bd := range pb.Status.PortBindings {
+			if err := portpool.Allocator.MarkAllocated(bd.Pool, bd.LoadbalancerId, bd.LoadbalancerPort, bd.LoadbalancerEndPort, bd.Protocol); err != nil {
 				return err
 			}
 		}
