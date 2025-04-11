@@ -21,7 +21,7 @@
 - [使用 CLB 为 Pod 分配公网地址映射（即将过时）](./docs/clb-mapping.md)
 - [CRD 字段说明](docs/crd.md)
 - [API 参考](docs/api.md)
-- [Roadmap](docs/roadmap.md)
+- [变更记录](CHANGELOG.md)
 - [贡献指南](docs/contributing.md)
 - [技术亮点](docs/inside.md)
 
