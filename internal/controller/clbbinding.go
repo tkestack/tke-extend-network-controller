@@ -63,10 +63,12 @@ func (r *CLBBindingReconciler[T]) sync(ctx context.Context, bd T) (result ctrl.R
 		}
 		// 其它非资源冲突的错误，将错误记录到状态中方便排障
 		if !apierrors.IsConflict(err) {
-			status.State = networkingv1alpha1.CLBBindingStateFailed
-			status.Message = err.Error()
-			if err := r.Status().Update(ctx, bd.GetObject()); err != nil {
-				return result, errors.WithStack(err)
+			if status.State != networkingv1alpha1.CLBBindingStateFailed || status.Message != err.Error() {
+				status.State = networkingv1alpha1.CLBBindingStateFailed
+				status.Message = err.Error()
+				if err := r.Status().Update(ctx, bd.GetObject()); err != nil {
+					return result, errors.WithStack(err)
+				}
 			}
 			// lb 已不存在，没必要重新入队对账，保持 Failed 状态即可。
 			if clb.IsLbIdNotFoundError(errors.Cause(err)) {
