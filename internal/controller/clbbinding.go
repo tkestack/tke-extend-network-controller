@@ -68,6 +68,11 @@ func (r *CLBBindingReconciler[T]) sync(ctx context.Context, bd T) (result ctrl.R
 			if err := r.Status().Update(ctx, bd.GetObject()); err != nil {
 				return result, errors.WithStack(err)
 			}
+			// lb 已不存在，没必要重新入队对账，保持 Failed 状态即可。
+			if clb.IsLbIdNotFoundError(errors.Cause(err)) {
+				log.FromContext(ctx).Error(err, "CLB is not exists")
+				return result, nil
+			}
 			return result, errors.WithStack(err)
 		}
 	}
