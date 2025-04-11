@@ -341,6 +341,7 @@ func (r *CLBBindingReconciler[T]) ensurePortBound(ctx context.Context, backend c
 			alreadyAdded = true
 		} else {
 			targetToDelete = append(targetToDelete, target)
+			log.FromContext(ctx).V(10).Info("remove unexpected target", "got", target, "expect", backendTarget)
 		}
 	}
 	// 清理多余的 rs

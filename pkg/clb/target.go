@@ -6,6 +6,7 @@ import (
 
 	clb "github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/clb/v20180317"
 	"github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common"
+	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 func ContainsTarget(ctx context.Context, region, lbId string, port int64, protocol string, target Target) (bool, error) {
@@ -167,6 +168,7 @@ func RegisterTargets(ctx context.Context, region, lbId, listenerId string, targe
 	mu.Lock()
 	defer mu.Unlock()
 	resp, err := client.RegisterTargetsWithContext(ctx, req)
+	log.FromContext(ctx).V(10).Info("RegisterTargets", "req", req, "resp", resp)
 	if err != nil {
 		return err
 	}
@@ -180,6 +182,7 @@ func DescribeTargets(ctx context.Context, region, lbId, listenerId string) (targ
 	req.ListenerIds = []*string{&listenerId}
 	client := GetClient(region)
 	resp, err := client.DescribeTargetsWithContext(ctx, req)
+	log.FromContext(ctx).V(10).Info("DescribeTargets", "req", req, "resp", resp)
 	if err != nil {
 		return
 	}
