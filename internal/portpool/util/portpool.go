@@ -56,3 +56,14 @@ func NewPortPool(pp *networkingv1alpha1.CLBPortPool, c client.Client) *PortPool 
 		Client:      c,
 	}
 }
+
+// func ProtocolPortFromBindingStatus(binding *networkingv1alpha1.PortBindingStatus) portpool.ProtocolPort {
+// 	pp := ProtocolPort{
+// 		Port:     binding.Port,
+// 		Protocol: binding.Protocol,
+// 	}
+// 	if binding.LoadbalancerEndPort != nil {
+// 		pp.EndPort = *binding.LoadbalancerEndPort
+// 	}
+// 	return pp
+// }

@@ -101,10 +101,15 @@ func (pp *PortPool) AllocatePort(ctx context.Context, ports ...ProtocolPort) ([]
 	return nil, nil
 }
 
+// 释放已分配的端口
 func (pp *PortPool) ReleasePort(lbId string, port ProtocolPort) {
 	pp.mu.Lock()
 	defer pp.mu.Unlock()
-	delete(pp.cache[lbId], port)
+	cache := pp.cache[lbId]
+	if cache == nil {
+		return
+	}
+	delete(cache, port)
 }
 
 func (pp *PortPool) EnsureLbIds(lbIds []string) {
@@ -131,4 +136,11 @@ func (pp *PortPool) EnsureLbIds(lbIds []string) {
 		ppLog.Info("add lbId to PortPool", "lbId", lbId, "pool", pp.GetName())
 		pp.cache[lbId] = make(map[ProtocolPort]struct{})
 	}
+}
+
+func (pp *PortPool) IsLbExists(lbId string) bool {
+	pp.mu.Lock()
+	_, exists := pp.cache[lbId]
+	defer pp.mu.Unlock()
+	return exists
 }

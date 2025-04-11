@@ -82,6 +82,10 @@ func (r *CLBBindingReconciler[T]) sync(ctx context.Context, bd T) (result ctrl.R
 }
 
 func (r *CLBBindingReconciler[T]) ensureCLBBinding(ctx context.Context, bd clbbinding.CLBBinding) error {
+	// 确保依赖的端口池和 CLB 都存在，如果已删除则释放端口并更新状态
+	if err := r.ensurePoolAndCLB(ctx, bd); err != nil {
+		return err
+	}
 	// 确保所有端口都被分配
 	if err := r.ensurePortAllocated(ctx, bd); err != nil {
 		return errors.WithStack(err)
@@ -93,6 +97,34 @@ func (r *CLBBindingReconciler[T]) ensureCLBBinding(ctx context.Context, bd clbbi
 	// 确保所有监听器都已绑定到 obj
 	if err := r.ensureBackendBindings(ctx, bd); err != nil {
 		return errors.WithStack(err)
+	}
+	return nil
+}
+
+func (r *CLBBindingReconciler[T]) ensurePoolAndCLB(ctx context.Context, bd clbbinding.CLBBinding) error {
+	status := bd.GetStatus()
+	newBindings := []networkingv1alpha1.PortBindingStatus{}
+	needUpdateStatus := false
+	for i := range status.PortBindings {
+		binding := &status.PortBindings[i]
+		pool := portpool.Allocator.GetPool(binding.Pool)
+		if pool == nil { // 端口池不存在，将端口绑定状态置为 Failed，并记录事件
+			r.Recorder.Event(bd.GetObject(), corev1.EventTypeWarning, "PortPoolDeleted", fmt.Sprintf("port pool has been deleted (%s/%s/%d)", binding.Pool, binding.LoadbalancerId, binding.LoadbalancerPort))
+			needUpdateStatus = true
+		} else {
+			if !pool.IsLbExists(binding.LoadbalancerId) {
+				r.Recorder.Event(bd.GetObject(), corev1.EventTypeWarning, "CLBDeleted", fmt.Sprintf("clb has been deleted (%s/%s/%d)", binding.Pool, binding.LoadbalancerId, binding.LoadbalancerPort))
+				needUpdateStatus = true
+			} else {
+				newBindings = append(newBindings, *binding)
+			}
+		}
+	}
+	if needUpdateStatus {
+		status.PortBindings = newBindings
+		if err := r.Status().Update(ctx, bd.GetObject()); err != nil {
+			return errors.WithStack(err)
+		}
 	}
 	return nil
 }
