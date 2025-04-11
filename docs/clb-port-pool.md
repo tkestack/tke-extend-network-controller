@@ -236,9 +236,81 @@ spec:
 3. 追加 useSamePortAcrossPools 选项表示最终每个端口池分配相同的端口号。
 4. 综上，最终每个 Pod 的每个端口会被映射三个公网地址，算上 TCP 和 UDP 同时监听，每个 Pod 端口使用 6 个 CLB 监听器映射公网地址；玩家连上自己运营商对应的 CLB 映射地址，如果玩家的网络环境 UDP 无法正常工作，游戏客户端可选择自动 fallback 到 TCP 协议进行通信。
 
+## 大规模场景端口映射
+
+使用单 Pod 多 DS 映射在一定程度上可以解决大规模场景 CLB 监听器不够用的问题，但存在以下限制：
+1. 需游戏开发自行实现在单个 Pod 内管理多个 DS 进程，每个 DS 监听器一个端口，且端口需连续。
+2. 通常单个 Pod 内能运行的 DS 进程数量不会太多（比如 10 个以内），如果在规模非常大的情况下（比如上万个 DS），仍然需要消耗大量的 CLB 监听器数量。
+
+使用本插件可以利用 CLB 端口段 + HostPort 来实现大规模单 Pod 单 DS 的端口映射，参考以下方法。
+
+假设使用 Agones 部署游戏服，而 Agones 默认会为每个 GameServer 的 Pod 分配 7000~8000 的 HostPort（每个节点共 1001 个 HostPort 可能被分配给 GameServer）。
+
+1. 首先，创建一个端口池，`segmentLength` 为 1001（每个 CLB 端口段的监听器都可以映射一个节点的所有 GameServer 可能使用的 HostPort）：
+
+```yaml
+apiVersion: networking.cloud.tencent.com/v1alpha1
+kind: CLBPortPool
+metadata:
+  name: pool-test
+spec:
+  startPort: 30000
+  segmentLength: 1001
+  autoCreate:
+    enabled: true
+```
+
+2. 然后，需要使用 TKE 原生节点池，并为节点池中所有节点配置注解，启用 CLB 端口映射并指定映射规则，可直接编辑节点池来配置：
+
+![](https://image-host-1251893006.cos.ap-chengdu.myqcloud.com/2025%2F04%2F11%2F20250411170935.png)
+
+注解示例：
+
+```yaml
+networking.cloud.tencent.com/enable-clb-port-mapping: "true"
+networking.cloud.tencent.com/clb-port-mapping: "7000 TCPUDP pool-test"
+```
+
+3. 再使用 Agones 的 Fleet 部署游戏服，声明监听的端口（假设同时监听了 TCP 和 UDP），并为 Pod 指定注解 `networking.cloud.tencent.com/enable-clb-hostport-mapping: "true"` 以启用根据 Pod 所在节点 HostPort 被映射的 CLB 地址自动回写到 Pod 注解：
+
+```yaml
+apiVersion: agones.dev/v1
+kind: Fleet
+metadata:
+  name: simple-game-server
+spec:
+  replicas: 5
+  template:
+    spec:
+      ports:
+      - name: udp
+        protocol: UDP
+        containerPort: 7654
+      - name: tcp
+        protocol: TCP
+        containerPort: 7654
+      template:
+        metadata:
+          annotations:
+            networking.cloud.tencent.com/enable-clb-hostport-mapping: "true"
+        spec:
+          nodeSelector:
+            role: game
+          containers:
+          - name: gameserver
+            image: docker.io/imroc/simple-game-server:0.36
+```
+
+4. 最后，在 Pod 注解 `networking.cloud.tencent.com/clb-hostport-mapping-result` 可以看到被映射的 CLB 地址（容器内获取可通过 Downward API 挂载）：
+
+```yaml
+networking.cloud.tencent.com/clb-hostport-mapping-result: '[{"containerPort":7654,"hostPort":7106,"protocol":"UDP","pool":"pool-test2","region":"ap-chengdu","loadbalancerId":"lb-e9bt8x65","loadbalancerPort":31107,"listenerId":"lbl-rvunrb65"},{"containerPort":7654,"hostPort":7157,"protocol":"TCP","pool":"pool-test2","region":"ap-chengdu","loadbalancerId":"lb-e9bt8x65","loadbalancerPort":31158,"listenerId":"lbl-av86rekp"}]'
+networking.cloud.tencent.com/clb-hostport-mapping-status: Ready
+networking.cloud.tencent.com/enable-clb-hostport-mapping: "true"
+```
+
 ## TODO
 
-- CLB端口段+HostPort 形成的端口池实现大规模单 Pod 单 DS 端口映射。
 - 与 Agones 和 OKG 联动，映射信息写入 GameServer CR。
 - 通过 EIP、NATGW 等方式映射。
 - 优雅停机，避免缩容导致游戏中断。
