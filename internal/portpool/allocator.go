@@ -37,6 +37,13 @@ func (pa *PortAllocator) ReleaseLb(poolName, lbId string) {
 	}
 }
 
+func (pa *PortAllocator) IsLbExists(poolName, lbId string) bool {
+	if pool := pa.GetPool(poolName); pool != nil {
+		return pool.IsLbExists(lbId)
+	}
+	return false
+}
+
 func (pa *PortAllocator) IsPoolExists(name string) bool {
 	pa.mu.RLock()
 	_, exists := pa.pools[name]

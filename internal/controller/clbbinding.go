@@ -365,14 +365,28 @@ func (r *CLBBindingReconciler[T]) ensurePortBound(ctx context.Context, backend c
 func (r *CLBBindingReconciler[T]) ensurePortAllocated(ctx context.Context, bd clbbinding.CLBBinding) error {
 	status := bd.GetStatus()
 	bindings := make(map[portKey]*networkingv1alpha1.PortBindingStatus)
+	bds := []networkingv1alpha1.PortBindingStatus{}
+	haveLbRemoved := false
 	for i := range status.PortBindings {
 		binding := &status.PortBindings[i]
-		key := portKey{
-			Port:     binding.Port,
-			Protocol: binding.Protocol,
-			Pool:     binding.Pool,
+		if portpool.Allocator.IsLbExists(binding.Pool, binding.LoadbalancerId) {
+			key := portKey{
+				Port:     binding.Port,
+				Protocol: binding.Protocol,
+				Pool:     binding.Pool,
+			}
+			bindings[key] = binding
+			bds = append(bds, *binding)
+		} else { // lb 已被删除
+			haveLbRemoved = true
+			r.Recorder.Eventf(bd.GetObject(), corev1.EventTypeWarning, "LbNotFound", "lb %q not found for allocated port %d, remove it to re-allocate", binding.LoadbalancerId, binding.LoadbalancerPort)
 		}
-		bindings[key] = binding
+	}
+	if haveLbRemoved {
+		status.PortBindings = bds
+		if err := r.Status().Update(ctx, bd.GetObject()); err != nil {
+			return errors.WithStack(err)
+		}
 	}
 	var allocatedPorts portpool.PortAllocations
 	spec := bd.GetSpec()
