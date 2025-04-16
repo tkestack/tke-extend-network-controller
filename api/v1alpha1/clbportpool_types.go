@@ -274,13 +274,21 @@ const (
 	CLBPortPoolStateDeleting CLBPortPoolState = "Deleting"
 )
 
+type LoadBalancerState string
+
+const (
+	LoadBalancerStateRunning  LoadBalancerState = "Running"
+	LoadBalancerStateNotFound LoadBalancerState = "NotFound"
+)
+
 // LoadBalancerStatus 定义负载均衡器状态
 type LoadBalancerStatus struct {
-	AutoCreated      *bool    `json:"autoCreated,omitempty"`
-	LoadbalancerID   string   `json:"loadbalancerID"`
-	LoadbalancerName string   `json:"loadbalancerName"`
-	Ips              []string `json:"ips,omitempty"`
-	Hostname         *string  `json:"hostname,omitempty"`
+	AutoCreated      *bool             `json:"autoCreated,omitempty"`
+	State            LoadBalancerState `json:"state"`
+	LoadbalancerID   string            `json:"loadbalancerID"`
+	LoadbalancerName string            `json:"loadbalancerName"`
+	Ips              []string          `json:"ips,omitempty"`
+	Hostname         *string           `json:"hostname,omitempty"`
 }
 
 // +kubebuilder:object:root=true

@@ -150,7 +150,17 @@ func (r *CLBPortPoolReconciler) ensureLbStatus(ctx context.Context, pool *networ
 		lbId := lbStatus.LoadbalancerID
 		lb, err := clb.GetClb(ctx, lbId, pool.GetRegion())
 		if err != nil {
+			if err == clb.ErrLbIdNotFound && lbStatus.State != networkingv1alpha1.LoadBalancerStateNotFound {
+				r.Recorder.Eventf(pool, corev1.EventTypeWarning, "GetLoadBalancer", "clb %s not found", lbId)
+				lbStatus.State = networkingv1alpha1.LoadBalancerStateNotFound
+				needUpdate = true
+				continue
+			}
 			return errors.WithStack(err)
+		}
+		if lbStatus.State == "" {
+			lbStatus.State = networkingv1alpha1.LoadBalancerStateRunning
+			needUpdate = true
 		}
 		ips := util.ConvertPtrSlice(lb.LoadBalancerVips)
 		if !reflect.DeepEqual(ips, lbStatus.Ips) {
