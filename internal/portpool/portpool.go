@@ -57,6 +57,13 @@ type PortPool struct {
 	cache map[string]map[ProtocolPort]struct{}
 }
 
+func (pp *PortPool) IsLbExists(lbId string) bool {
+	pp.mu.Lock()
+	defer pp.mu.Unlock()
+	_, exists := pp.cache[lbId]
+	return exists
+}
+
 // 分配指定端口
 func (pp *PortPool) AllocatePort(ctx context.Context, ports ...ProtocolPort) ([]PortAllocation, error) {
 	pp.mu.Lock()
@@ -112,6 +119,12 @@ func (pp *PortPool) ReleasePort(lbId string, port ProtocolPort) {
 	delete(cache, port)
 }
 
+func (pp *PortPool) ReleaseLb(lbId string) {
+	pp.mu.Lock()
+	defer pp.mu.Unlock()
+	delete(pp.cache, lbId)
+}
+
 func (pp *PortPool) EnsureLbIds(lbIds []string) {
 	pp.mu.Lock()
 	defer pp.mu.Unlock()
@@ -136,11 +149,4 @@ func (pp *PortPool) EnsureLbIds(lbIds []string) {
 		ppLog.Info("add lbId to PortPool", "lbId", lbId, "pool", pp.GetName())
 		pp.cache[lbId] = make(map[ProtocolPort]struct{})
 	}
-}
-
-func (pp *PortPool) IsLbExists(lbId string) bool {
-	pp.mu.Lock()
-	_, exists := pp.cache[lbId]
-	defer pp.mu.Unlock()
-	return exists
 }

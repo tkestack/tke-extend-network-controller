@@ -31,6 +31,12 @@ func (pa *PortAllocator) GetPool(name string) *PortPool {
 	return nil
 }
 
+func (pa *PortAllocator) ReleaseLb(poolName, lbId string) {
+	if pool := pa.GetPool(poolName); pool != nil {
+		pool.ReleaseLb(lbId)
+	}
+}
+
 func (pa *PortAllocator) IsPoolExists(name string) bool {
 	pa.mu.RLock()
 	_, exists := pa.pools[name]
@@ -119,18 +125,19 @@ func Init(client client.Client) {
 	apiClient = client
 }
 
-func (pa *PortAllocator) MarkAllocated(poolName string, lbId string, port uint16, endPort *uint16, protocol string) error {
+func (pa *PortAllocator) MarkAllocated(poolName string, lbId string, port uint16, endPort *uint16, protocol string) {
 	pa.mu.Lock()
 	defer pa.mu.Unlock()
 
 	pool, ok := pa.pools[poolName]
 	if !ok {
-		return fmt.Errorf("pool %s not found", poolName)
+		return
 	}
 	finalEndPort := uint16(0)
 	if endPort != nil {
 		finalEndPort = *endPort
 	}
-	pool.cache[lbId][ProtocolPort{Port: port, EndPort: finalEndPort, Protocol: protocol}] = struct{}{}
-	return nil
+	if lb := pool.cache[lbId]; lb != nil {
+		lb[ProtocolPort{Port: port, EndPort: finalEndPort, Protocol: protocol}] = struct{}{}
+	}
 }

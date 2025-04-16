@@ -150,8 +150,9 @@ func (r *CLBPortPoolReconciler) ensureLbStatus(ctx context.Context, pool *networ
 		lbId := lbStatus.LoadbalancerID
 		lb, err := clb.GetClb(ctx, lbId, pool.GetRegion())
 		if err != nil {
-			if err == clb.ErrLbIdNotFound && lbStatus.State != networkingv1alpha1.LoadBalancerStateNotFound {
+			if err == clb.ErrLbIdNotFound && lbStatus.State != networkingv1alpha1.LoadBalancerStateNotFound { // clb 不存在，通常是已删除，更新状态和端口池
 				r.Recorder.Eventf(pool, corev1.EventTypeWarning, "GetLoadBalancer", "clb %s not found", lbId)
+				portpool.Allocator.ReleaseLb(pool.Name, lbId)
 				lbStatus.State = networkingv1alpha1.LoadBalancerStateNotFound
 				needUpdate = true
 				continue

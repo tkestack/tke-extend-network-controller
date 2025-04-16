@@ -70,7 +70,9 @@ func (i *initCache) Start(ctx context.Context) error {
 		}
 		lbIds := []string{}
 		for _, lbStatus := range pp.Status.LoadbalancerStatuses {
-			lbIds = append(lbIds, lbStatus.LoadbalancerID)
+			if lbStatus.State == networkingv1alpha1.LoadBalancerStateRunning {
+				lbIds = append(lbIds, lbStatus.LoadbalancerID)
+			}
 		}
 		if err := portpool.Allocator.EnsureLbIds(pp.Name, lbIds); err != nil {
 			return err
@@ -84,9 +86,7 @@ func (i *initCache) Start(ctx context.Context) error {
 	}
 	for _, pb := range pbl.Items {
 		for _, bd := range pb.Status.PortBindings {
-			if err := portpool.Allocator.MarkAllocated(bd.Pool, bd.LoadbalancerId, bd.LoadbalancerPort, bd.LoadbalancerEndPort, bd.Protocol); err != nil {
-				return err
-			}
+			portpool.Allocator.MarkAllocated(bd.Pool, bd.LoadbalancerId, bd.LoadbalancerPort, bd.LoadbalancerEndPort, bd.Protocol)
 		}
 	}
 	npbl := &networkingv1alpha1.CLBNodeBindingList{}
@@ -95,9 +95,7 @@ func (i *initCache) Start(ctx context.Context) error {
 	}
 	for _, pb := range npbl.Items {
 		for _, bd := range pb.Status.PortBindings {
-			if err := portpool.Allocator.MarkAllocated(bd.Pool, bd.LoadbalancerId, bd.LoadbalancerPort, bd.LoadbalancerEndPort, bd.Protocol); err != nil {
-				return err
-			}
+			portpool.Allocator.MarkAllocated(bd.Pool, bd.LoadbalancerId, bd.LoadbalancerPort, bd.LoadbalancerEndPort, bd.Protocol)
 		}
 	}
 	return nil
