@@ -236,9 +236,12 @@ spec:
                       type: string
                     loadbalancerName:
                       type: string
+                    state:
+                      type: string
                   required:
                   - loadbalancerID
                   - loadbalancerName
+                  - state
                   type: object
                 type: array
               message:
