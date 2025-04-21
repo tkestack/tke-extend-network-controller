@@ -18,6 +18,7 @@ package controller
 
 import (
 	"context"
+	"slices"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -26,6 +27,7 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
+	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	networkingv1alpha1 "github.com/imroc/tke-extend-network-controller/api/v1alpha1"
@@ -83,6 +85,10 @@ func (r *CLBNodeBindingReconciler) SetupWithManager(mgr ctrl.Manager) error {
 			&corev1.Node{},
 			handler.EnqueueRequestsFromMapFunc(r.findObjectsForNode),
 		).
+		Watches(
+			&networkingv1alpha1.CLBPortPool{},
+			handler.EnqueueRequestsFromMapFunc(r.findObjectsForCLBPortPool),
+		).
 		Named("clbnodebinding").
 		Complete(r)
 }
@@ -99,4 +105,26 @@ func (r *CLBNodeBindingReconciler) findObjectsForNode(_ context.Context, node cl
 		}
 	}
 	return nil
+}
+
+// TODO: 优化性能
+func (r *CLBNodeBindingReconciler) findObjectsForCLBPortPool(ctx context.Context, portpool client.Object) []reconcile.Request {
+	list := &networkingv1alpha1.CLBNodeBindingList{}
+	if err := r.List(ctx, list); err != nil {
+		log.FromContext(ctx).Error(err, "failed to list CLBNodeBinding")
+		return []reconcile.Request{}
+	}
+	ret := []reconcile.Request{}
+	for _, cnb := range list.Items {
+		for _, port := range cnb.Spec.Ports {
+			if slices.Contains(port.Pools, portpool.GetName()) {
+				ret = append(ret, reconcile.Request{
+					NamespacedName: types.NamespacedName{
+						Name: cnb.GetName(),
+					},
+				})
+			}
+		}
+	}
+	return ret
 }
