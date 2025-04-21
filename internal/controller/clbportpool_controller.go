@@ -227,7 +227,10 @@ func (r *CLBPortPoolReconciler) createLB(ctx context.Context, pool *networkingv1
 		return errors.WithStack(err)
 	}
 	r.Recorder.Eventf(pool, corev1.EventTypeNormal, "CreateLoadBalancer", "create clb success: %s", lbId)
-	addLbId := func() error {
+	if err := portpool.Allocator.AddLbId(pool.Name, lbId); err != nil {
+		return errors.WithStack(err)
+	}
+	addLbIdToStatus := func() error {
 		p := &networkingv1alpha1.CLBPortPool{}
 		if err := r.Get(ctx, client.ObjectKeyFromObject(pool), p); err != nil {
 			return errors.WithStack(err)
@@ -242,7 +245,7 @@ func (r *CLBPortPoolReconciler) createLB(ctx context.Context, pool *networkingv1
 		}
 		return nil
 	}
-	if err := util.RetryIfPossible(addLbId); err != nil {
+	if err := util.RetryIfPossible(addLbIdToStatus); err != nil {
 		return errors.WithStack(err)
 	}
 	return nil

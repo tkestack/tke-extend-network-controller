@@ -18,6 +18,7 @@ package controller
 
 import (
 	"context"
+	"slices"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -27,6 +28,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
+	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	networkingv1alpha1 "github.com/imroc/tke-extend-network-controller/api/v1alpha1"
@@ -84,6 +86,10 @@ func (r *CLBPodBindingReconciler) SetupWithManager(mgr ctrl.Manager, workers int
 			&corev1.Pod{},
 			handler.EnqueueRequestsFromMapFunc(r.findObjectsForPod),
 		).
+		Watches(
+			&networkingv1alpha1.CLBPortPool{},
+			handler.EnqueueRequestsFromMapFunc(r.findObjectsForCLBPortPool),
+		).
 		WithOptions(controller.Options{
 			MaxConcurrentReconciles: workers,
 		}).
@@ -106,4 +112,27 @@ func (r *CLBPodBindingReconciler) findObjectsForPod(ctx context.Context, pod cli
 			},
 		},
 	}
+}
+
+// TODO: 优化性能
+func (r *CLBPodBindingReconciler) findObjectsForCLBPortPool(ctx context.Context, portpool client.Object) []reconcile.Request {
+	list := &networkingv1alpha1.CLBPodBindingList{}
+	if err := r.List(ctx, list); err != nil {
+		log.FromContext(ctx).Error(err, "failed to list CLBPodBinding")
+		return []reconcile.Request{}
+	}
+	ret := []reconcile.Request{}
+	for _, cpb := range list.Items {
+		for _, port := range cpb.Spec.Ports {
+			if slices.Contains(port.Pools, portpool.GetName()) {
+				ret = append(ret, reconcile.Request{
+					NamespacedName: types.NamespacedName{
+						Name:      cpb.GetName(),
+						Namespace: cpb.GetNamespace(),
+					},
+				})
+			}
+		}
+	}
+	return ret
 }

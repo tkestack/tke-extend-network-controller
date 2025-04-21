@@ -125,6 +125,15 @@ func (pp *PortPool) ReleaseLb(lbId string) {
 	delete(pp.cache, lbId)
 }
 
+func (pp *PortPool) AddLbId(lbId string) {
+	pp.mu.Lock()
+	defer pp.mu.Unlock()
+	if _, exists := pp.cache[lbId]; exists {
+		return
+	}
+	pp.cache[lbId] = make(map[ProtocolPort]struct{})
+}
+
 func (pp *PortPool) EnsureLbIds(lbIds []string) {
 	pp.mu.Lock()
 	defer pp.mu.Unlock()
