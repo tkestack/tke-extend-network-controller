@@ -1,5 +1,11 @@
 # 版本说明
 
+## v2.0.0-beta.0 (2025-04-21)
+
+- 修复若干 bug。
+- 当 lb 被删除，自动联动 CLBPortPool 及其关联的 CLBPodBinding 和 CLBNodeBinding 对象，触发 CLB 自动创建和端口重新分配。
+- 优化 CLBPortPool 的 status 更新。
+
 ## v2.0.0-alpha.5 (2025-04-11)
 
 - 修复端口分配器缓存初始化逻辑，避免 controller 重启后新增 Node 的端口映射分配冲突。
