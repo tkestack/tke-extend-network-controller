@@ -3,9 +3,9 @@ package clb
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 
+	"github.com/pkg/errors"
 	clb "github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/clb/v20180317"
 	"github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common"
 )
@@ -71,7 +71,7 @@ func GetListenerByPort(ctx context.Context, region, lbId string, port int64, pro
 	client := GetClient(region)
 	resp, err := client.DescribeListenersWithContext(ctx, req)
 	if err != nil {
-		return
+		return nil, errors.WithStack(err)
 	}
 	if len(resp.Response.Listeners) > 0 { // TODO: 精细化判断数量(超过1个的不可能发生的情况)
 		lis = convertListener(resp.Response.Listeners[0])
@@ -91,6 +91,7 @@ func CreateListener(ctx context.Context, region, lbId string, port, endPort int6
 	if extensiveParameters != "" {
 		err = json.Unmarshal([]byte(extensiveParameters), req)
 		if err != nil {
+			err = errors.WithStack(err)
 			return
 		}
 	}
@@ -107,6 +108,7 @@ func CreateListener(ctx context.Context, region, lbId string, port, endPort int6
 	defer mu.Unlock()
 	resp, err := client.CreateListenerWithContext(ctx, req)
 	if err != nil {
+		err = errors.WithStack(err)
 		return
 	}
 	if len(resp.Response.ListenerIds) == 0 {
@@ -119,6 +121,7 @@ func CreateListener(ctx context.Context, region, lbId string, port, endPort int6
 	}
 	_, err = Wait(ctx, region, *resp.Response.RequestId, "CreateListener")
 	if err != nil {
+		err = errors.WithStack(err)
 		return
 	}
 	id = *resp.Response.ListenerIds[0]
@@ -128,6 +131,7 @@ func CreateListener(ctx context.Context, region, lbId string, port, endPort int6
 func DeleteListenerByPort(ctx context.Context, region, lbId string, port int64, protocol string) (id string, err error) {
 	lis, err := GetListenerByPort(ctx, region, lbId, port, protocol)
 	if err != nil {
+		err = errors.WithStack(err)
 		return
 	}
 	if lis == nil { // 监听器不存在，忽略
@@ -135,6 +139,10 @@ func DeleteListenerByPort(ctx context.Context, region, lbId string, port int64, 
 	}
 	id = lis.ListenerId
 	err = DeleteListener(ctx, region, lbId, id)
+	if err != nil {
+		err = errors.WithStack(err)
+		return
+	}
 	return
 }
 
@@ -148,8 +156,11 @@ func DeleteListener(ctx context.Context, region, lbId, listenerId string) error 
 	defer mu.Unlock()
 	resp, err := client.DeleteListenerWithContext(ctx, req)
 	if err != nil {
-		return err
+		return errors.WithStack(err)
 	}
 	_, err = Wait(ctx, region, *resp.Response.RequestId, "DeleteListener")
-	return err
+	if err != nil {
+		return errors.WithStack(err)
+	}
+	return nil
 }

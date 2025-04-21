@@ -10,6 +10,7 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 type ObjectWrapper interface {
@@ -50,11 +51,14 @@ func ReconcileWithFinalizer[T client.Object](ctx context.Context, req ctrl.Reque
 			return result, nil
 		} else { // 正在删除
 			// 执行清理函数
+			log.FromContext(ctx).V(10).Info("exec cleanupFunc")
 			result, err := cleanupFunc(ctx, obj)
 			if err != nil {
+				log.FromContext(ctx).V(10).Info("exec cleanupFunc error", "error", err)
 				return result, errors.WithStack(err)
 			}
 			// 移除 finalizer，让资源最终被删除
+			log.FromContext(ctx).V(10).Info("remove finalizer", "finalizer", constant.Finalizer)
 			controllerutil.RemoveFinalizer(obj, constant.Finalizer)
 			if err = apiClient.Update(ctx, obj); err != nil {
 				return result, errors.WithStack(err)

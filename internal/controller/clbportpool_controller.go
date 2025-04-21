@@ -131,11 +131,13 @@ func (r *CLBPortPoolReconciler) ensureExistedLB(ctx context.Context, pool *netwo
 	return nil
 }
 
-func (r *CLBPortPoolReconciler) ensureLbInAllocator(_ context.Context, pool *networkingv1alpha1.CLBPortPool) error {
+func (r *CLBPortPoolReconciler) ensureLbInAllocator(ctx context.Context, pool *networkingv1alpha1.CLBPortPool) error {
 	// 同步lbId列表到端口池
 	allLbIds := []string{}
 	for _, lbStatus := range pool.Status.LoadbalancerStatuses {
-		allLbIds = append(allLbIds, lbStatus.LoadbalancerID)
+		if lbStatus.State != networkingv1alpha1.LoadBalancerStateNotFound {
+			allLbIds = append(allLbIds, lbStatus.LoadbalancerID)
+		}
 	}
 	if err := portpool.Allocator.EnsureLbIds(pool.Name, allLbIds); err != nil {
 		return errors.WithStack(err)
@@ -150,11 +152,14 @@ func (r *CLBPortPoolReconciler) ensureLbStatus(ctx context.Context, pool *networ
 		lbId := lbStatus.LoadbalancerID
 		lb, err := clb.GetClb(ctx, lbId, pool.GetRegion())
 		if err != nil {
-			if err == clb.ErrLbIdNotFound && lbStatus.State != networkingv1alpha1.LoadBalancerStateNotFound { // clb 不存在，通常是已删除，更新状态和端口池
-				r.Recorder.Eventf(pool, corev1.EventTypeWarning, "GetLoadBalancer", "clb %s not found", lbId)
-				portpool.Allocator.ReleaseLb(pool.Name, lbId)
-				lbStatus.State = networkingv1alpha1.LoadBalancerStateNotFound
-				needUpdate = true
+			if err == clb.ErrLbIdNotFound {
+				// clb 不存在，通常是已删除，更新状态和端口池
+				if lbStatus.State != networkingv1alpha1.LoadBalancerStateNotFound {
+					r.Recorder.Eventf(pool, corev1.EventTypeWarning, "GetLoadBalancer", "clb %s not found", lbId)
+					portpool.Allocator.ReleaseLb(pool.Name, lbId)
+					lbStatus.State = networkingv1alpha1.LoadBalancerStateNotFound
+					needUpdate = true
+				}
 				continue
 			}
 			return errors.WithStack(err)
@@ -190,12 +195,12 @@ func (r *CLBPortPoolReconciler) ensureLb(ctx context.Context, pool *networkingv1
 	if err := r.ensureExistedLB(ctx, pool); err != nil {
 		return err
 	}
-	// 确保所有 lb 都被添加到分配器的缓存中
-	if err := r.ensureLbInAllocator(ctx, pool); err != nil {
-		return err
-	}
 	// 同步 clb 信息到 status
 	if err := r.ensureLbStatus(ctx, pool); err != nil {
+		return err
+	}
+	// 确保所有 lb 都被添加到分配器的缓存中
+	if err := r.ensureLbInAllocator(ctx, pool); err != nil {
 		return err
 	}
 	// lb 准备就绪，确保状态为 Active
@@ -207,14 +212,15 @@ func (r *CLBPortPoolReconciler) ensureLb(ctx context.Context, pool *networkingv1
 
 // 扩容 CLB
 func (r *CLBPortPoolReconciler) createLB(ctx context.Context, pool *networkingv1alpha1.CLBPortPool) error {
-	if !pool.CanCreateLB() { // 触发自动创建 CLB，但当前却无法扩容，一般不可能发生，除非代码 BUG
-		r.Recorder.Event(pool, corev1.EventTypeWarning, "CreateLoadBalancer", "auto create is not enabled while scale clb is been tiggered")
+	if !portpoolutil.CanCreateLB(ctx, pool) { // 触发自动创建 CLB，但当前却无法扩容，一般不可能发生，除非代码 BUG
+		r.Recorder.Event(pool, corev1.EventTypeWarning, "CreateLoadBalancer", "not able to scale clb while scale is been tiggered")
 		if err := r.ensureState(ctx, pool, networkingv1alpha1.CLBPortPoolStateActive); err != nil {
 			return errors.WithStack(err)
 		}
 		return nil
 	}
 	// 创建 CLB
+	r.Recorder.Event(pool, corev1.EventTypeNormal, "CreateLoadBalancer", "try to create clb")
 	lbId, err := clb.CreateCLB(ctx, pool.GetRegion(), pool.Spec.AutoCreate.Parameters.ExportCreateLoadBalancerRequest())
 	if err != nil {
 		r.Recorder.Eventf(pool, corev1.EventTypeWarning, "CreateLoadBalancer", "create clb failed: %s", err.Error())

@@ -38,7 +38,7 @@ func (pp PortPools) allocatePortAcrossPools(
 	startPort, endPort, segmentLength uint16,
 	getPortsToAllocate func(port, endPort uint16) (ports []ProtocolPort),
 ) (PortAllocations, error) {
-	log.FromContext(ctx).Info("allocatePortAcrossPools", "pools", pp.Names(), "startPort", startPort, "endPort", endPort, "segmentLength", segmentLength)
+	log.FromContext(ctx).V(10).Info("allocatePortAcrossPools", "pools", pp.Names(), "startPort", startPort, "endPort", endPort, "segmentLength", segmentLength)
 	var allocatedPorts PortAllocations
 LOOP_POOL:
 	for _, pool := range pp { // 遍历所有端口池（由于不需要保证所有端口池的端口号相同，因此外层循环直接遍历端口池）
@@ -61,6 +61,7 @@ LOOP_POOL:
 			result, err := pool.AllocatePort(ctx, portsToAllocate...)
 			if err != nil { // 有分配错误，释放已分配的端口
 				if err == ErrListenerQuotaExceeded { // 超配额，跳出端口循环，尝试创建 CLB
+					log.FromContext(ctx).V(10).Info("listener quota exceeded when allocate port", "pool", pool.GetName(), "tryPort", port)
 					break
 				}
 				allocatedPorts.Release()
@@ -68,9 +69,11 @@ LOOP_POOL:
 			}
 			if len(result) > 0 { // 该端口池分配到了端口，追加到结果中
 				allocatedPorts = append(allocatedPorts, result...)
+				log.FromContext(ctx).V(10).Info("allocated port", "pool", pool.GetName(), "port", port)
 				continue LOOP_POOL
 			}
 			// 该端口池中无法分配此端口，尝试下一个端口
+			log.FromContext(ctx).V(10).Info("no available port can be allocated, try next port", "pool", pool.GetName(), "port", port)
 		}
 		// 该端口池所有端口都无法分配，或者监听器数量超配额，为保证事务性，释放已分配的端口，并尝试通知端口池扩容 CLB 来补充端口池
 		allocatedPorts.Release()
@@ -81,8 +84,10 @@ LOOP_POOL:
 		}
 		switch result {
 		case -1: // 不能自动创建，返回端口不足的错误
+			log.FromContext(ctx).V(10).Info("port is not enough", "pool", pool.GetName())
 			return nil, ErrNoPortAvailable
 		case 2, 1: // 已经通知过或通知成功，重新入队
+			log.FromContext(ctx).V(10).Info("wait lb to scale", "pool", pool.GetName())
 			return nil, ErrWaitLBScale
 		default: // 不可能的状态
 			return nil, ErrUnknown

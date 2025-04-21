@@ -53,6 +53,9 @@ func (pa *PortAllocator) IsPoolExists(name string) bool {
 
 // 确保指定端口池的LbIds符合预期
 func (pa *PortAllocator) EnsureLbIds(name string, lbIds []string) error {
+	if len(lbIds) == 0 {
+		return nil
+	}
 	pa.mu.Lock()
 	pool, exists := pa.pools[name]
 	pa.mu.Unlock()

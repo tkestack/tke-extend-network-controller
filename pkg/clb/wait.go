@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/imroc/tke-extend-network-controller/pkg/util"
+	"github.com/pkg/errors"
 	clb "github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/clb/v20180317"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
@@ -22,7 +23,7 @@ func Wait(ctx context.Context, region, reqId, taskName string) (ids []string, er
 			req.TaskId = &reqId
 			resp, err := client.DescribeTaskStatusWithContext(ctx, req)
 			if err != nil {
-				return nil, err
+				return nil, errors.WithStack(err)
 			}
 			switch *resp.Response.Status {
 			case 2: // 任务进行中，继续等待

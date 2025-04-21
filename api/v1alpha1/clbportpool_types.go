@@ -47,36 +47,6 @@ type CLBPortPoolSpec struct {
 	AutoCreate *AutoCreateConfig `json:"autoCreate,omitempty"`
 }
 
-func (pool *CLBPortPool) CanCreateLB() bool {
-	// 还未初始化的端口池，不能创建负载均衡器
-	if pool.Status.State == "" || pool.Status.State == CLBPortPoolStatePending {
-		return false
-	}
-	// 没有显式启用自动创建的端口池，不能创建负载均衡器
-	if pool.Spec.AutoCreate == nil {
-		return false
-	}
-	if !pool.Spec.AutoCreate.Enabled {
-		return false
-	}
-	// 自动创建的 CLB 数量达到配置上限的端口池，不能创建负载均衡器
-	if !util.IsZero(pool.Spec.AutoCreate.MaxLoadBalancers) {
-		// 检查是否已创建了足够的 CLB
-		num := uint16(0)
-		for _, lbStatus := range pool.Status.LoadbalancerStatuses {
-			if lbStatus.AutoCreated != nil && *lbStatus.AutoCreated {
-				num++
-			}
-		}
-		// 如果已创建数量已满，则直接返回
-		if num >= *pool.Spec.AutoCreate.MaxLoadBalancers {
-			return false
-		}
-	}
-	// 其余情况，允许创建负载均衡器
-	return true
-}
-
 func (pool *CLBPortPool) GetRegion() string {
 	return util.GetRegionFromPtr(pool.Spec.Region)
 }

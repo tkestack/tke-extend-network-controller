@@ -70,7 +70,7 @@ func (i *initCache) Start(ctx context.Context) error {
 		}
 		lbIds := []string{}
 		for _, lbStatus := range pp.Status.LoadbalancerStatuses {
-			if lbStatus.State == networkingv1alpha1.LoadBalancerStateRunning {
+			if lbStatus.State != networkingv1alpha1.LoadBalancerStateNotFound {
 				lbIds = append(lbIds, lbStatus.LoadbalancerID)
 			}
 		}

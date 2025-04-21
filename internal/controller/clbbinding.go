@@ -55,9 +55,6 @@ func (r *CLBBindingReconciler[T]) sync(ctx context.Context, bd T) (result ctrl.R
 	if err := r.ensureCLBBinding(ctx, bd); err != nil {
 		// 如果是等待端口池扩容 CLB，确保状态为 WaitForLB，并重新入队，以便在 CLB 扩容完成后能自动分配端口并绑定 obj
 		if errors.Is(err, portpool.ErrWaitLBScale) {
-			if err := r.ensureState(ctx, bd, networkingv1alpha1.CLBBindingStateWaitForLB); err != nil {
-				return result, errors.WithStack(err)
-			}
 			result.RequeueAfter = 3 * time.Second
 			return result, nil
 		}
@@ -116,15 +113,18 @@ func (r *CLBBindingReconciler[T]) ensurePoolAndCLB(ctx context.Context, bd clbbi
 				r.Recorder.Event(bd.GetObject(), corev1.EventTypeWarning, "CLBDeleted", fmt.Sprintf("clb has been deleted (%s/%s/%d)", binding.Pool, binding.LoadbalancerId, binding.LoadbalancerPort))
 				needUpdateStatus = true
 			} else {
+				log.FromContext(ctx).V(10).Info("ensurePoolAndCLB - add newBinding", "binding", binding)
 				newBindings = append(newBindings, *binding)
 			}
 		}
 	}
 	if needUpdateStatus {
+		log.FromContext(ctx).V(10).Info("update status newBindings", "newBindings", newBindings)
 		status.PortBindings = newBindings
 		if err := r.Status().Update(ctx, bd.GetObject()); err != nil {
 			return errors.WithStack(err)
 		}
+		log.FromContext(ctx).V(10).Info("after update status newBindings", "obj", bd.GetObject())
 	}
 	return nil
 }
@@ -514,12 +514,15 @@ func (r *CLBBindingReconciler[T]) cleanup(ctx context.Context, bd T) (result ctr
 	for _, binding := range status.PortBindings {
 		// 解绑 lb
 		if _, err := clb.DeleteListenerByPort(ctx, binding.Region, binding.LoadbalancerId, int64(binding.LoadbalancerPort), binding.Protocol); err != nil {
+			if clb.IsLbIdNotFoundError(errors.Cause(err)) { // lb 不存在，忽略
+				continue
+			}
 			return result, errors.Wrapf(err, "failed to delete listener (%s/%d/%s)", binding.LoadbalancerId, binding.LoadbalancerPort, binding.Protocol)
 		}
 		// 释放端口
 		portpool.Allocator.Release(binding.Pool, binding.LoadbalancerId, portFromPortBindingStatus(&binding))
 	}
-	// 清理完成，检查 obj 是否是正常状态，如果是，通常是手动删除 CLBobjBinding 场景，此时触发一次 obj 对账，让被删除的 CLBobjBinding 重新创建出来
+	// 清理完成，检查 obj 是否是正常状态，如果是，通常是手动删除 CLBBinding 场景，此时触发一次 obj 对账，让被删除的 CLBBinding 重新创建出来
 	backend, err := bd.GetAssociatedObject(ctx, r.Client)
 	if err != nil {
 		if apierrors.IsNotFound(err) { // 后端没有重建出来，忽略
@@ -600,21 +603,21 @@ func (r *CLBBindingReconciler[T]) syncCLBBinding(ctx context.Context, obj client
 	// 获取 obj 的注解
 	enablePortMappings := anno[constant.EnableCLBPortMappingsKey]
 	switch enablePortMappings {
-	case "true", "false": // 确保 CLBobjBinding 存在且符合预期
-		// 获取 obj 对应的 CLBobjBinding
+	case "true", "false": // 确保 CLBBinding 存在且符合预期
+		// 获取 obj 对应的 CLBBinding
 		bd := binding.GetObject()
 		if err := r.Get(ctx, client.ObjectKeyFromObject(obj), bd); err != nil {
 			if apierrors.IsNotFound(err) { // 不存在，自动创建
-				// 没有 CLBobjBinding，自动创建
+				// 没有 CLBBinding，自动创建
 				bd.SetName(obj.GetName())
 				bd.SetNamespace(obj.GetNamespace())
-				// 生成期望的 CLBobjBindingSpec
+				// 生成期望的 CLBBindingSpec
 				spec, err := generateCLBBindingSpec(portMappings, enablePortMappings)
 				if err != nil {
-					return result, errors.Wrap(err, "failed to generate CLBobjBinding spec")
+					return result, errors.Wrap(err, "failed to generate CLBBinding spec")
 				}
 				*binding.GetSpec() = *spec
-				// 给 CLBobjBinding 添加 OwnerReference，让 obj 被删除时，CLBobjBinding 也被清理，保留 IP 场景除外
+				// 给 CLBBinding 添加 OwnerReference，让 obj 被删除时，CLBBinding 也被清理，保留 IP 场景除外
 				if obj.GetAnnotations()[constant.Ratain] != "true" {
 					if err := controllerutil.SetOwnerReference(obj, bd, r.Scheme); err != nil {
 						return result, errors.WithStack(err)
@@ -625,12 +628,12 @@ func (r *CLBBindingReconciler[T]) syncCLBBinding(ctx context.Context, obj client
 					r.Recorder.Event(obj, corev1.EventTypeWarning, "CreateCLBBinding", fmt.Sprintf("create CLBBinding %s failed: %s", obj.GetName(), err.Error()))
 					return result, errors.WithStack(err)
 				}
-				r.Recorder.Event(obj, corev1.EventTypeNormal, "CreateCLBobjBinding", fmt.Sprintf("create CLBobjBinding %s successfully", obj.GetName()))
+				r.Recorder.Event(obj, corev1.EventTypeNormal, "CreateCLBBinding", fmt.Sprintf("create CLBBinding %s successfully", obj.GetName()))
 			} else { // 其它错误，直接返回错误
 				return result, errors.WithStack(err)
 			}
 		} else { // 存在
-			// 正在删除，重新入队（滚动更新场景，旧的解绑完，确保 CLBobjBinding 要重建出来）
+			// 正在删除，重新入队（滚动更新场景，旧的解绑完，确保 CLBBinding 要重建出来）
 			if !binding.GetDeletionTimestamp().IsZero() {
 				result.RequeueAfter = time.Second
 				return result, nil
@@ -645,25 +648,25 @@ func (r *CLBBindingReconciler[T]) syncCLBBinding(ctx context.Context, obj client
 					break
 				}
 			}
-			if objRecreated { // 检测到 obj 已被重建，CLBobjBinding 在等待被 GC 清理，重新入队，以便被 GC 清理后重新对账让新的 CLBobjBinding 被创建出来
+			if objRecreated { // 检测到 obj 已被重建，CLBBinding 在等待被 GC 清理，重新入队，以便被 GC 清理后重新对账让新的 CLBBinding 被创建出来
 				result.RequeueAfter = 3 * time.Second
-				r.Recorder.Event(obj, corev1.EventTypeNormal, "WaitCLBobjBindingGC", "wait old clbobjbinding to be deleted")
+				r.Recorder.Event(obj, corev1.EventTypeNormal, "WaitCLBBindingGC", "wait old clbbinding to be deleted")
 				return result, nil
 			}
-			// CLBobjBinding 存在且没有被删除，对账 spec 是否符合预期
+			// CLBBinding 存在且没有被删除，对账 spec 是否符合预期
 			spec, err := generateCLBBindingSpec(portMappings, enablePortMappings)
 			if err != nil {
-				return result, errors.Wrap(err, "failed to generate CLBobjBinding spec")
+				return result, errors.Wrap(err, "failed to generate CLBBinding spec")
 			}
 			actualSpec := binding.GetSpec()
 			if !reflect.DeepEqual(*actualSpec, *spec) { // spec 不一致，更新
-				log.FromContext(ctx).Info("update clbobjbinding", "oldSpec", *actualSpec, "newSpec", *spec)
+				log.FromContext(ctx).Info("update clbbinding", "oldSpec", *actualSpec, "newSpec", *spec)
 				*actualSpec = *spec
 				if err := r.Update(ctx, bd); err != nil {
-					r.Recorder.Eventf(obj, corev1.EventTypeWarning, "CLBobjBindingChanged", "update CLBobjBinding %s failed: %s", obj.GetName(), err.Error())
+					r.Recorder.Eventf(obj, corev1.EventTypeWarning, "CLBBindingChanged", "update CLBBinding %s failed: %s", obj.GetName(), err.Error())
 					return result, errors.WithStack(err)
 				}
-				r.Recorder.Eventf(obj, corev1.EventTypeNormal, "CLBobjBindingChanged", "update CLBobjBinding %s successfully", obj.GetName())
+				r.Recorder.Eventf(obj, corev1.EventTypeNormal, "CLBBindingChanged", "update CLBBinding %s successfully", obj.GetName())
 			}
 		}
 	default:
