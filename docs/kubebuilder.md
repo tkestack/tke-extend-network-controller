@@ -1,6 +1,10 @@
-# kubebuilder 使用记录
+## kubebuilder 版本
 
-## v1alpha1
+当前使用的 kubebuilder 版本为 4.5.2。
+
+## kubebuilder 使用记录
+
+### v1alpha1
 
 ```bash
 kubebuilder create api --group networking --version v1alpha1 --kind DedicatedCLBListener --namespaced=true --resource --controller
