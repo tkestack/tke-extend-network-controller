@@ -176,6 +176,21 @@ func RegisterTargets(ctx context.Context, region, lbId, listenerId string, targe
 	return err
 }
 
+func RegisterTarget(ctx context.Context, region, lbId, listenerId string, target Target) error {
+	task := &RegisterTargetTask{
+		Ctx:        ctx,
+		Region:     region,
+		LbId:       lbId,
+		ListenerId: listenerId,
+		Target:     target,
+		Result:     make(chan error),
+	}
+	log.FromContext(ctx).V(10).Info("RegisterTarget", "task", task)
+	RegisterTargetChan <- task
+	err := <-task.Result
+	return err
+}
+
 func DescribeTargets(ctx context.Context, region, lbId, listenerId string) (targets []Target, err error) {
 	req := clb.NewDescribeTargetsRequest()
 	req.LoadBalancerId = &lbId

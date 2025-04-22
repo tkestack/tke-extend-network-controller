@@ -354,7 +354,7 @@ func (r *CLBBindingReconciler[T]) ensurePortBound(ctx context.Context, backend c
 	// 绑定后端
 	if !alreadyAdded {
 		log.FromContext(ctx).V(10).Info("register target", "target", backendTarget)
-		if err := clb.RegisterTargets(ctx, binding.Region, binding.LoadbalancerId, binding.ListenerId, backendTarget); err != nil {
+		if err := clb.RegisterTarget(ctx, binding.Region, binding.LoadbalancerId, binding.ListenerId, backendTarget); err != nil {
 			return errors.WithStack(err)
 		}
 	}
