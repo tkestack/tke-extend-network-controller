@@ -53,9 +53,14 @@ func (r *CLBBindingReconciler[T]) sync(ctx context.Context, bd T) (result ctrl.R
 	}
 	// 确保所有端口都已分配且绑定 obj
 	if err := r.ensureCLBBinding(ctx, bd); err != nil {
-		// 如果是等待端口池扩容 CLB，确保状态为 WaitForLB，并重新入队，以便在 CLB 扩容完成后能自动分配端口并绑定 obj
+		//  如果是等待端口池扩容 CLB，确保状态为 WaitForLB，并重新入队，以便在 CLB 扩容完成后能自动分配端口并绑定 obj
 		if errors.Is(err, portpool.ErrWaitLBScale) {
 			result.RequeueAfter = 3 * time.Second
+			return result, nil
+		}
+		// 如果是被云 API 限流（默认每秒 20 qps 限制），1s 后重新入队
+		if clb.IsRequestLimitExceededError(errors.Cause(err)) {
+			result.RequeueAfter = time.Second
 			return result, nil
 		}
 		// 其它非资源冲突的错误，将错误记录到状态中方便排障
@@ -288,15 +293,30 @@ func (r *CLBBindingReconciler[T]) ensureListener(ctx context.Context, binding *n
 	createListener := func() {
 		log.FromContext(ctx).V(10).Info("create listener")
 		var lisId string
-		if lisId, err = clb.CreateListener(
-			ctx,
-			binding.Region,
-			binding.LoadbalancerId,
-			int64(binding.LoadbalancerPort),
-			int64(util.GetValue(binding.LoadbalancerEndPort)),
-			binding.Protocol,
-			"",
-		); err != nil {
+		endPort := int64(util.GetValue(binding.LoadbalancerEndPort))
+		if endPort > 0 { // 端口段监听器无法批量创建
+			lisId, err = clb.CreateListener(
+				ctx,
+				binding.Region,
+				binding.LoadbalancerId,
+				int64(binding.LoadbalancerPort),
+				endPort,
+				binding.Protocol,
+				"",
+			)
+		} else {
+			startTime := time.Now()
+			lisId, err = clb.CreateListenerTryBatch(
+				ctx,
+				binding.Region,
+				binding.LoadbalancerId,
+				int64(binding.LoadbalancerPort),
+				binding.Protocol,
+				"",
+			)
+			log.FromContext(ctx).V(10).Info("CreateListenerTryBatch performance", "cost", time.Since(startTime).String())
+		}
+		if err != nil {
 			err = errors.Wrapf(err, "failed to create listener %d/%s", binding.Port, binding.Protocol)
 			return
 		} else { // 创建监听器成功，更新状态
@@ -354,9 +374,11 @@ func (r *CLBBindingReconciler[T]) ensurePortBound(ctx context.Context, backend c
 	// 绑定后端
 	if !alreadyAdded {
 		log.FromContext(ctx).V(10).Info("register target", "target", backendTarget)
+		startTime := time.Now()
 		if err := clb.RegisterTarget(ctx, binding.Region, binding.LoadbalancerId, binding.ListenerId, backendTarget); err != nil {
 			return errors.WithStack(err)
 		}
+		log.FromContext(ctx).V(10).Info("RegisterTarget performance", "cost", time.Since(startTime).String())
 	}
 	// 到这里，能确保后端 已绑定到所有 lb 监听器
 	return nil

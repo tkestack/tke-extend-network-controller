@@ -8,6 +8,7 @@ import (
 	"github.com/pkg/errors"
 	clb "github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/clb/v20180317"
 	"github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common"
+	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 type Listener struct {
@@ -81,6 +82,24 @@ func GetListenerByPort(ctx context.Context, region, lbId string, port int64, pro
 }
 
 const TkePodListenerName = "TKE-DEDICATED-POD"
+
+func CreateListenerTryBatch(ctx context.Context, region, lbId string, port int64, protocol, extensiveParameters string) (id string, err error) {
+	task := &CreateListenerTask{
+		Ctx:                 ctx,
+		Region:              region,
+		LbId:                lbId,
+		Port:                port,
+		Protocol:            protocol,
+		ExtensiveParameters: extensiveParameters,
+		Result:              make(chan *ListenerResult),
+	}
+	log.FromContext(ctx).V(10).Info("CreateListener", "task", task)
+	CreateListenerChan <- task
+	result := <-task.Result
+	id = result.ListenerId
+	err = result.Err
+	return
+}
 
 func CreateListener(ctx context.Context, region, lbId string, port, endPort int64, protocol, extensiveParameters string) (id string, err error) {
 	req := clb.NewCreateListenerRequest()

@@ -62,7 +62,7 @@ func SetupControllers(mgr ctrl.Manager, workers int) {
 		Client:   mgr.GetClient(),
 		Scheme:   mgr.GetScheme(),
 		Recorder: mgr.GetEventRecorderFor("clbnodebinding-controller"),
-	}).SetupWithManager(mgr); err != nil {
+	}).SetupWithManager(mgr, workers); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "CLBNodeBinding")
 		os.Exit(1)
 	}

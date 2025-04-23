@@ -26,6 +26,7 @@ import (
 	"k8s.io/client-go/tools/record"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -78,7 +79,7 @@ func (r *CLBNodeBindingReconciler) sync(ctx context.Context, pb *networkingv1alp
 }
 
 // SetupWithManager sets up the controller with the Manager.
-func (r *CLBNodeBindingReconciler) SetupWithManager(mgr ctrl.Manager) error {
+func (r *CLBNodeBindingReconciler) SetupWithManager(mgr ctrl.Manager, workers int) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&networkingv1alpha1.CLBNodeBinding{}).
 		Watches(
@@ -89,6 +90,9 @@ func (r *CLBNodeBindingReconciler) SetupWithManager(mgr ctrl.Manager) error {
 			&networkingv1alpha1.CLBPortPool{},
 			handler.EnqueueRequestsFromMapFunc(r.findObjectsForCLBPortPool),
 		).
+		WithOptions(controller.Options{
+			MaxConcurrentReconciles: workers,
+		}).
 		Named("clbnodebinding").
 		Complete(r)
 }
