@@ -476,7 +476,7 @@ func (r *DedicatedCLBServiceReconciler) SetupWithManager(mgr ctrl.Manager, worke
 		WithOptions(controller.Options{
 			MaxConcurrentReconciles: workers,
 		}).
-		Watches( // TODO: 只关注创建，删除待考虑
+		Watches(
 			&corev1.Pod{},
 			handler.EnqueueRequestsFromMapFunc(r.findObjectsForPod),
 		).

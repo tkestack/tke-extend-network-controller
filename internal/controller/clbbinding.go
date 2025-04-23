@@ -536,8 +536,13 @@ func (r *CLBBindingReconciler[T]) cleanup(ctx context.Context, bd T) (result ctr
 	for _, binding := range status.PortBindings {
 		// 解绑 lb
 		if _, err := clb.DeleteListenerByPort(ctx, binding.Region, binding.LoadbalancerId, int64(binding.LoadbalancerPort), binding.Protocol); err != nil {
-			if clb.IsLbIdNotFoundError(errors.Cause(err)) { // lb 不存在，忽略
+			e := errors.Cause(err)
+			if clb.IsLbIdNotFoundError(e) { // lb 不存在，忽略
 				continue
+			}
+			if clb.IsRequestLimitExceededError(e) {
+				result.RequeueAfter = time.Second
+				return result, nil
 			}
 			return result, errors.Wrapf(err, "failed to delete listener (%s/%d/%s)", binding.LoadbalancerId, binding.LoadbalancerPort, binding.Protocol)
 		}

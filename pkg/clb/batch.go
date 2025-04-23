@@ -2,11 +2,24 @@ package clb
 
 import (
 	"time"
+
+	"github.com/imroc/tke-extend-network-controller/pkg/util"
 )
 
+func init() {
+	concurrency := util.GetWorkerCount("WORKER_CLB_POD_BINDING_CONTROLLER")
+	if nodeBindingConcurrency := util.GetWorkerCount("WORKER_CLB_NODE_BINDING_CONTROLLER"); nodeBindingConcurrency > concurrency {
+		concurrency = nodeBindingConcurrency
+	}
+	if concurrency < 1 {
+		concurrency = 1
+	}
+	go startRegisterTargetsProccessor(concurrency)
+	go startCreateListenerProccessor(concurrency)
+}
+
 const (
-	MaxBatchInternal   = 2 * time.Second
-	MaxAccumulatedTask = 200
+	MaxBatchInternal = 2 * time.Second
 )
 
 type lbKey struct {
@@ -14,17 +27,12 @@ type lbKey struct {
 	Region string
 }
 
-func init() {
-	go startRegisterTargetsProccessor()
-	go startCreateListenerProccessor()
-}
-
 type Task interface {
 	GetLbId() string
 	GetRegion() string
 }
 
-func StartBatchProccessor[T Task](apiName string, taskChan chan T, doBatch func(region, lbId string, tasks []T)) {
+func StartBatchProccessor[T Task](maxAccumulatedTask int, apiName string, taskChan chan T, doBatch func(region, lbId string, tasks []T)) {
 	tasks := []T{}
 	timer := time.NewTimer(MaxBatchInternal)
 	batchRequest := func() {
@@ -60,7 +68,7 @@ func StartBatchProccessor[T Task](apiName string, taskChan chan T, doBatch func(
 				return
 			}
 			tasks = append(tasks, task)
-			if len(tasks) > MaxAccumulatedTask {
+			if len(tasks) > maxAccumulatedTask {
 				batchRequest()
 			}
 		case <-timer.C: // 累计时间后执行批量操作

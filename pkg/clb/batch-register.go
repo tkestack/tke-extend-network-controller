@@ -25,9 +25,9 @@ func (t *RegisterTargetTask) GetRegion() string {
 
 var RegisterTargetChan = make(chan *RegisterTargetTask, 100)
 
-func startRegisterTargetsProccessor() {
+func startRegisterTargetsProccessor(concurrent int) {
 	apiName := "BatchRegisterTargets"
-	StartBatchProccessor(apiName, RegisterTargetChan, func(region, lbId string, tasks []*RegisterTargetTask) {
+	StartBatchProccessor(concurrent, apiName, RegisterTargetChan, func(region, lbId string, tasks []*RegisterTargetTask) {
 		req := clb.NewBatchRegisterTargetsRequest()
 		req.LoadBalancerId = &lbId
 		for _, task := range tasks {

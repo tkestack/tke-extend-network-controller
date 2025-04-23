@@ -78,9 +78,9 @@ func doBatchCreateListener(apiName, region, lbId, protocol, extensiveParameters 
 	return
 }
 
-func startCreateListenerProccessor() {
+func startCreateListenerProccessor(concurrent int) {
 	apiName := "CreateListener"
-	StartBatchProccessor(apiName, CreateListenerChan, func(region, lbId string, tasks []*CreateListenerTask) {
+	StartBatchProccessor(concurrent, apiName, CreateListenerChan, func(region, lbId string, tasks []*CreateListenerTask) {
 		startTime := time.Now()
 		defer func() {
 			clbLog.V(10).Info(fmt.Sprintf("batch proccess %s performance", apiName), "cost", time.Since(startTime).String())

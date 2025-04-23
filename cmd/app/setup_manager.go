@@ -7,7 +7,6 @@ import (
 	networkingv1alpha1 "github.com/imroc/tke-extend-network-controller/api/v1alpha1"
 	"github.com/imroc/tke-extend-network-controller/internal/portpool"
 	portpoolutil "github.com/imroc/tke-extend-network-controller/internal/portpool/util"
-	"github.com/spf13/viper"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
@@ -29,12 +28,8 @@ func SetupManager(mgr ctrl.Manager) {
 		setupLog.Error(err, "problem add init cache")
 		os.Exit(1)
 	}
-	workers := viper.GetInt(workerCountFlag)
-	if workers <= 0 {
-		workers = 1
-	}
 
-	SetupControllers(mgr, workers)
+	SetupControllers(mgr)
 	SetupWebhooks(mgr)
 
 	if err := mgr.AddHealthzCheck("healthz", healthz.Ping); err != nil {
