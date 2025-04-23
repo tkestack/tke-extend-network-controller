@@ -244,6 +244,8 @@ spec:
 
 使用本插件可以利用 CLB 端口段 + HostPort 来实现大规模单 Pod 单 DS 的端口映射，参考以下方法。
 
+> **注意**：由于需要使用 HostPort，而超级节点没有 HostPort，所以这种方式不支持超级节点。
+
 假设使用 Agones 部署游戏服，而 Agones 默认会为每个 GameServer 的 Pod 分配 7000~8000 的 HostPort（每个节点共 1001 个 HostPort 可能被分配给 GameServer）。
 
 1. 首先，创建一个端口池，`segmentLength` 为 1001（每个 CLB 端口段的监听器都可以映射一个节点的所有 GameServer 可能使用的 HostPort）：
@@ -260,7 +262,7 @@ spec:
     enabled: true
 ```
 
-2. 然后，需要使用 TKE 原生节点池，并为节点池中所有节点配置注解，启用 CLB 端口映射并指定映射规则，可直接编辑节点池来配置：
+2. 然后使用 TKE 节点池，并为节点池中所有节点配置注解，启用 CLB 端口映射并指定映射规则，可直接编辑节点池来配置：
 
 ![](https://image-host-1251893006.cos.ap-chengdu.myqcloud.com/2025%2F04%2F11%2F20250411170935.png)
 
