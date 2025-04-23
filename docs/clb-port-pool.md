@@ -215,7 +215,8 @@ spec:
     rollingUpdate:
       podUpdatePolicy: InPlaceIfPossible
   gameServerTemplate:
-    annotations:
+    metadata:
+      annotations:
         networking.cloud.tencent.com/enable-clb-port-mapping: "true"
         networking.cloud.tencent.com/clb-port-mapping: |-
           8000 TCPUDP pool-ctcc,pool-cmcc,pool-cucc useSamePortAcrossPools
