@@ -123,3 +123,76 @@ func startDescribeTargetsProccessor(concurrent int) {
 		}
 	})
 }
+
+type DeregisterTargetsTask struct {
+	Ctx        context.Context
+	Region     string
+	LbId       string
+	ListenerId string
+	Targets    []*Target
+	Result     chan error
+}
+
+func (t *DeregisterTargetsTask) GetLbId() string {
+	return t.LbId
+}
+
+func (t *DeregisterTargetsTask) GetRegion() string {
+	return t.Region
+}
+
+var DeregisterTargetsChan = make(chan *DeregisterTargetsTask, 100)
+
+func startDeregisterTargetsProccessor(concurrent int) {
+	apiName := "BatchDeregisterTargets"
+	StartBatchProccessor(concurrent, apiName, DeregisterTargetsChan, func(region, lbId string, tasks []*DeregisterTargetsTask) {
+		req := clb.NewBatchDeregisterTargetsRequest()
+		req.LoadBalancerId = &lbId
+		for _, task := range tasks {
+			for _, target := range task.Targets {
+				req.Targets = append(req.Targets, &clb.BatchTarget{
+					ListenerId: &task.ListenerId,
+					Port:       &target.TargetPort,
+					EniIp:      &target.TargetIP,
+				})
+			}
+		}
+		client := GetClient(region)
+		resp, err := client.BatchDeregisterTargets(req)
+		LogAPI(nil, apiName, req, resp, err)
+		// 调用失败
+		if err != nil {
+			for _, task := range tasks {
+				task.Result <- err
+			}
+			return
+		}
+		// 解绑失败
+		_, err = Wait(context.Background(), region, *resp.Response.RequestId, apiName)
+		if err != nil {
+			for _, task := range tasks {
+				task.Result <- err
+			}
+			return
+		}
+		// 全部解绑成功
+		if len(resp.Response.FailListenerIdSet) == 0 {
+			for _, task := range tasks {
+				task.Result <- nil
+			}
+			return
+		}
+		// 部分解绑成功
+		failMap := make(map[string]bool)
+		for _, listenerId := range resp.Response.FailListenerIdSet {
+			failMap[*listenerId] = true
+		}
+		for _, task := range tasks {
+			if failMap[task.ListenerId] {
+				task.Result <- fmt.Errorf("deregister targets failed for %s/%s", task.LbId, task.ListenerId)
+			} else {
+				task.Result <- nil
+			}
+		}
+	})
+}

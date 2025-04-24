@@ -353,7 +353,7 @@ func (r *CLBBindingReconciler[T]) ensurePortBound(ctx context.Context, backend c
 	// 清理多余的 rs
 	if len(targetToDelete) > 0 {
 		log.FromContext(ctx).V(10).Info("deregister targets", "targets", targetToDelete)
-		if err := clb.DeregisterTargetsForListener(ctx, binding.Region, binding.LoadbalancerId, binding.ListenerId, targetToDelete...); err != nil {
+		if err := clb.DeregisterTargetsForListenerTryBatch(ctx, binding.Region, binding.LoadbalancerId, binding.ListenerId, targetToDelete...); err != nil {
 			return errors.WithStack(err)
 		}
 	}

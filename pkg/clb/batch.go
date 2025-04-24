@@ -18,6 +18,7 @@ func init() {
 	go startCreateListenerProccessor(concurrency)
 	go startDescribeListenerProccessor(concurrency)
 	go startDescribeTargetsProccessor(concurrency)
+	go startDeregisterTargetsProccessor(concurrency)
 }
 
 const (

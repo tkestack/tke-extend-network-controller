@@ -131,6 +131,10 @@ func DeregisterAllTargets(ctx context.Context, region, lbId, listenerId string) 
 	return nil
 }
 
+func DeregisterTargetsForListenerTryBatch(ctx context.Context, region, lbId, listenerId string, targets ...Target) error {
+	return nil
+}
+
 func DeregisterTargetsForListener(ctx context.Context, region, lbId, listenerId string, targets ...Target) error {
 	mu := getLbLock(lbId)
 	mu.Lock()
