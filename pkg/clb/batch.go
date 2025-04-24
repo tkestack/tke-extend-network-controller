@@ -17,6 +17,7 @@ func init() {
 	go startRegisterTargetsProccessor(concurrency)
 	go startCreateListenerProccessor(concurrency)
 	go startDescribeListenerProccessor(concurrency)
+	go startDescribeTargetsProccessor(concurrency)
 }
 
 const (

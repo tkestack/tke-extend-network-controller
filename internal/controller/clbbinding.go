@@ -178,7 +178,7 @@ func (r *CLBBindingReconciler[T]) ensureBackendBindings(ctx context.Context, bd 
 	}
 	backend, err := bd.GetAssociatedObject(ctx, r.Client)
 	if err != nil {
-		if apierrors.IsNotFound(err) {
+		if apierrors.IsNotFound(err) { // 后端不存在，一般不存在，因为clbbinding 也会被 gc 自动清理，除非是手动管理 clbbinding
 			if err := ensureWaitForBackend(); err != nil {
 				return errors.WithStack(err)
 			}
@@ -332,7 +332,7 @@ func (r *CLBBindingReconciler[T]) ensureListener(ctx context.Context, binding *n
 
 func (r *CLBBindingReconciler[T]) ensurePortBound(ctx context.Context, backend clbbinding.Backend, binding *networkingv1alpha1.PortBindingStatus) error {
 	log.FromContext(ctx).V(10).Info("ensurePortBound", "port", binding.Port, "protocol", binding.Protocol)
-	targets, err := clb.DescribeTargets(ctx, binding.Region, binding.LoadbalancerId, binding.ListenerId)
+	targets, err := clb.DescribeTargetsTryBatch(ctx, binding.Region, binding.LoadbalancerId, binding.ListenerId)
 	if err != nil {
 		return errors.WithStack(err)
 	}
@@ -343,10 +343,10 @@ func (r *CLBBindingReconciler[T]) ensurePortBound(ctx context.Context, backend c
 	targetToDelete := []clb.Target{}
 	alreadyAdded := false
 	for _, target := range targets {
-		if target == backendTarget {
+		if *target == backendTarget {
 			alreadyAdded = true
 		} else {
-			targetToDelete = append(targetToDelete, target)
+			targetToDelete = append(targetToDelete, *target)
 			log.FromContext(ctx).V(10).Info("remove unexpected target", "got", target, "expect", backendTarget)
 		}
 	}

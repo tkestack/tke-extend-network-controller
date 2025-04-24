@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/pkg/errors"
 	clb "github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/clb/v20180317"
 	"github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common"
 	"sigs.k8s.io/controller-runtime/pkg/log"
@@ -191,6 +192,24 @@ func RegisterTarget(ctx context.Context, region, lbId, listenerId string, target
 	RegisterTargetChan <- task
 	err := <-task.Result
 	return err
+}
+
+func DescribeTargetsTryBatch(ctx context.Context, region, lbId, listenerId string) (targets []*Target, err error) {
+	task := &DescribeTargetsTask{
+		Ctx:        ctx,
+		Region:     region,
+		LbId:       lbId,
+		ListenerId: listenerId,
+		Result:     make(chan *DescribeTargetsResult),
+	}
+	DescribeTargetsChan <- task
+	result := <-task.Result
+	if result.Err != nil {
+		err = errors.WithStack(result.Err)
+		return
+	}
+	targets = result.Targets
+	return
 }
 
 func DescribeTargets(ctx context.Context, region, lbId, listenerId string) (targets []Target, err error) {
