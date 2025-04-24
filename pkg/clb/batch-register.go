@@ -39,7 +39,7 @@ func startRegisterTargetsProccessor(concurrent int) {
 		}
 		client := GetClient(region)
 		resp, err := client.BatchRegisterTargets(req)
-		clbLog.Info(apiName, "request", req, "response", resp, "err", err)
+		LogAPI(nil, apiName, req, resp, err)
 		if err != nil {
 			for _, task := range tasks {
 				task.Result <- err

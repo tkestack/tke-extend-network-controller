@@ -39,6 +39,7 @@ func GetClb(ctx context.Context, lbId, region string) (instance *clb.LoadBalance
 	req.LoadBalancerIds = []*string{&lbId}
 
 	resp, err := client.DescribeLoadBalancersWithContext(ctx, req)
+	LogAPI(ctx, "DescribeLoadBalancers", req, resp, err)
 	if err != nil {
 		return
 	}
@@ -76,6 +77,7 @@ func Create(ctx context.Context, region, vpcId, extensiveParameters string, num 
 	}
 	client := GetClient(region)
 	resp, err := client.CreateLoadBalancerWithContext(ctx, req)
+	LogAPI(ctx, "CreateLoadBalancer", req, resp, err)
 	if err != nil {
 		return
 	}
@@ -113,6 +115,7 @@ func Delete(ctx context.Context, region string, lbIds ...string) error {
 	}
 	client := GetClient(region)
 	resp, err := client.DeleteLoadBalancerWithContext(ctx, req)
+	LogAPI(ctx, "DeleteLoadBalancer", req, resp, err)
 	if err != nil {
 		if IsLbIdNotFoundError(err) {
 			if len(lbIds) == 1 { // lb 已全部删除，忽略

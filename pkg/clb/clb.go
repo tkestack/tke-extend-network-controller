@@ -1,11 +1,15 @@
 package clb
 
 import (
+	"context"
+
+	"github.com/go-logr/logr"
 	"github.com/imroc/tke-extend-network-controller/pkg/clusterinfo"
 	clb "github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/clb/v20180317"
 	"github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common"
 	"github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common/profile"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 var credential *common.Credential
@@ -37,4 +41,14 @@ func GetClient(region string) *clb.Client {
 	}
 	clients[region] = client
 	return client
+}
+
+func LogAPI(ctx context.Context, apiName string, req, resp any, err error) {
+	var logger logr.Logger
+	if ctx != nil {
+		logger = log.FromContext(ctx)
+	} else {
+		logger = clbLog
+	}
+	logger.V(10).Info("CLB API Call", "api", apiName, "request", req, "response", resp, "error", err)
 }

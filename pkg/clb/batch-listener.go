@@ -65,7 +65,7 @@ func doBatchCreateListener(apiName, region, lbId, protocol, extensiveParameters 
 	}
 	client := GetClient(region)
 	resp, err := client.CreateListener(req)
-	clbLog.Info(apiName, "request", req, "response", resp, "err", err)
+	LogAPI(nil, apiName, req, resp, err)
 	if err != nil {
 		err = errors.WithStack(err)
 		return
@@ -158,8 +158,8 @@ func startDescribeListenerProccessor(concurrent int) {
 		}
 		client := GetClient(region)
 		resp, err := client.DescribeListeners(req)
+		LogAPI(nil, apiName, req, resp, err)
 		if err != nil {
-			clbLog.Error(err, "batch describe listener failed")
 			for _, task := range tasks {
 				task.Result <- &DescribeListenerResult{
 					Err: err,

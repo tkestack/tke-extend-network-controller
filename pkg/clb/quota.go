@@ -77,7 +77,9 @@ const (
 
 func SyncQuota(ctx context.Context, region string) (map[string]int64, error) {
 	client := GetClient(region)
-	resp, err := client.DescribeQuotaWithContext(ctx, clb.NewDescribeQuotaRequest())
+	req := clb.NewDescribeQuotaRequest()
+	resp, err := client.DescribeQuotaWithContext(ctx, req)
+	LogAPI(nil, "DescribeQuota", req, resp, err)
 	if err != nil {
 		return nil, err
 	}

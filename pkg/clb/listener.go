@@ -8,7 +8,6 @@ import (
 	"github.com/pkg/errors"
 	clb "github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/clb/v20180317"
 	"github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common"
-	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 type Listener struct {
@@ -17,38 +16,6 @@ type Listener struct {
 	Protocol     string
 	ListenerId   string
 	ListenerName string
-}
-
-func GetListenerNum(ctx context.Context, region, lbId string) (num int64, err error) {
-	req := clb.NewDescribeListenersRequest()
-	req.LoadBalancerId = &lbId
-	client := GetClient(region)
-	resp, err := client.DescribeListenersWithContext(ctx, req)
-	if err != nil {
-		return
-	}
-	num = int64(len(resp.Response.Listeners))
-	return
-}
-
-func GetListener(ctx context.Context, region, lbId, listenerId string) (lis *Listener, err error) {
-	req := clb.NewDescribeListenersRequest()
-	req.LoadBalancerId = &lbId
-	req.ListenerIds = []*string{&listenerId}
-	client := GetClient(region)
-	resp, err := client.DescribeListenersWithContext(ctx, req)
-	if err != nil {
-		return
-	}
-	if len(resp.Response.Listeners) == 0 {
-		return
-	}
-	if len(resp.Response.Listeners) > 1 {
-		err = fmt.Errorf("found %d listeners for %s", len(resp.Response.Listeners), listenerId)
-		return
-	}
-	lis = convertListener(resp.Response.Listeners[0])
-	return
 }
 
 func convertListener(lbLis *clb.Listener) *Listener {
@@ -99,6 +66,7 @@ func GetListenerByPort(ctx context.Context, region, lbId string, port int64, pro
 	req.Protocol = &protocol
 	client := GetClient(region)
 	resp, err := client.DescribeListenersWithContext(ctx, req)
+	LogAPI(ctx, "DescribeListeners", req, resp, err)
 	if err != nil {
 		return nil, errors.WithStack(err)
 	}
@@ -121,7 +89,6 @@ func CreateListenerTryBatch(ctx context.Context, region, lbId string, port int64
 		ExtensiveParameters: extensiveParameters,
 		Result:              make(chan *ListenerResult),
 	}
-	log.FromContext(ctx).V(10).Info("CreateListener", "task", task)
 	CreateListenerChan <- task
 	result := <-task.Result
 	id = result.ListenerId
@@ -154,6 +121,7 @@ func CreateListener(ctx context.Context, region, lbId string, port, endPort int6
 	mu.Lock()
 	defer mu.Unlock()
 	resp, err := client.CreateListenerWithContext(ctx, req)
+	LogAPI(ctx, "CreateListener", req, resp, err)
 	if err != nil {
 		err = errors.WithStack(err)
 		return

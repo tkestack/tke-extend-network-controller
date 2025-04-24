@@ -13,7 +13,7 @@ import (
 
 func Wait(ctx context.Context, region, reqId, taskName string) (ids []string, err error) {
 	client := GetClient(region)
-	for i := 0; i < 100; i++ {
+	for range 100 {
 		select {
 		case <-ctx.Done():
 			err = ctx.Err()
@@ -22,7 +22,13 @@ func Wait(ctx context.Context, region, reqId, taskName string) (ids []string, er
 			req := clb.NewDescribeTaskStatusRequest()
 			req.TaskId = &reqId
 			resp, err := client.DescribeTaskStatusWithContext(ctx, req)
+			LogAPI(ctx, "DescribeTaskStatus", req, resp, err)
 			if err != nil {
+				if IsRequestLimitExceededError(err) {
+					clbLog.Info("request limit exceeded when wait for task, retry", "reqId", reqId, "taskName", taskName)
+					time.Sleep(1 * time.Second)
+					continue
+				}
 				return nil, errors.WithStack(err)
 			}
 			switch *resp.Response.Status {
