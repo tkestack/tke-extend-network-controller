@@ -4,10 +4,12 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"time"
 
 	"github.com/pkg/errors"
 	clb "github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/clb/v20180317"
 	"github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common"
+	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 type Listener struct {
@@ -79,7 +81,14 @@ func GetListenerByPort(ctx context.Context, region, lbId string, port int64, pro
 
 const TkePodListenerName = "TKE-DEDICATED-POD"
 
-func CreateListenerTryBatch(ctx context.Context, region, lbId string, port int64, protocol, extensiveParameters string) (id string, err error) {
+func CreateListenerTryBatch(ctx context.Context, region, lbId string, port, endPort int64, protocol, extensiveParameters string) (id string, err error) {
+	if endPort > 0 {
+		id, err = CreateListener(ctx, region, lbId, port, endPort, protocol, extensiveParameters)
+		if err != nil {
+			err = errors.WithStack(err)
+		}
+		return
+	}
 	task := &CreateListenerTask{
 		Ctx:                 ctx,
 		Region:              region,
@@ -89,8 +98,10 @@ func CreateListenerTryBatch(ctx context.Context, region, lbId string, port int64
 		ExtensiveParameters: extensiveParameters,
 		Result:              make(chan *ListenerResult),
 	}
+	startTime := time.Now()
 	CreateListenerChan <- task
 	result := <-task.Result
+	log.FromContext(ctx).V(10).Info("CreateListenerTryBatch performance", "cost", time.Since(startTime).String())
 	id = result.ListenerId
 	err = result.Err
 	return

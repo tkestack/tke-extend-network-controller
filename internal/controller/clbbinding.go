@@ -293,29 +293,15 @@ func (r *CLBBindingReconciler[T]) ensureListener(ctx context.Context, binding *n
 	createListener := func() {
 		log.FromContext(ctx).V(10).Info("create listener")
 		var lisId string
-		endPort := int64(util.GetValue(binding.LoadbalancerEndPort))
-		if endPort > 0 { // 端口段监听器无法批量创建
-			lisId, err = clb.CreateListener(
-				ctx,
-				binding.Region,
-				binding.LoadbalancerId,
-				int64(binding.LoadbalancerPort),
-				endPort,
-				binding.Protocol,
-				"",
-			)
-		} else {
-			startTime := time.Now()
-			lisId, err = clb.CreateListenerTryBatch(
-				ctx,
-				binding.Region,
-				binding.LoadbalancerId,
-				int64(binding.LoadbalancerPort),
-				binding.Protocol,
-				"",
-			)
-			log.FromContext(ctx).V(10).Info("CreateListenerTryBatch performance", "cost", time.Since(startTime).String())
-		}
+		lisId, err = clb.CreateListenerTryBatch(
+			ctx,
+			binding.Region,
+			binding.LoadbalancerId,
+			int64(binding.LoadbalancerPort),
+			int64(util.GetValue(binding.LoadbalancerEndPort)),
+			binding.Protocol,
+			"",
+		)
 		if err != nil {
 			err = errors.Wrapf(err, "failed to create listener %d/%s", binding.Port, binding.Protocol)
 			return
