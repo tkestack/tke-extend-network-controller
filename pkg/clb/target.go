@@ -131,7 +131,20 @@ func DeregisterAllTargets(ctx context.Context, region, lbId, listenerId string) 
 	return nil
 }
 
-func DeregisterTargetsForListenerTryBatch(ctx context.Context, region, lbId, listenerId string, targets ...Target) error {
+func DeregisterTargetsForListenerTryBatch(ctx context.Context, region, lbId, listenerId string, targets ...*Target) error {
+	task := &DeregisterTargetsTask{
+		Ctx:        ctx,
+		Region:     region,
+		LbId:       lbId,
+		ListenerId: listenerId,
+		Targets:    targets,
+		Result:     make(chan error),
+	}
+	DeregisterTargetsChan <- task
+	err := <-task.Result
+	if err != nil {
+		return errors.WithStack(err)
+	}
 	return nil
 }
 

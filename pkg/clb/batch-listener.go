@@ -195,3 +195,55 @@ func startDescribeListenerProccessor(concurrent int) {
 		}
 	})
 }
+
+type DeleteListenerTask struct {
+	Ctx        context.Context
+	Region     string
+	LbId       string
+	ListenerId string
+	Result     chan error
+}
+
+func (t *DeleteListenerTask) GetLbId() string {
+	return t.LbId
+}
+
+func (t *DeleteListenerTask) GetRegion() string {
+	return t.Region
+}
+
+var DeleteListenerChan = make(chan *DeleteListenerTask, 100)
+
+func startDeleteListenerProccessor(concurrent int) {
+	apiName := "DeleteLoadBalancerListeners"
+	StartBatchProccessor(concurrent, apiName, DeleteListenerChan, func(region, lbId string, tasks []*DeleteListenerTask) {
+		startTime := time.Now()
+		defer func() {
+			clbLog.V(10).Info(fmt.Sprintf("batch proccess %s performance", apiName), "cost", time.Since(startTime).String())
+		}()
+		req := clb.NewDeleteLoadBalancerListenersRequest()
+		req.LoadBalancerId = &lbId
+		for _, task := range tasks {
+			req.ListenerIds = append(req.ListenerIds, &task.ListenerId)
+		}
+		client := GetClient(region)
+		resp, err := client.DeleteLoadBalancerListeners(req)
+		LogAPI(nil, apiName, req, resp, err)
+		if err != nil {
+			for _, task := range tasks {
+				task.Result <- err
+			}
+			return
+		}
+		_, err = Wait(context.Background(), region, *resp.Response.RequestId, apiName)
+		if err != nil {
+			for _, task := range tasks {
+				task.Result <- err
+			}
+			return
+		}
+		for _, task := range tasks {
+			task.Result <- nil
+		}
+	})
+}

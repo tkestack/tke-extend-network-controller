@@ -340,13 +340,13 @@ func (r *CLBBindingReconciler[T]) ensurePortBound(ctx context.Context, backend c
 		TargetIP:   backend.GetIP(),
 		TargetPort: int64(binding.Port),
 	}
-	targetToDelete := []clb.Target{}
+	targetToDelete := []*clb.Target{}
 	alreadyAdded := false
 	for _, target := range targets {
 		if *target == backendTarget {
 			alreadyAdded = true
 		} else {
-			targetToDelete = append(targetToDelete, *target)
+			targetToDelete = append(targetToDelete, target)
 			log.FromContext(ctx).V(10).Info("remove unexpected target", "got", target, "expect", backendTarget)
 		}
 	}
@@ -521,7 +521,7 @@ func (r *CLBBindingReconciler[T]) cleanup(ctx context.Context, bd T) (result ctr
 	status := bd.GetStatus()
 	for _, binding := range status.PortBindings {
 		// 解绑 lb
-		if _, err := clb.DeleteListenerByPort(ctx, binding.Region, binding.LoadbalancerId, int64(binding.LoadbalancerPort), binding.Protocol); err != nil {
+		if err := clb.DeleteListenerByIdOrPort(ctx, binding.Region, binding.LoadbalancerId, binding.ListenerId, int64(binding.LoadbalancerPort), binding.Protocol); err != nil {
 			e := errors.Cause(err)
 			if clb.IsLbIdNotFoundError(e) { // lb 不存在，忽略
 				continue

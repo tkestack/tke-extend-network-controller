@@ -154,6 +154,34 @@ func CreateListener(ctx context.Context, region, lbId string, port, endPort int6
 	return
 }
 
+func DeleteListenerByIdOrPort(ctx context.Context, region, lbId, listenerId string, port int64, protocol string) error {
+	if listenerId == "" { // 没有监听器 ID，走慢路径
+		if _, err := DeleteListenerByPort(ctx, region, lbId, port, protocol); err != nil {
+			return errors.WithStack(err)
+		}
+	}
+	if err := DeleteListenerById(ctx, region, lbId, listenerId); err != nil {
+		return errors.WithStack(err)
+	}
+	return nil
+}
+
+func DeleteListenerById(ctx context.Context, region, lbId, listenerId string) error {
+	task := &DeleteListenerTask{
+		Ctx:        ctx,
+		Region:     region,
+		LbId:       lbId,
+		ListenerId: listenerId,
+		Result:     make(chan error),
+	}
+	DeleteListenerChan <- task
+	err := <-task.Result
+	if err != nil {
+		return errors.WithStack(err)
+	}
+	return nil
+}
+
 func DeleteListenerByPort(ctx context.Context, region, lbId string, port int64, protocol string) (id string, err error) {
 	lis, err := GetListenerByPort(ctx, region, lbId, port, protocol)
 	if err != nil {
