@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/imroc/tke-extend-network-controller/pkg/util"
@@ -212,7 +213,10 @@ func (t *DeleteListenerTask) GetRegion() string {
 	return t.Region
 }
 
-var DeleteListenerChan = make(chan *DeleteListenerTask, 100)
+var (
+	DeleteListenerChan  = make(chan *DeleteListenerTask, 100)
+	ErrListenerNotFound = errors.New("listener not found")
+)
 
 func startDeleteListenerProccessor(concurrent int) {
 	apiName := "DeleteLoadBalancerListeners"
@@ -230,8 +234,23 @@ func startDeleteListenerProccessor(concurrent int) {
 		resp, err := client.DeleteLoadBalancerListeners(req)
 		LogAPI(nil, apiName, req, resp, err)
 		if err != nil {
-			for _, task := range tasks {
-				task.Result <- err
+			// 部分要删除的监听器不存在
+			if strings.Contains(err.Error(), "Code=InvalidParameter") && strings.Contains(err.Error(), "some ListenerId") && strings.Contains(err.Error(), "not found") {
+				for _, task := range tasks {
+					if strings.Contains(err.Error(), task.ListenerId) { // 返回不存在的错误，让上层不要重试
+						clbLog.V(10).Info("listener not found", "listenerId", task.ListenerId, "rawErr", err.Error())
+						task.Result <- ErrListenerNotFound
+					} else { // 因其它监听器不存在导致本批次监听器没有删除，需要重试
+						clbLog.V(10).Info("other error", "listenerId", task.ListenerId, "rawErr", err.Error())
+						task.Result <- err
+					}
+				}
+			} else {
+				// 其它错误，全部重试
+				clbLog.V(10).Info("other bad error", "rawErr", err.Error())
+				for _, task := range tasks {
+					task.Result <- err
+				}
 			}
 			return
 		}

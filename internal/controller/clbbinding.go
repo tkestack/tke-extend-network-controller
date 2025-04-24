@@ -523,6 +523,9 @@ func (r *CLBBindingReconciler[T]) cleanup(ctx context.Context, bd T) (result ctr
 		// 解绑 lb
 		if err := clb.DeleteListenerByIdOrPort(ctx, binding.Region, binding.LoadbalancerId, binding.ListenerId, int64(binding.LoadbalancerPort), binding.Protocol); err != nil {
 			e := errors.Cause(err)
+			if e == clb.ErrListenerNotFound { // 监听器不存在，忽略
+				continue
+			}
 			if clb.IsLbIdNotFoundError(e) { // lb 不存在，忽略
 				continue
 			}
@@ -530,7 +533,7 @@ func (r *CLBBindingReconciler[T]) cleanup(ctx context.Context, bd T) (result ctr
 				result.RequeueAfter = time.Second
 				return result, nil
 			}
-			return result, errors.Wrapf(err, "failed to delete listener (%s/%d/%s)", binding.LoadbalancerId, binding.LoadbalancerPort, binding.Protocol)
+			return result, errors.Wrapf(err, "failed to delete listener (%s/%d/%s/%s)", binding.LoadbalancerId, binding.LoadbalancerPort, binding.Protocol, binding.ListenerId)
 		}
 		// 释放端口
 		portpool.Allocator.Release(binding.Pool, binding.LoadbalancerId, portFromPortBindingStatus(&binding))
