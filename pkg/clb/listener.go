@@ -64,6 +64,34 @@ func convertListener(lbLis *clb.Listener) *Listener {
 	return lis
 }
 
+// 如果有监听器 ID，尝试通过合并请求方式批量查询；如果没有监听器 ID，再尝试直接用端口查询
+func GetListenerByIdOrPort(ctx context.Context, region, lbId string, listenerId string, port int64, protocol string) (lis *Listener, err error) {
+	// 没有监听器 ID，尝试用端口+协议查询
+	if listenerId == "" {
+		lis, err = GetListenerByPort(ctx, region, lbId, port, protocol)
+		if err != nil {
+			err = errors.WithStack(err)
+		}
+		return
+	}
+	// 有监听器 ID，尝试合并请求查询
+	task := &DescribeListenerTask{
+		Ctx:        ctx,
+		Region:     region,
+		LbId:       lbId,
+		ListenerId: listenerId,
+		Result:     make(chan *DescribeListenerResult),
+	}
+	DescribeListenerChan <- task
+	result := <-task.Result
+	if result.Err != nil {
+		err = errors.WithStack(result.Err)
+		return
+	}
+	lis = result.Listener
+	return
+}
+
 func GetListenerByPort(ctx context.Context, region, lbId string, port int64, protocol string) (lis *Listener, err error) {
 	req := clb.NewDescribeListenersRequest()
 	req.Port = &port

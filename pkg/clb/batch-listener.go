@@ -120,3 +120,78 @@ func startCreateListenerProccessor(concurrent int) {
 		}
 	})
 }
+
+type DescribeListenerResult struct {
+	Listener *Listener
+	Err      error
+}
+
+type DescribeListenerTask struct {
+	Ctx        context.Context
+	Region     string
+	LbId       string
+	ListenerId string
+	Result     chan *DescribeListenerResult
+}
+
+func (t *DescribeListenerTask) GetLbId() string {
+	return t.LbId
+}
+
+func (t *DescribeListenerTask) GetRegion() string {
+	return t.Region
+}
+
+var DescribeListenerChan = make(chan *DescribeListenerTask, 100)
+
+func startDescribeListenerProccessor(concurrent int) {
+	apiName := "DescribeListeners"
+	StartBatchProccessor(concurrent, apiName, DescribeListenerChan, func(region, lbId string, tasks []*DescribeListenerTask) {
+		startTime := time.Now()
+		defer func() {
+			clbLog.V(10).Info(fmt.Sprintf("batch proccess %s performance", apiName), "cost", time.Since(startTime).String())
+		}()
+		req := clb.NewDescribeListenersRequest()
+		req.LoadBalancerId = &lbId
+		for _, task := range tasks {
+			req.ListenerIds = append(req.ListenerIds, &task.ListenerId)
+		}
+		client := GetClient(region)
+		resp, err := client.DescribeListeners(req)
+		if err != nil {
+			clbLog.Error(err, "batch describe listener failed")
+			for _, task := range tasks {
+				task.Result <- &DescribeListenerResult{
+					Err: err,
+				}
+			}
+			return
+		}
+		taskMap := make(map[string]*DescribeListenerTask)
+		for _, task := range tasks {
+			taskMap[task.ListenerId] = task
+		}
+		for _, lis := range resp.Response.Listeners {
+			task := taskMap[*lis.ListenerId]
+			result := &DescribeListenerResult{
+				Listener: &Listener{
+					ListenerId:   *lis.ListenerId,
+					Protocol:     *lis.Protocol,
+					Port:         *lis.Port,
+					ListenerName: *lis.ListenerName,
+				},
+			}
+			if lis.EndPort != nil {
+				result.Listener.EndPort = *lis.EndPort
+			}
+			task.Result <- result
+			delete(taskMap, *lis.ListenerId)
+		}
+		for listenerId, task := range taskMap {
+			err = fmt.Errorf("listener %s not found", listenerId)
+			task.Result <- &DescribeListenerResult{
+				Err: err,
+			}
+		}
+	})
+}

@@ -326,7 +326,7 @@ func (r *CLBBindingReconciler[T]) ensureListener(ctx context.Context, binding *n
 		}
 	}
 	var lis *clb.Listener
-	if lis, err = clb.GetListenerByPort(ctx, binding.Region, binding.LoadbalancerId, int64(binding.LoadbalancerPort), binding.Protocol); err != nil {
+	if lis, err = clb.GetListenerByIdOrPort(ctx, binding.Region, binding.LoadbalancerId, binding.ListenerId, int64(binding.LoadbalancerPort), binding.Protocol); err != nil {
 		err = errors.Wrapf(err, "failed to get listener by port %d/%s", binding.Port, binding.Protocol)
 		return
 	} else {
@@ -334,7 +334,7 @@ func (r *CLBBindingReconciler[T]) ensureListener(ctx context.Context, binding *n
 			log.FromContext(ctx).V(10).Info("listener not create yet")
 			createListener()
 		} else { // 已创建监听器，检查是否符合预期
-			if lis.ListenerId != binding.ListenerId {
+			if lis.ListenerId != binding.ListenerId { // id 不匹配，包括还未写入 id 的情况，更新下 id
 				log.FromContext(ctx).V(10).Info("listenerId not match, need update", "expect", binding.ListenerId, "actual", lis.ListenerId)
 				binding.ListenerId = lis.ListenerId
 				needUpdate = true
