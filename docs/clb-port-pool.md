@@ -25,18 +25,129 @@ secretKey: "" # 腾讯云子账号的 SecretKey
 
 使用 CLB 为 Pod 分配公网地址映射，需要先创建端口池，每个端口池对应一组相同属性的 CLB，可以动态追加已有 CLB 实例 ID，也可以在端口不足时自动创建新的 CLB。
 
-通过创建 CLBPortPool 这个自定义资源来声明端口池，示例：
+通过创建 CLBPortPool 这个自定义资源来声明端口池，完整的字段说明如下：
 
 ```yaml
 apiVersion: networking.cloud.tencent.com/v1alpha1
 kind: CLBPortPool
 metadata:
-  name: pool-test
+  name: pool-test # 端口池名称，将会在 Pod 或 Node 注解中被引用
 spec:
   startPort: 30000 # 端口池中 CLB 起始端口号
+  endPort: 30100 # 可选，端口池的结束端口号。通常只在明确需要限制 CLB 最大端口号时才需要设置，默认情况下会根据当前监听器数量配额和端口分配情况来自动决定。
+  segmentLength: 0 # 可选，端口段的长度。仅当值大于 1 时才有效，此时将使用 CLB 端口段监听器来映射（1 个 CLB 监听器可映射 segmentLength 个端口)，结合节点的 HostPort 可实现大规模场景的映射。
   exsistedLoadBalancerIDs: [lb-04iq85jh] # 指定已有的 CLB 实例 ID，可动态追加
+  region: ap-guangzhou # 可选，CLB 说在地域的地域代码，如 ap-chengdu，默认使用 TKE 集群说在地域。
+  autoCreate: # 可选，自动创建 CLB 的配置，如果不配置，则不会自动创建 CLB
+    enabled: true # 是否启用自动创建，如果启用将会在 CLB 端口不足时自动创建 CLB
+    maxLoadBalancers: 10 # 可选，限制自动创建的最大负载均衡器数量，默认不限制。
+    parameters: # 可选，自动创建 CLB 时购买 CLB 的参数，参考 CreateLoadBalancer 接口: https://cloud.tencent.com/document/api/214/30692
+      # 负载均衡实例的网络类型：OPEN：公网属性， INTERNAL：内网属性。默认使用 OPEN（公网负载均衡）。
+      loadBalancerType: OPEN
+      # 在私有网络内购买内网负载均衡实例的情况下，必须指定子网 ID，内网负载均衡实例的 VIP 将从这个子网中产生。创建内网负载均衡实例时，此参数必填，创建公网IPv4负载均衡实例时，不支持指定该参数。
+      subnetId: subnet-k57djpow
+      # 负载均衡实例的名称。规则：1-60 个英文、汉字、数字、连接线“-”或下划线“_”。 注意：如果名称与系统中已有负载均衡实例的名称相同，则系统将会自动生成此次创建的负载均衡实例的名称。
+      loadBalancerName: test
+      # 仅适用于公网负载均衡。目前仅广州、上海、南京、济南、杭州、福州、北京、石家庄、武汉、长沙、成都、重庆地域支持静态单线 IP 线路类型，如需体验，请联系商务经理申请。申请通过后，即可选择中国移动（CMCC）、中国联通（CUCC）或中国电信（CTCC）的运营商类型，网络计费模式只能使用按带宽包计费(BANDWIDTH_PACKAGE)。 如果不指定本参数，则默认使用BGP。可通过 DescribeResources 接口查询一个地域所支持的Isp。
+      vipIsp: CTCC
+      # 带宽包ID，指定此参数时，网络计费方式（InternetAccessible.InternetChargeType）只支持按带宽包计费（BANDWIDTH_PACKAGE），带宽包的属性即为其结算方式。非上移用户购买的 IPv6 负载均衡实例，且运营商类型非 BGP 时 ，不支持指定具体带宽包id。
+      bandwidthPackageId: bwp-40ykow69
+      # 性能容量型规格。
+      # 若需要创建性能容量型实例，则此参数必填，取值范围：
+      # clb.c2.medium：标准型规格
+      # clb.c3.small：高阶型1规格
+      # clb.c3.medium：高阶型2规格
+      # clb.c4.small：超强型1规格
+      # clb.c4.medium：超强型2规格
+      # clb.c4.large：超强型3规格
+      # clb.c4.xlarge：超强型4规格
+      # 若需要创建共享型实例，则无需填写此参数。
+      slaType: clb.c4.xlarge # 
+      # 负载均衡实例计费类型，取值：POSTPAID_BY_HOUR，PREPAID，默认是POSTPAID_BY_HOUR。
+      lbChargeType: POSTPAID_BY_HOUR
+      # 仅适用于公网负载均衡。负载均衡的网络计费模式。
+      internetAccessible:
+        # TRAFFIC_POSTPAID_BY_HOUR 按流量按小时后计费 ; BANDWIDTH_POSTPAID_BY_HOUR 按带宽按小时后计费; BANDWIDTH_PACKAGE 按带宽包计费;BANDWIDTH_PREPAID按带宽预付费。注意：此字段可能返回 null，表示取不到有效值。
+        internetChargeType: TRAFFIC_POSTPAID_BY_HOUR
+        # 最大出带宽，单位Mbps，仅对公网属性的共享型、性能容量型和独占型 CLB 实例、以及内网属性的性能容量型 CLB 实例生效。
+        # - 对于公网属性的共享型和独占型 CLB 实例，最大出带宽的范围为1Mbps-2048Mbps。
+        # - 对于公网属性和内网属性的性能容量型 CLB实例，最大出带宽的范围为1Mbps-61440Mbps。
+        # （调用CreateLoadBalancer创建LB时不指定此参数则设置为默认值10Mbps。此上限可调整）
+        internetMaxBandwidthOut: 61440
+        # 带宽包的类型，如 SINGLEISP（单线）、BGP（多线）。
+        bandwidthpkgSubType: BGP
+      # 仅适用于公网负载均衡。IP版本，可取值：IPV4、IPV6、IPv6FullChain，不区分大小写，默认值 IPV4。说明：取值为IPV6表示为IPV6 NAT64版本；取值为IPv6FullChain，表示为IPv6版本。
+      addressIPVersion: IPv4
+      # 负载均衡后端目标设备所属的网络 ID，如vpc-12345678，可以通过 DescribeVpcs 接口获取。 不填此参数则默认为当前集群所在 VPC。创建内网负载均衡实例时，此参数必填。
+      vpcId: vpc-091t4l6w
+      # 购买负载均衡的同时，给负载均衡打上标签，最大支持20个标签键值对。
+      tags:
+      - tagKey: tag-key # 标签的键
+        tagValue: tag-value # 标签的值
+      # 负载均衡实例所属的项目 ID，可以通过 DescribeProject 接口获取。不填此参数则视为默认项目。
+      projectId: 0
+      # 仅适用于公网且IP版本为IPv4的负载均衡。设置跨可用区容灾时的主可用区ID，例如 100001 或 ap-guangzhou-1
+      # 注：主可用区是需要承载流量的可用区，备可用区默认不承载流量，主可用区不可用时才使用备可用区。目前仅广州、上海、南京、北京、成都、深圳金融、中国香港、首尔、法兰克福、新加坡地域的 IPv4 版本的 CLB 支持主备可用区。可通过 DescribeResources 接口查询一个地域的主可用区的列表。【如果您需要体验该功能，请通过 工单申请】
+      masterZoneId: ap-guangzhou-1
+      # 仅适用于公网且IP版本为IPv4的负载均衡。可用区ID，指定可用区以创建负载均衡实例。
+      zoneId: ap-guangzhou-1
+```
+
+> 更详细的 API 说明请参考 [API 参考](api.md#clbportpool)
+
+下面给出一些常见的示例。
+
+1. 测试阶段，端口池使用内网 CLB 分配映射地址：
+
+```yaml
+apiVersion: networking.cloud.tencent.com/v1alpha1
+kind: CLBPortPool
+metadata:
+  name: pool-internal
+spec:
+  startPort: 30000
+  exsistedLoadBalancerIDs: [lb-04iq85jh] # 指定已有的内网 CLB
   autoCreate:
-    enabled: true # 是否启用在 CLB 端口不足时自动创建 CLB
+    enabled: true # 端口不足时自动创建内网 CLB
+    parameters:
+      loadBalancerType: INTERNAL # 指定内网 CLB 类型
+      subnetId: subnet-k57djpow # 创建内网 CLB 必须指定子网 ID
+```
+
+2. 生产阶段，端口池使用高规格的性能容量型 CLB：
+
+```yaml
+apiVersion: networking.cloud.tencent.com/v1alpha1
+kind: CLBPortPool
+metadata:
+  name: pool-prod
+spec:
+  startPort: 30000
+  exsistedLoadBalancerIDs: [lb-04iq85jh] # 指定已有的 CLB
+  autoCreate:
+    enabled: true # 端口不足时自动创建 CLB
+    parameters:
+      slaType: clb.c4.xlarge #  clb.c4.xlarge：超强型4规格
+      internetAccessible:
+        internetChargeType: TRAFFIC_POSTPAID_BY_HOUR  # 按流量按小时后计费
+        internetMaxBandwidthOut: 61440 # 最大出带宽 60 Gbps（不同规格的 CLB 的最大出带宽上限不一样，参考 https://cloud.tencent.com/document/product/214/84689）
+```
+
+3. 端口池使用指定运营商类型的 CLB：
+
+```yaml
+apiVersion: networking.cloud.tencent.com/v1alpha1
+kind: CLBPortPool
+metadata:
+  name: pool-ctcc
+spec:
+  startPort: 30000
+  autoCreate:
+    maxLoadBalancers: 3 # 最多自动创建 3 个电信 CLB
+    enabled: true
+    parameters:
+      vipIsp: CTCC # 使用电信运营商的 IP（单线 IP）
+      bandwidthPackageId: bwp-40ykow69 # 指定电信类型的共享带宽包 ID（需提前创建，参考 https://cloud.tencent.com/document/product/684/39942）
 ```
 
 ## 指定 Pod 注解映射公网地址
