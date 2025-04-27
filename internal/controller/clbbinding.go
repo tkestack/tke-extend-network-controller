@@ -526,6 +526,10 @@ func (r *CLBBindingReconciler[T]) cleanup(ctx context.Context, bd T) (result ctr
 			if e == clb.ErrListenerNotFound { // 监听器不存在，忽略
 				continue
 			}
+			if e == clb.ErrOtherListenerNotFound { // 其它监听器不存在导致本批次删除失败，忽略错误重新入队重试
+				result.Requeue = true
+				return result, nil
+			}
 			if clb.IsLbIdNotFoundError(e) { // lb 不存在，忽略
 				continue
 			}

@@ -138,7 +138,8 @@ func (r *PodReconciler) syncCLBHostPortMapping(ctx context.Context, pod *corev1.
 			}
 			for _, bd := range cbd.Status.PortBindings {
 				if bd.Protocol == string(port.Protocol) {
-					if lbPort, ok := matchHostPort(uint16(port.HostPort), bd.Port, bd.LoadbalancerPort, util.GetValue(bd.LoadbalancerEndPort)); ok {
+					lbEndPort := util.GetValue(bd.LoadbalancerEndPort)
+					if lbPort, ok := matchHostPort(uint16(port.HostPort), bd.Port, bd.LoadbalancerPort, lbEndPort); ok {
 						mappings = append(mappings, HostPortMapping{
 							ContainerPort:    uint16(port.ContainerPort),
 							HostPort:         uint16(port.HostPort),

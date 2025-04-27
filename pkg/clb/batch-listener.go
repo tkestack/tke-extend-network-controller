@@ -214,8 +214,9 @@ func (t *DeleteListenerTask) GetRegion() string {
 }
 
 var (
-	DeleteListenerChan  = make(chan *DeleteListenerTask, 100)
-	ErrListenerNotFound = errors.New("listener not found")
+	DeleteListenerChan       = make(chan *DeleteListenerTask, 100)
+	ErrListenerNotFound      = errors.New("listener not found")
+	ErrOtherListenerNotFound = errors.New("other listener not found")
 )
 
 func startDeleteListenerProccessor(concurrent int) {
@@ -238,11 +239,9 @@ func startDeleteListenerProccessor(concurrent int) {
 			if strings.Contains(err.Error(), "Code=InvalidParameter") && strings.Contains(err.Error(), "some ListenerId") && strings.Contains(err.Error(), "not found") {
 				for _, task := range tasks {
 					if strings.Contains(err.Error(), task.ListenerId) { // 返回不存在的错误，让上层不要重试
-						clbLog.V(10).Info("listener not found", "listenerId", task.ListenerId, "rawErr", err.Error())
 						task.Result <- ErrListenerNotFound
 					} else { // 因其它监听器不存在导致本批次监听器没有删除，需要重试
-						clbLog.V(10).Info("other error", "listenerId", task.ListenerId, "rawErr", err.Error())
-						task.Result <- err
+						task.Result <- ErrOtherListenerNotFound
 					}
 				}
 			} else {
