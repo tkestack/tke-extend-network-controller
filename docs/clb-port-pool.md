@@ -385,7 +385,7 @@ spec:
 apiVersion: networking.cloud.tencent.com/v1alpha1
 kind: CLBPortPool
 metadata:
-  name: pool-bgp
+  name: pool-bgp # BGP CLB 端口池
 spec:
   startPort: 30000
   autoCreate:
