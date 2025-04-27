@@ -83,7 +83,7 @@ const TkePodListenerName = "TKE-DEDICATED-POD"
 
 func CreateListenerTryBatch(ctx context.Context, region, lbId string, port, endPort int64, protocol, extensiveParameters string) (id string, err error) {
 	if endPort > 0 {
-		id, err = CreateListener(ctx, region, lbId, port, endPort, protocol, extensiveParameters)
+		id, err = CreateListener(ctx, region, lbId, port, endPort, protocol, extensiveParameters, TkeListenerName)
 		if err != nil {
 			err = errors.WithStack(err)
 		}
@@ -107,7 +107,7 @@ func CreateListenerTryBatch(ctx context.Context, region, lbId string, port, endP
 	return
 }
 
-func CreateListener(ctx context.Context, region, lbId string, port, endPort int64, protocol, extensiveParameters string) (id string, err error) {
+func CreateListener(ctx context.Context, region, lbId string, port, endPort int64, protocol, extensiveParameters, listenerName string) (id string, err error) {
 	req := clb.NewCreateListenerRequest()
 	req.HealthCheck = &clb.HealthCheck{
 		HealthSwitch: common.Int64Ptr(0),
@@ -126,7 +126,7 @@ func CreateListener(ctx context.Context, region, lbId string, port, endPort int6
 		req.EndPort = common.Uint64Ptr(uint64(endPort))
 	}
 	req.Protocol = &protocol
-	req.ListenerNames = []*string{common.StringPtr(TkePodListenerName)}
+	req.ListenerNames = []*string{common.StringPtr(listenerName)}
 	client := GetClient(region)
 	mu := getLbLock(lbId)
 	mu.Lock()
