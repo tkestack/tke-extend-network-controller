@@ -510,7 +510,7 @@ networking.cloud.tencent.com/clb-port-mapping: "7000 TCPUDP pool-test2"
 5. 最后，在 Pod 注解 `networking.cloud.tencent.com/clb-hostport-mapping-result` 可以看到被映射的 CLB 地址（容器内获取可通过 Downward API 挂载）：
 
 ```yaml
-networking.cloud.tencent.com/clb-hostport-mapping-result: '[{"containerPort":7654,"hostPort":7106,"protocol":"UDP","pool":"pool-test2","region":"ap-chengdu","loadbalancerId":"lb-e9bt8x65","loadbalancerPort":31107,"listenerId":"lbl-rvunrb65"},{"containerPort":7654,"hostPort":7157,"protocol":"TCP","pool":"pool-test2","region":"ap-chengdu","loadbalancerId":"lb-e9bt8x65","loadbalancerPort":31158,"listenerId":"lbl-av86rekp"}]'
+networking.cloud.tencent.com/clb-hostport-mapping-result: '[{"containerPort":7654,"hostPort":7106,"protocol":"UDP","pool":"pool-test2","region":"ap-chengdu","loadbalancerId":"lb-e9bt8x65","loadbalancerPort":31107,"listenerId":"lbl-rvunrb65"},{"containerPort":7654,"hostPort":7157,"protocol":"TCP","pool":"pool-test2","region":"ap-chengdu","loadbalancerId":"lb-e9bt8x65","loadbalancerPort":31107,"listenerId":"lbl-av86rekp"}]'
 networking.cloud.tencent.com/clb-hostport-mapping-status: Ready
 networking.cloud.tencent.com/enable-clb-hostport-mapping: "true"
 ```
