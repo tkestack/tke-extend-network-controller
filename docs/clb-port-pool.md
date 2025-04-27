@@ -446,7 +446,7 @@ spec:
 
 ```yaml
 networking.cloud.tencent.com/enable-clb-port-mapping: "true"
-networking.cloud.tencent.com/clb-port-mapping: "7000 TCPUDP pool-test"
+networking.cloud.tencent.com/clb-port-mapping: "7000 TCPUDP pool-test2"
 ```
 
 4. 使用选择的工作负载类型来部署游戏服，声明需要的端口和协议配置，并为 Pod 指定注解 `networking.cloud.tencent.com/enable-clb-hostport-mapping: "true"` 以启用根据 Pod 所在节点 HostPort 被映射的 CLB 地址自动回写到 Pod 注解。
