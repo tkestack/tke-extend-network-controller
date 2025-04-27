@@ -449,6 +449,8 @@ networking.cloud.tencent.com/enable-clb-port-mapping: "true"
 networking.cloud.tencent.com/clb-port-mapping: "7000 TCPUDP pool-test2"
 ```
 
+> 端口号为与工作负载分配 HostPort 范围的最小端口号，Agones 默认是 7000，OpenKruiseGame 默认是 8000。
+
 4. 使用选择的工作负载类型来部署游戏服，声明需要的端口和协议配置，并为 Pod 指定注解 `networking.cloud.tencent.com/enable-clb-hostport-mapping: "true"` 以启用根据 Pod 所在节点 HostPort 被映射的 CLB 地址自动回写到 Pod 注解。
     - 如果是 Agones 的 Fleet，需声明监听的端口（假设同时监听了 TCP 和 UDP）：
       ```yaml
