@@ -451,63 +451,61 @@ networking.cloud.tencent.com/clb-port-mapping: "7000 TCPUDP pool-test"
 
 4. 使用选择的工作负载类型来部署游戏服，声明需要的端口和协议配置，并为 Pod 指定注解 `networking.cloud.tencent.com/enable-clb-hostport-mapping: "true"` 以启用根据 Pod 所在节点 HostPort 被映射的 CLB 地址自动回写到 Pod 注解。
     - 如果是 Agones 的 Fleet，需声明监听的端口（假设同时监听了 TCP 和 UDP）：
-    ```yaml
-    apiVersion: agones.dev/v1
-    kind: Fleet
-    metadata:
-      name: simple-game-server
-    spec:
-      replicas: 5
-      template:
-        spec:
-          ports:
-          - name: udp
-            protocol: UDP
-            containerPort: 7654
-          - name: tcp
-            protocol: TCP
-            containerPort: 7654
-          template:
-            metadata:
-              annotations:
-                networking.cloud.tencent.com/enable-clb-hostport-mapping: "true"
-            spec:
-              nodeSelector:
-                role: game
-              containers:
-              - name: gameserver
-                image: docker.io/imroc/simple-game-server:0.36
-    ```
-    - 如果是 OpenKruiseGame 的 GameServerSet，需声明使用 `Kubernetes-HostPort` 网络插件，并在 `ContainerPorts` 参数中声明要分配 HostPort 的容器端口和协议（假设同时监听了 TCP 和 UDP）：
-    ```yaml
-    apiVersion: game.kruise.io/v1alpha1
-    kind: GameServerSet
-    metadata:
-      name: nginx
-    spec:
-      replicas: 5
-      updateStrategy:
-        rollingUpdate:
-          podUpdatePolicy: InPlaceIfPossible
-      network:
-        networkType: Kubernetes-HostPort
-        networkConf:
-        - name: ContainerPorts
-          value: "nginx:80/TCP,80/UDP"
-      gameServerTemplate:
-        metadata:
-          annotations:
-            networking.cloud.tencent.com/enable-clb-hostport-mapping: "true"
-        spec:
-          containers:
-          - image: nginx:latest
-            name: nginx
+      ```yaml
+      apiVersion: agones.dev/v1
+      kind: Fleet
+      metadata:
+        name: simple-game-server
+      spec:
+        replicas: 5
+        template:
+          spec:
             ports:
-            - containerPort: 80
+            - name: udp
               protocol: UDP
-            - containerPort: 80
+              containerPort: 7654
+            - name: tcp
               protocol: TCP
-    ```
+              containerPort: 7654
+            template:
+              metadata:
+                annotations:
+                  networking.cloud.tencent.com/enable-clb-hostport-mapping: "true"
+              spec:
+                containers:
+                - name: gameserver
+                  image: docker.io/imroc/simple-game-server:0.36
+      ```
+    - 如果是 OpenKruiseGame 的 GameServerSet，需声明使用 `Kubernetes-HostPort` 网络插件，并在 `ContainerPorts` 参数中声明要分配 HostPort 的容器端口和协议（假设同时监听了 TCP 和 UDP）：
+      ```yaml
+      apiVersion: game.kruise.io/v1alpha1
+      kind: GameServerSet
+      metadata:
+        name: nginx
+      spec:
+        replicas: 5
+        updateStrategy:
+          rollingUpdate:
+            podUpdatePolicy: InPlaceIfPossible
+        network:
+          networkType: Kubernetes-HostPort
+          networkConf:
+          - name: ContainerPorts
+            value: "nginx:80/TCP,80/UDP"
+        gameServerTemplate:
+          metadata:
+            annotations:
+              networking.cloud.tencent.com/enable-clb-hostport-mapping: "true"
+          spec:
+            containers:
+            - image: nginx:latest
+              name: nginx
+              ports:
+              - containerPort: 80
+                protocol: UDP
+              - containerPort: 80
+                protocol: TCP
+      ```
 
 5. 最后，在 Pod 注解 `networking.cloud.tencent.com/clb-hostport-mapping-result` 可以看到被映射的 CLB 地址（容器内获取可通过 Downward API 挂载）：
 
