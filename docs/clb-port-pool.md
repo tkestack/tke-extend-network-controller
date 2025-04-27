@@ -58,7 +58,7 @@ spec:
       vipIsp: CTCC
       # 带宽包ID，指定此参数时，网络计费方式（InternetAccessible.InternetChargeType）只支持按带宽包计费（BANDWIDTH_PACKAGE），带宽包的属性即为其结算方式。非上移用户购买的 IPv6 负载均衡实例，且运营商类型非 BGP 时 ，不支持指定具体带宽包id。
       bandwidthPackageId: bwp-40ykow69
-      # 性能容量型规格。
+      # 性能容量型规格（不同地域的可选规格列表可能不一样，以 CLB 购买页面展示的列表为准）。
       # 若需要创建性能容量型实例，则此参数必填，取值范围：
       # clb.c2.medium：标准型规格
       # clb.c3.small：高阶型1规格
