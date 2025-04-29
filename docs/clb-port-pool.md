@@ -293,7 +293,7 @@ annotations:
 
 映射效果如下：
 
-![](images/tcpudp.png)
+![](images/tcpudp.jpg)
 
 > Pod 的一个端口同时监听 TCP 和 UDP 协议，CLB 映射公网地址时，会分别使用 TCP 和 UDP 两个相同端口号的不同监听器进行映射。
 
@@ -373,7 +373,7 @@ metadata:
 
 映射效果如下：
 
-![](https://image-host-1251893006.cos.ap-chengdu.myqcloud.com/2025%2F04%2F25%2F20250425171706.png)
+![](images/multi-isp.jpg)
 
 解释：
 
@@ -463,7 +463,7 @@ spec:
 
 3. 使用 TKE 节点池创建节点，并为节点池中所有节点配置注解，启用 CLB 端口映射并指定映射规则，可直接编辑节点池来配置（Node 注解与 Pod 注解配置格式完全一致，Pod 注解用于 CLB 绑定 Pod，Node 注解用于 CLB 绑定 Node）：
 
-![](https://image-host-1251893006.cos.ap-chengdu.myqcloud.com/2025%2F04%2F11%2F20250411170935.png)
+![](images/node-pool-annotation.png)
 
 注解示例：
 
