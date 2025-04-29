@@ -277,37 +277,6 @@ metadata:
 
 进程启动时可轮询指定文件（本例中文件路径为 `/etc/podinfo/clb-port-mapping`），当文件内容为空说明此时 Pod 还未绑定到 CLB，当读取到内容时说明已经绑定成功，其内容格式为 JSON 数组，每个元素代表一个端口映射，可参考上面给出的注解示例。
 
-## 单 Pod 多 DS 场景使用 CLB 端口段映射
-
-如果单个 Pod 中运行了多个 DS（DedicatedServer），比如 10 个，如果按照 1 个 CLB 监听器映射 1 个 Pod 端口的方式，仅为 1 个 Pod 映射就要消耗 10 个 CLB 监听器，默认情况下，1 个 CLB 只能创建 50 个监听器，映射 5 个 Pod 就要消耗 1 个 CLB，CLB 的费用成本和管理成本较大。
-
-如何优化？
-
-1. 一方面，可以跟据需求 [工单申请](https://console.cloud.tencent.com/workorder/category?level1_id=6&level2_id=163&source=14&data_title=%E8%B4%9F%E8%BD%BD%E5%9D%87%E8%A1%A1&step=1) 调大 CLB 的监听器数量的上限。
-2. 另一方面，使用 CLB 的端口段特性来实现一个 CLB 监听器映射一个 Pod 中所有 DS 的端口，要求 DS 监听的端口是连续的，比如 10 个 DS 依次监听 7000~7009 这 10 个端口（使用 CLB 端口段特性也需通过 [工单申请](https://console.cloud.tencent.com/workorder/category?level1_id=6&level2_id=163&source=14&data_title=%E8%B4%9F%E8%BD%BD%E5%9D%87%E8%A1%A1&step=1) 开通使用）。
-
-如何使用 CLB 端口段监听器来映射单个 Pod 中多个 DS 监听器的端口？只需在定义端口池时指定端口段长度（`segmentLength`），指定后，分配的 CLB 监听器会使用端口段，即 1 个监听器映射后端连续的 `segmentLength` 个端口，示例：
-
-```yaml
-apiVersion: networking.cloud.tencent.com/v1alpha1
-kind: CLBPortPool
-metadata:
-  name: pool-port-range
-spec:
-  startPort: 30000
-  segmentLength: 10 # 端口段长度，10 表示 1 个 CLB 监听器映射 Pod 中连续的 10 个端口，即 10 个 DS 的地址
-  exsistedLoadBalancerIDs: [lb-04iq85jh]
-  autoCreate:
-    enabled: true
-```
-
-然后在 Pod 注解中引用该端口池即可：
-
-```yaml
-networking.cloud.tencent.com/clb-port-mapping: |-
-  7000 UDP pool-port-range
-```
-
 ## TCP 和 UDP 同端口号接入
 
 有些情况下，玩家的网络环境 UDP 可能无法正常工作，游戏客户端自动 fallback 到 TCP 协议进行通信。
@@ -413,13 +382,66 @@ metadata:
 3. 追加 `useSamePortAcrossPools` 选项表示最终每个端口池分配相同的端口号，可用于简化游戏客户端的连接游戏服务端公网地址的 fallback 逻辑（只需决定连接哪个 IP，不需要关心不同 IP 连接不同端口的情况）。
 4. 综上，最终每个 Pod 的每个端口会被映射三个公网地址，算上 TCP 和 UDP 同时监听，每个 Pod 端口使用 6 个 CLB 监听器映射公网地址；玩家连上自己运营商对应的 CLB 映射地址，如果玩家的网络环境 UDP 无法正常工作，游戏客户端可选择自动 fallback 到 TCP 协议进行通信。
 
-## 大规模场景使用 HostPort + CLB 端口段映射
+## 大规模场景下的端口映射
 
-使用单 Pod 多 DS 映射在一定程度上可以解决大规模场景 CLB 监听器不够用的问题，但存在以下限制：
+### 大规模场景下存在的问题
+
+为了给某个 Pod 监听的某个端口映射出唯一的公网地址，可以使用 CLB 的监听器只绑 1 个 Pod，这样每个 Pod 都被绑定到不同的 CLB 监听器上，Pod 独占 CLB 监听器，所有 Pod 最终在 CLB 上对应的公网地址也就不会冲突：
+
+![](./images/dedicated-listener-for-pod.jpg)
+
+但在大规模场景下，需要消耗的 CLB 监听器数量会非常大，比如 1000 Pod 需要 1000 个 CLB 监听器，而 CLB 默认的监听器配额上限为 50，（参考[CLB 使用约束](https://cloud.tencent.com/document/product/214/6187) 中的 `一个实例可添加的监听器数量`），完成 1000 个 Pod 的端口映射就需要 20 个 CLB，费用和管理成本都非常高。
+
+如何优化？请看下面几种方案。
+
+### 方案一：提升 CLB 监听器的配额
+
+根据需求 [提工单](https://console.cloud.tencent.com/workorder/category?level1_id=6&level2_id=163&source=14&data_title=%E8%B4%9F%E8%BD%BD%E5%9D%87%E8%A1%A1&step=1) 申请提升 CLB `一个实例可添加的监听器数量` 的配额限制（比如调到 2000）。
+
+### 方案二：单 Pod 多 DS + CLB 端口段
+
+CLB 支持端口段类型的监听器，可以实现用一个监听器映射连续的多个端口，比如创建了一个CLB 监听器，它的端口是 `30000~30009`，给它绑定一个后端 Pod，端口为 `8000`，那么该 CLB 的 `30000~30009` 端口将映射到 这个 Pod 的 `8000~8009` 端口。再具体一点，这个 CLB 的 30000 端口的流量将转发给这个 Pod 的 8000 端口，30001 端口的流量将转发给这个 Pod 的 8001 端口，以此类推：
+
+![](./images/dedicated-listener-for-pod.jpg)
+
+单个 Pod 中可以运行多个 DS（DedicatedServer），每个 DS 监听的端口号不一样，但它们是连续的，比如运行 10 个 DS，一共监听 `8000~8009` 这 10 个端口。这样，运行 1000 个 DS 只需要 100 个 Pod，消耗 100 个 CLB 监听器。
+
+具体如何配置呢？参考以下方法。
+
+1. 首先，CLB 端口段特性需通过 [工单申请](https://console.cloud.tencent.com/workorder/category?level1_id=6&level2_id=163&source=14&data_title=%E8%B4%9F%E8%BD%BD%E5%9D%87%E8%A1%A1&step=1) 开通使用。
+
+2. 然后，在定义端口池时指定端口段长度（`segmentLength`），指定后，分配的 CLB 监听器会使用端口段，即 1 个监听器映射后端连续的 `segmentLength` 个端口，示例：
+
+```yaml
+apiVersion: networking.cloud.tencent.com/v1alpha1
+kind: CLBPortPool
+metadata:
+  name: pool-port-range
+spec:
+  startPort: 30000
+  segmentLength: 10 # 端口段长度，10 表示 1 个 CLB 监听器映射 Pod 中连续的 10 个端口，即 10 个 DS 的地址
+  exsistedLoadBalancerIDs: [lb-04iq85jh]
+  autoCreate:
+    enabled: true
+```
+
+3. 最后，在 Pod 注解中引用该端口池即可：
+
+```yaml
+networking.cloud.tencent.com/enable-clb-port-mapping: "true"
+networking.cloud.tencent.com/clb-port-mapping: |-
+  7000 UDP pool-port-range
+```
+
+> 单 Pod 多 DS 场景下 Pod 规格通常较大，推荐使用超级节点以获得更好的弹性和成本优势。
+
+### 方案三：HostPort + CLB 端口段
+
+使用方案二在一定程度上可以解决大规模场景 CLB 监听器不够用的问题，但存在以下限制：
 1. 需游戏开发自行实现在单个 Pod 内管理多个 DS 进程，每个 DS 监听器一个端口，且端口需连续。
 2. 通常单个 Pod 内能运行的 DS 进程数量不会太多（比如 10 个以内），如果在规模非常大的情况下（比如上万个 DS），仍然需要消耗大量的 CLB 监听器数量。
 
-使用本插件可以利用 CLB 端口段 + HostPort 来实现大规模单 Pod 单 DS 的端口映射，参考以下方法。
+使用本插件还可以利用 CLB 端口段 + HostPort 来实现大规模单 Pod 单 DS 的端口映射，参考以下方法。
 
 > **注意**：由于需要使用 HostPort，而超级节点没有 HostPort，所以这种方式不支持超级节点。
 
