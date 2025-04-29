@@ -442,7 +442,19 @@ networking.cloud.tencent.com/clb-port-mapping: |-
 1. 需游戏开发自行实现在单个 Pod 内管理多个 DS 进程，每个 DS 监听器一个端口，且端口需连续。
 2. 通常单个 Pod 内能运行的 DS 进程数量不会太多（比如 10 个以内），如果在规模非常大的情况下（比如上万个 DS），仍然需要消耗大量的 CLB 监听器数量。
 
-使用本插件还可以利用 CLB 端口段 + HostPort 来实现大规模单 Pod 单 DS 的端口映射，参考以下方法。
+使用本插件还可以利用 CLB 端口段 + HostPort 来实现大规模单 Pod 单 DS 的端口映射：
+
+![](images/port-range-for-hostport.jpg)
+
+解释：
+
+1. Pod 通过 HostPort 暴露端口，此 HostPort 由工作负载在某个端口区间自动分配（需工作负载类型支持该能力，如 Agones 的 Fleet 与 OpenKruiseGame 的 GameServerSet）。
+2. 插件为 CLB 创建端口段监听器并绑定节点，端口段区间大小通常为 HostPort 自动分配的端口范围大小。
+3. Pod 调度到节点，插件根据 Pod 所调度到的节点被 CLB 端口段监听器的绑定情况和 Pod 被分配的 HostPort，自动计算出 Pod 在 CLB 中对外映射的端口号，完成映射。
+
+相比之下，方案二是 1 个端口段监听器映射 1 个 Pod 中所有 DS 监听器端口，而方案三则是 1 个端口段监听器映射 1 个节点中所有 Pod 的 DS 监听的端口，因此在使用相同监听器数量的情况下可映射的 Pod 数量方案三远大于方案二。
+
+具体如何配置呢？参考以下方法。
 
 > **注意**：由于需要使用 HostPort，而超级节点没有 HostPort，所以这种方式不支持超级节点。
 
