@@ -388,7 +388,7 @@ metadata:
 
 为了给某个 Pod 监听的某个端口映射出唯一的公网地址，可以使用 CLB 的监听器只绑 1 个 Pod，这样每个 Pod 都被绑定到不同的 CLB 监听器上，Pod 独占 CLB 监听器，所有 Pod 最终在 CLB 上对应的公网地址也就不会冲突：
 
-![](./images/dedicated-listener-for-pod.jpg)
+![](images/dedicated-listener-for-pod.jpg)
 
 但在大规模场景下，需要消耗的 CLB 监听器数量会非常大，比如 1000 Pod 需要 1000 个 CLB 监听器，而 CLB 默认的监听器配额上限为 50，（参考[CLB 使用约束](https://cloud.tencent.com/document/product/214/6187) 中的 `一个实例可添加的监听器数量`），完成 1000 个 Pod 的端口映射就需要 20 个 CLB，费用和管理成本都非常高。
 
@@ -402,7 +402,7 @@ metadata:
 
 CLB 支持端口段类型的监听器，可以实现用一个监听器映射连续的多个端口，比如创建了一个CLB 监听器，它的端口是 `30000~30009`，给它绑定一个后端 Pod，端口为 `8000`，那么该 CLB 的 `30000~30009` 端口将映射到 这个 Pod 的 `8000~8009` 端口。再具体一点，这个 CLB 的 30000 端口的流量将转发给这个 Pod 的 8000 端口，30001 端口的流量将转发给这个 Pod 的 8001 端口，以此类推：
 
-![](./images/dedicated-listener-for-pod.jpg)
+![](images/dedicated-listener-for-pod.jpg)
 
 单个 Pod 中可以运行多个 DS（DedicatedServer），每个 DS 监听的端口号不一样，但它们是连续的，比如运行 10 个 DS，一共监听 `8000~8009` 这 10 个端口。这样，运行 1000 个 DS 只需要 100 个 Pod，消耗 100 个 CLB 监听器。
 
