@@ -448,7 +448,7 @@ networking.cloud.tencent.com/clb-port-mapping: |-
 
 解释：
 
-1. Pod 通过 HostPort 暴露端口，此 HostPort 由工作负载在某个端口区间自动分配（需工作负载类型支持该能力，如 Agones 的 Fleet 与 OpenKruiseGame 的 GameServerSet）。
+1. Pod 通过 HostPort 暴露端口，此 HostPort 是在节点上某个端口区间自动分配（Kubernetes 自身不支持 HostPort 随机分配，参考 [这个 issue](https://github.com/kubernetes/kubernetes/issues/49792)，需借助第三方工作负载类型来支持该能力，如 Agones 的 Fleet、OpenKruiseGame 的 GameServerSet）。
 2. 插件为 CLB 创建端口段监听器并绑定节点，端口段区间大小通常为 HostPort 自动分配的端口范围大小。
 3. Pod 调度到节点，插件根据 Pod 所调度到的节点被 CLB 端口段监听器的绑定情况和 Pod 被分配的 HostPort，自动计算出 Pod 在 CLB 中对外映射的端口号，完成映射。
 
