@@ -293,7 +293,7 @@ annotations:
 
 映射效果如下：
 
-![](./images/tcpudp.png)
+![](images/tcpudp.png)
 
 > Pod 的一个端口同时监听 TCP 和 UDP 协议，CLB 映射公网地址时，会分别使用 TCP 和 UDP 两个相同端口号的不同监听器进行映射。
 
