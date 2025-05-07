@@ -14,23 +14,19 @@
             {
                 "effect": "allow",
                 "action": [
-                    "clb:DescribeLoadBalancerBackends",
-                    "clb:DescribeLoadBalancerListeners",
-                    "clb:DescribeLoadBalancers",
                     "clb:CreateLoadBalancer",
-                    "clb:DescribeTargets",
                     "clb:DeleteLoadBalancer",
+                    "clb:DescribeLoadBalancers",
+                    "clb:CreateListener",
+                    "clb:DeleteListener",
                     "clb:DeleteLoadBalancerListeners",
-                    "clb:BatchDeregisterTargets",
+                    "clb:DescribeListeners",
+                    "clb:RegisterTargets",
                     "clb:BatchRegisterTargets",
                     "clb:DeregisterTargets",
-                    "clb:CreateLoadBalancerListeners",
-                    "clb:CreateListener",
-                    "clb:RegisterTargets",
-                    "clb:DeleteLoadBalancers",
-                    "clb:DescribeLoadBalancersDetail",
-                    "clb:DescribeQuota",
-                    "clb:DescribeListeners"
+                    "clb:BatchDeregisterTargets",
+                    "clb:DescribeTargets",
+                    "clb:DescribeQuota"
                 ],
                 "resource": [
                     "*"
