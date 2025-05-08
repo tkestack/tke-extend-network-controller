@@ -26,7 +26,8 @@
                     "clb:DeregisterTargets",
                     "clb:BatchDeregisterTargets",
                     "clb:DescribeTargets",
-                    "clb:DescribeQuota"
+                    "clb:DescribeQuota",
+                    "clb:DescribeTaskStatus"
                 ],
                 "resource": [
                     "*"
