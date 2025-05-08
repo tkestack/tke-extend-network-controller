@@ -557,7 +557,6 @@ networking.cloud.tencent.com/enable-clb-hostport-mapping: "true"
 
 - 与 Agones 和 OKG 联动，映射信息写入 GameServer CR。
 - 通过 EIP、NATGW 等方式映射。
-- 优雅停机，避免缩容导致游戏中断。
 
 ## CRD 字段参考
 
