@@ -226,7 +226,7 @@ func BatchGetClbInfo(ctx context.Context, lbIds []string, region string) (info m
 	}
 	vpcpkg.LogAPI(ctx, "DescribeAddresses", addrReq, addrResp, err)
 	for _, addr := range addrResp.Response.AddressSet {
-		if !util.IsZero(addr.InstanceId) {
+		if addr.InstanceId != nil {
 			if lbInfo, ok := info[*addr.InstanceId]; ok {
 				lbInfo.Ips = []string{*addr.AddressIp}
 			}

@@ -103,6 +103,9 @@ func (r *CLBPortPoolReconciler) ensureExistedLB(ctx context.Context, pool *netwo
 			lbIdToAdd = append(lbIdToAdd, lbId)
 		}
 	}
+	if len(lbIdToAdd) == 0 {
+		return nil
+	}
 	lbInfos, err := clb.BatchGetClbInfo(ctx, lbIdToAdd, util.GetRegionFromPtr(pool.Spec.Region))
 	if err != nil {
 		return errors.WithStack(err)
