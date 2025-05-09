@@ -9,8 +9,10 @@ import (
 
 	"github.com/imroc/tke-extend-network-controller/pkg/clusterinfo"
 	"github.com/imroc/tke-extend-network-controller/pkg/util"
+	vpcpkg "github.com/imroc/tke-extend-network-controller/pkg/vpc"
 	clb "github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/clb/v20180317"
 	"github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common"
+	vpc "github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/vpc/v20170312"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
@@ -177,5 +179,58 @@ func CreateCLBAsync(ctx context.Context, region string, req *clb.CreateLoadBalan
 		}
 		ret <- nil
 	}()
+	return
+}
+
+type CLBInfo struct {
+	LoadbalancerID   string
+	LoadbalancerName string
+	Ips              []string
+	Hostname         *string
+}
+
+func BatchGetClbInfo(ctx context.Context, lbIds []string, region string) (info map[string]*CLBInfo, err error) {
+	client := GetClient(region)
+	req := clb.NewDescribeLoadBalancersRequest()
+	req.LoadBalancerIds = common.StringPtrs(lbIds)
+	resp, err := client.DescribeLoadBalancersWithContext(ctx, req)
+	LogAPI(ctx, "DescribeLoadBalancers", req, resp, err)
+	if err != nil {
+		return
+	}
+	if *resp.Response.TotalCount == 0 || len(resp.Response.LoadBalancerSet) == 0 {
+		return
+	}
+	info = make(map[string]*CLBInfo)
+	insIds := []*string{}
+	for _, ins := range resp.Response.LoadBalancerSet {
+		info[*ins.LoadBalancerId] = &CLBInfo{
+			LoadbalancerID:   *ins.LoadBalancerId,
+			LoadbalancerName: *ins.LoadBalancerName,
+			Ips:              util.ConvertPtrSlice(ins.LoadBalancerVips),
+			Hostname:         ins.Domain,
+		}
+		insIds = append(insIds, ins.LoadBalancerId)
+	}
+	vpcClient := vpcpkg.GetClient(region)
+	addrReq := vpc.NewDescribeAddressesRequest()
+	addrReq.Filters = []*vpc.Filter{
+		{
+			Name:   common.StringPtr("instance-id"),
+			Values: insIds,
+		},
+	}
+	addrResp, err := vpcClient.DescribeAddressesWithContext(ctx, addrReq)
+	if err != nil {
+		return
+	}
+	vpcpkg.LogAPI(ctx, "DescribeAddresses", addrReq, addrResp, err)
+	for _, addr := range addrResp.Response.AddressSet {
+		if !util.IsZero(addr.InstanceId) {
+			if lbInfo, ok := info[*addr.InstanceId]; ok {
+				lbInfo.Ips = []string{*addr.AddressIp}
+			}
+		}
+	}
 	return
 }

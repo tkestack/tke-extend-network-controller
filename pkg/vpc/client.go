@@ -1,4 +1,4 @@
-package clb
+package vpc
 
 import (
 	"context"
@@ -6,24 +6,24 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/imroc/tke-extend-network-controller/pkg/cloudapi"
 	"github.com/imroc/tke-extend-network-controller/pkg/clusterinfo"
-	clb "github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/clb/v20180317"
 	"github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common/profile"
+	vpc "github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/vpc/v20170312"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
-var clbLog = ctrl.Log.WithName("clb")
+var vpcLog = ctrl.Log.WithName("vpc")
 
-var clients = make(map[string]*clb.Client)
+var clients = make(map[string]*vpc.Client)
 
-func GetClient(region string) *clb.Client {
+func GetClient(region string) *vpc.Client {
 	if region == "" {
 		region = clusterinfo.Region
 	}
 	if client, ok := clients[region]; ok {
 		return client
 	}
-	client, err := clb.NewClient(cloudapi.GetCredential(), region, profile.NewClientProfile())
+	client, err := vpc.NewClient(cloudapi.GetCredential(), region, profile.NewClientProfile())
 	if err != nil {
 		panic(err)
 	}
@@ -36,7 +36,7 @@ func LogAPI(ctx context.Context, apiName string, req, resp any, err error) {
 	if ctx != nil {
 		logger = log.FromContext(ctx)
 	} else {
-		logger = clbLog
+		logger = vpcLog
 	}
-	logger.V(10).Info("CLB API Call", "api", apiName, "request", req, "response", resp, "error", err)
+	logger.V(10).Info("VPC API Call", "api", apiName, "request", req, "response", resp, "error", err)
 }

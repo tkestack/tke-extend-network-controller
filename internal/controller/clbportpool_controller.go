@@ -18,11 +18,12 @@ package controller
 
 import (
 	"context"
+	"fmt"
 	"reflect"
+	"strings"
 
 	portpoolutil "github.com/imroc/tke-extend-network-controller/internal/portpool/util"
 	"github.com/pkg/errors"
-	clbsdk "github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/clb/v20180317"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/tools/record"
@@ -96,30 +97,34 @@ func (r *CLBPortPoolReconciler) ensureExistedLB(ctx context.Context, pool *netwo
 	for _, lbStatus := range pool.Status.LoadbalancerStatuses {
 		lbIds[lbStatus.LoadbalancerID] = struct{}{}
 	}
-	lbToAdd := []networkingv1alpha1.LoadBalancerStatus{}
-	// 确保所有已有 CLB 在 status 中存在
+	lbIdToAdd := []string{}
 	for _, lbId := range pool.Spec.ExsistedLoadBalancerIDs {
-		// 如果在 status 中不存在，则准备校验并加进端口池
-		if _, exists := lbIds[lbId]; !exists { // TODO: 当前是 status 中如果不存在，只有首次查 clb 然后写入 status，后续改成每次对账（lb 信息变动可同步过来）
-			// 校验 CLB 是否存在
-			var lb *clbsdk.LoadBalancer
-			lb, err := clb.GetClb(ctx, lbId, util.GetRegionFromPtr(pool.Spec.Region))
-			if err != nil {
-				return errors.WithStack(err)
-			}
-			// CLB 存在，准备加进来
-			status := networkingv1alpha1.LoadBalancerStatus{
-				LoadbalancerID:   lbId,
-				LoadbalancerName: *lb.LoadBalancerName,
-			}
-			if len(lb.LoadBalancerVips) > 0 {
-				status.Ips = util.ConvertPtrSlice(lb.LoadBalancerVips)
-			}
-			if lb.Domain != nil && *lb.Domain != "" {
-				status.Hostname = lb.Domain
-			}
-			lbToAdd = append(lbToAdd, status)
+		if _, exists := lbIds[lbId]; !exists {
+			lbIdToAdd = append(lbIdToAdd, lbId)
 		}
+	}
+	lbInfos, err := clb.BatchGetClbInfo(ctx, lbIdToAdd, util.GetRegionFromPtr(pool.Spec.Region))
+	if err != nil {
+		return errors.WithStack(err)
+	}
+	lbToAdd := []networkingv1alpha1.LoadBalancerStatus{}
+	lbNotExisted := []string{}
+	// 确保所有已有 CLB 在 status 中存在
+	for _, lbId := range lbIdToAdd {
+		// 校验 CLB 是否存在
+		lbInfo, ok := lbInfos[lbId]
+		if !ok {
+			lbNotExisted = append(lbNotExisted, lbId)
+			continue
+		}
+		// CLB 存在，准备加进来
+		status := networkingv1alpha1.LoadBalancerStatus{
+			LoadbalancerID:   lbId,
+			LoadbalancerName: lbInfo.LoadbalancerName,
+			Ips:              lbInfo.Ips,
+			Hostname:         lbInfo.Hostname,
+		}
+		lbToAdd = append(lbToAdd, status)
 	}
 	// 如果有需要加进来的，加到 status 中，并更新缓存
 	if len(lbToAdd) > 0 {
@@ -127,6 +132,11 @@ func (r *CLBPortPoolReconciler) ensureExistedLB(ctx context.Context, pool *netwo
 		if err := r.Status().Update(ctx, pool); err != nil {
 			return errors.WithStack(err)
 		}
+	}
+	if len(lbNotExisted) > 0 {
+		lbIds := strings.Join(lbNotExisted, ",")
+		msg := fmt.Sprintf("clb %s not found", lbIds)
+		r.Recorder.Event(pool, corev1.EventTypeWarning, "EnsureExistedLB", msg)
 	}
 	return nil
 }

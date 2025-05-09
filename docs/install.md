@@ -27,7 +27,8 @@
                     "clb:BatchDeregisterTargets",
                     "clb:DescribeTargets",
                     "clb:DescribeQuota",
-                    "clb:DescribeTaskStatus"
+                    "clb:DescribeTaskStatus",
+                    "vpc:DescribeAddresses"
                 ],
                 "resource": [
                     "*"

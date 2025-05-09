@@ -146,8 +146,11 @@ github.com/subosito/gotenv v1.6.0 h1:9NlTDc1FTs4qu0DDq7AEtTPNw6SVm7uBMsUCUjABIf8
 github.com/subosito/gotenv v1.6.0/go.mod h1:Dk4QP5c2W3ibzajGcXpNraDfq2IrhjMIvMSWPKKo0FU=
 github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/clb v1.0.1120 h1:c4I55UhrWv+9KciKe94k+WaXHaV674eng8mxX9pDFgU=
 github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/clb v1.0.1120/go.mod h1:QX9JITVmfbp3hmg2hOrWocqbwd07zjTSQOToGrMroWA=
-github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common v1.0.1120 h1:8WaCr+vS7lHRGhE7fqAh95SF0n95PozHnAS8s5AJCww=
 github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common v1.0.1120/go.mod h1:r5r4xbfxSaeR04b166HGsBa/R4U3SueirEUpXGuw+Q0=
+github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common v1.0.1161 h1:S4dJSWhOtaPjp0/GO/yhzUC6DfZvpWhrnsEKaLxr73c=
+github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common v1.0.1161/go.mod h1:r5r4xbfxSaeR04b166HGsBa/R4U3SueirEUpXGuw+Q0=
+github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/vpc v1.0.1161 h1:Ep1gfhKv3llTZNIcLLYryExrvqKAxkKdyc8T6EWhTeQ=
+github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/vpc v1.0.1161/go.mod h1:wPjhUPxiQ4jzNhN/6ByjVj8cutoHyd09ARBXSuOTkIk=
 github.com/yuin/goldmark v1.1.27/go.mod h1:3hX8gzYuyVAZsxl0MRgGTJEmQBFcNTphYh9decYSb74=
 github.com/yuin/goldmark v1.2.1/go.mod h1:3hX8gzYuyVAZsxl0MRgGTJEmQBFcNTphYh9decYSb74=
 go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.53.0 h1:4K4tsIXefpVJtvA/8srF4V4y0akAoPHkIslgAkjixJA=

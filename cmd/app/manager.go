@@ -7,6 +7,7 @@ import (
 	"github.com/spf13/viper"
 
 	"github.com/imroc/tke-extend-network-controller/pkg/clb"
+	"github.com/imroc/tke-extend-network-controller/pkg/cloudapi"
 	"github.com/imroc/tke-extend-network-controller/pkg/clusterinfo"
 	"github.com/imroc/tke-extend-network-controller/pkg/kube"
 	"github.com/imroc/tke-extend-network-controller/pkg/manager"
@@ -46,6 +47,10 @@ func runManager() {
 	if clusterinfo.ClusterId == "" {
 		panic("clusterId is required")
 	}
+	cloudapi.Init(
+		viper.GetString(secretIdFlag),
+		viper.GetString(secretKeyFlag),
+	)
 	clb.Init(
 		viper.GetString(secretIdFlag),
 		viper.GetString(secretKeyFlag),
