@@ -43,6 +43,10 @@ type portKey struct {
 }
 
 func (r *CLBBindingReconciler[T]) sync(ctx context.Context, bd T) (result ctrl.Result, err error) {
+	spec := bd.GetSpec()
+	if spec.Disabled != nil && *spec.Disabled {
+		return
+	}
 	status := bd.GetStatus()
 	// 确保 State 不为空
 	if status.State == "" {

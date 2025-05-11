@@ -190,6 +190,7 @@ type CLBInfo struct {
 }
 
 func BatchGetClbInfo(ctx context.Context, lbIds []string, region string) (info map[string]*CLBInfo, err error) {
+	log.FromContext(ctx).V(10).Info("BatchGetClbInfo", "lbIds", lbIds)
 	client := GetClient(region)
 	req := clb.NewDescribeLoadBalancersRequest()
 	req.LoadBalancerIds = common.StringPtrs(lbIds)
@@ -226,8 +227,10 @@ func BatchGetClbInfo(ctx context.Context, lbIds []string, region string) (info m
 	}
 	vpcpkg.LogAPI(ctx, "DescribeAddresses", addrReq, addrResp, err)
 	for _, addr := range addrResp.Response.AddressSet {
+		log.FromContext(ctx).Info("got clb eip addr", "instanceId", addr.InstanceId)
 		if addr.InstanceId != nil {
 			if lbInfo, ok := info[*addr.InstanceId]; ok {
+				log.FromContext(ctx).Info("set clb eip addr", "instanceId", addr.InstanceId, "eip", *addr.AddressIp)
 				lbInfo.Ips = []string{*addr.AddressIp}
 			}
 		}
