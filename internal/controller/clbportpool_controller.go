@@ -31,7 +31,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
-	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
 	networkingv1alpha1 "github.com/imroc/tke-extend-network-controller/api/v1alpha1"
@@ -142,7 +141,6 @@ func (r *CLBPortPoolReconciler) ensureExistedLB(ctx context.Context, pool *netwo
 	lbToAdd := []networkingv1alpha1.LoadBalancerStatus{}
 	lbNotExisted := []string{}
 	lbInfos := getCLBInfoFromContext(ctx)
-	log.FromContext(ctx).V(10).Info("getCLBInfoFromContext", "lbInfos", lbInfos)
 	if lbInfos == nil {
 		return nil
 	}
@@ -248,7 +246,6 @@ func (r *CLBPortPoolReconciler) ensureLb(ctx context.Context, pool *networkingv1
 		return errors.WithStack(err)
 	} else {
 		ctx = context.WithValue(ctx, lbInfoKey, info)
-		log.FromContext(ctx).V(10).Info("set lb info", "info", info)
 	}
 	// 确保已有 lb 被添加到 status 中
 	if err := r.ensureExistedLB(ctx, pool); err != nil {
