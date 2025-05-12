@@ -576,6 +576,9 @@ spec:
 
 ## TODO
 
+- 解决 ccontroller pod 异常时导致集群级别 pod 无法正常创建的问题（validatingwebhook会阻断新副本创建）：增加多副本+反亲和+支持namespaceSelector 指定 ns 范围的一系列优化。
+- 支持 tcp_ssl、quic 等协议。
+- 端口分配算法：支持先把 clb 分配满，再分配下一个 clb。
 - 与 Agones 和 OKG 联动，映射信息写入 GameServer CR。
 - 通过 EIP、NATGW 等方式映射。
 
