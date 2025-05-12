@@ -106,7 +106,7 @@ func (r *CLBPortPoolReconciler) getCLBInfo(ctx context.Context, pool *networking
 		lbIdMap[lbId] = true
 	}
 	for _, lb := range pool.Status.LoadbalancerStatuses {
-		if !lbIdMap[lb.LoadbalancerID] {
+		if lb.State != networkingv1alpha1.LoadBalancerStateNotFound && !lbIdMap[lb.LoadbalancerID] {
 			lbIdMap[lb.LoadbalancerID] = true
 		}
 	}
