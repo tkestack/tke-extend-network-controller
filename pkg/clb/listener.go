@@ -159,6 +159,7 @@ func DeleteListenerByIdOrPort(ctx context.Context, region, lbId, listenerId stri
 		if _, err := DeleteListenerByPort(ctx, region, lbId, port, protocol); err != nil {
 			return errors.WithStack(err)
 		}
+		return nil
 	}
 	if err := DeleteListenerById(ctx, region, lbId, listenerId); err != nil {
 		return errors.WithStack(err)
