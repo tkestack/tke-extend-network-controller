@@ -1,5 +1,11 @@
 # 版本说明
 
+## v2.0.0-beta.5 (2025-05-12)
+
+- 优化 pod webhook：避免 controller 异常时导致集群范围内 pod 无法正常创建。
+- 优化 controller 部署：默认双副本，打散调度。
+- 一些 bug fix。
+
 ## v2.0.0-beta.4 (2025-05-12)
 
 - 支持 CLB + EIP 映射。
