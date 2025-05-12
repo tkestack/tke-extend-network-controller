@@ -14,10 +14,6 @@ func SetupWebhooks(mgr ctrl.Manager) {
 		setupLog.Error(err, "unable to create webhook", "webhook", "CLBPortPool")
 		os.Exit(1)
 	}
-	if err := webhook.SetupCLBPodBindingWebhookWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create webhook", "webhook", "CLBPodBinding")
-		os.Exit(1)
-	}
 	if err := (&networkingv1alpha1.DedicatedCLBListener{}).SetupWebhookWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create webhook", "webhook", "DedicatedCLBListener")
 		os.Exit(1)

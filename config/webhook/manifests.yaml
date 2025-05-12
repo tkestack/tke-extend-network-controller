@@ -96,26 +96,6 @@ webhooks:
     service:
       name: webhook-service
       namespace: system
-      path: /validate-networking-cloud-tencent-com-v1alpha1-clbpodbinding
-  failurePolicy: Fail
-  name: vclbpodbinding-v1alpha1.kb.io
-  rules:
-  - apiGroups:
-    - networking.cloud.tencent.com
-    apiVersions:
-    - v1alpha1
-    operations:
-    - CREATE
-    - UPDATE
-    resources:
-    - clbpodbindings
-  sideEffects: None
-- admissionReviewVersions:
-  - v1
-  clientConfig:
-    service:
-      name: webhook-service
-      namespace: system
       path: /validate-networking-cloud-tencent-com-v1alpha1-clbportpool
   failurePolicy: Fail
   name: vclbportpool-v1alpha1.kb.io
