@@ -34,26 +34,6 @@ webhooks:
     service:
       name: {{ include "tke-extend-network-controller.fullname" . }}-webhook-service
       namespace: {{ .Release.Namespace | quote }}
-      path: /mutate-networking-cloud-tencent-com-v1alpha1-clb
-  failurePolicy: Fail
-  name: mclb-v1alpha1.kb.io
-  rules:
-  - apiGroups:
-    - networking.cloud.tencent.com
-    apiVersions:
-    - v1alpha1
-    operations:
-    - CREATE
-    - UPDATE
-    resources:
-    - clbs
-  sideEffects: None
-- admissionReviewVersions:
-  - v1
-  clientConfig:
-    service:
-      name: {{ include "tke-extend-network-controller.fullname" . }}-webhook-service
-      namespace: {{ .Release.Namespace | quote }}
       path: /mutate-networking-cloud-tencent-com-v1alpha1-clbportpool
   failurePolicy: Fail
   name: mclbportpool-v1alpha1.kb.io
