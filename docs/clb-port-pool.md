@@ -553,6 +553,27 @@ networking.cloud.tencent.com/clb-hostport-mapping-status: Ready
 networking.cloud.tencent.com/enable-clb-hostport-mapping: "true"
 ```
 
+## 内网 CLB 绑 EIP 映射
+
+内网 CLB 支持绑定 EIP，在某些场景下，可能需要使用这种 CLB 来为 Pod 进行端口映射。
+
+> 内网 CLB 绑定弹性公网 IP 功能处于内测阶段，如需使用，请提交 [工单申请](https://console.cloud.tencent.com/workorder/category?level1_id=6&level2_id=660&source=0&data_title=%E5%BC%B9%E6%80%A7%E5%85%AC%E7%BD%91%20IP&step=1)。
+
+如需使用，可参考 [内网负载均衡实例绑定 EIP](https://cloud.tencent.com/document/product/214/65682) 准备好 CLB 实例，然后将 CLB 通过添加已有 CLB 的方式加入端口池即可：
+
+```yaml
+apiVersion: networking.cloud.tencent.com/v1alpha1
+kind: CLBPortPool
+metadata:
+  name: pool-eip
+spec:
+  startPort: 30000
+  exsistedLoadBalancerIDs:  # 将绑定了 EIP 的内网 CLB 实例 ID 添加到这里，可动态追加
+  - lb-04iq85jh
+```
+
+> 控制器会自动检测内网 CLB 是否绑定了 EIP，如果绑定 EIP 就认为此 CLB 的 VIP 为绑定的 EIP，映射结果也会使用 EIP 地址。
+
 ## TODO
 
 - 与 Agones 和 OKG 联动，映射信息写入 GameServer CR。
