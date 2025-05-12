@@ -91,6 +91,34 @@ func (r *CLBPortPoolReconciler) ensureState(ctx context.Context, pool *networkin
 	return nil
 }
 
+type lbInfoKeyType int
+
+const lbInfoKey lbInfoKeyType = iota
+
+func (r *CLBPortPoolReconciler) getCLBInfo(ctx context.Context, pool *networkingv1alpha1.CLBPortPool) (info map[string]*clb.CLBInfo, err error) {
+	// 拿到所有需要查询的 LbId
+	lbIdMap := make(map[string]bool)
+	for _, lbId := range pool.Spec.ExsistedLoadBalancerIDs {
+		lbIdMap[lbId] = true
+	}
+	for _, lb := range pool.Status.LoadbalancerStatuses {
+		if lb.State == networkingv1alpha1.LoadBalancerStateRunning && !lbIdMap[lb.LoadbalancerID] {
+			lbIdMap[lb.LoadbalancerID] = true
+		}
+	}
+	lbIds := []string{}
+	for lbId := range lbIdMap {
+		lbIds = append(lbIds, lbId)
+	}
+	info, err = clb.BatchGetClbInfo(ctx, lbIds, util.GetRegionFromPtr(pool.Spec.Region))
+	if err != nil {
+		err = errors.WithStack(err)
+	}
+	return
+}
+
+var ErrNoLbInfo = errors.New("no lb info found in context")
+
 func (r *CLBPortPoolReconciler) ensureExistedLB(ctx context.Context, pool *networkingv1alpha1.CLBPortPool) error {
 	// 对账 clb
 	lbIds := make(map[string]struct{})
@@ -106,12 +134,15 @@ func (r *CLBPortPoolReconciler) ensureExistedLB(ctx context.Context, pool *netwo
 	if len(lbIdToAdd) == 0 {
 		return nil
 	}
-	lbInfos, err := clb.BatchGetClbInfo(ctx, lbIdToAdd, util.GetRegionFromPtr(pool.Spec.Region))
-	if err != nil {
-		return errors.WithStack(err)
-	}
 	lbToAdd := []networkingv1alpha1.LoadBalancerStatus{}
+	if len(lbToAdd) == 0 { // 没有新增已有 clb，忽略
+		return nil
+	}
 	lbNotExisted := []string{}
+	lbInfos := getCLBInfoFromContext(ctx)
+	if lbInfos == nil {
+		return ErrNoLbInfo
+	}
 	// 确保所有已有 CLB 在 status 中存在
 	for _, lbId := range lbIdToAdd {
 		// 校验 CLB 是否存在
@@ -159,40 +190,40 @@ func (r *CLBPortPoolReconciler) ensureLbInAllocator(ctx context.Context, pool *n
 }
 
 func (r *CLBPortPoolReconciler) ensureLbStatus(ctx context.Context, pool *networkingv1alpha1.CLBPortPool) error {
+	lbInfos := getCLBInfoFromContext(ctx)
+	if lbInfos == nil {
+		return ErrNoLbInfo
+	}
 	needUpdate := false
 	for i := range pool.Status.LoadbalancerStatuses {
 		lbStatus := &pool.Status.LoadbalancerStatuses[i]
 		lbId := lbStatus.LoadbalancerID
-		lb, err := clb.GetClb(ctx, lbId, pool.GetRegion())
-		if err != nil {
-			if err == clb.ErrLbIdNotFound {
-				// clb 不存在，通常是已删除，更新状态和端口池
-				if lbStatus.State != networkingv1alpha1.LoadBalancerStateNotFound {
-					r.Recorder.Eventf(pool, corev1.EventTypeWarning, "GetLoadBalancer", "clb %s not found", lbId)
-					portpool.Allocator.ReleaseLb(pool.Name, lbId)
-					lbStatus.State = networkingv1alpha1.LoadBalancerStateNotFound
-					needUpdate = true
-				}
-				continue
+		// clb 不存在，通常是已删除，更新状态和端口池
+		if info, ok := lbInfos[lbId]; !ok {
+			if lbStatus.State != networkingv1alpha1.LoadBalancerStateNotFound {
+				r.Recorder.Eventf(pool, corev1.EventTypeWarning, "GetLoadBalancer", "clb %s not found", lbId)
+				portpool.Allocator.ReleaseLb(pool.Name, lbId)
+				lbStatus.State = networkingv1alpha1.LoadBalancerStateNotFound
+				needUpdate = true
 			}
-			return errors.WithStack(err)
-		}
-		if lbStatus.State == "" {
-			lbStatus.State = networkingv1alpha1.LoadBalancerStateRunning
-			needUpdate = true
-		}
-		ips := util.ConvertPtrSlice(lb.LoadBalancerVips)
-		if !reflect.DeepEqual(ips, lbStatus.Ips) {
-			lbStatus.Ips = ips
-			needUpdate = true
-		}
-		if util.GetValue(lb.Domain) != util.GetValue(lbStatus.Hostname) {
-			lbStatus.Hostname = lb.Domain
-			needUpdate = true
-		}
-		if util.GetValue(lb.LoadBalancerName) != lbStatus.LoadbalancerName {
-			lbStatus.LoadbalancerName = *lb.LoadBalancerName
-			needUpdate = true
+			continue
+		} else {
+			if lbStatus.State == "" {
+				lbStatus.State = networkingv1alpha1.LoadBalancerStateRunning
+				needUpdate = true
+			}
+			if !reflect.DeepEqual(info.Ips, lbStatus.Ips) {
+				lbStatus.Ips = info.Ips
+				needUpdate = true
+			}
+			if !reflect.DeepEqual(info.Hostname, lbStatus.Hostname) {
+				lbStatus.Hostname = info.Hostname
+				needUpdate = true
+			}
+			if !reflect.DeepEqual(info.LoadbalancerName, lbStatus.LoadbalancerName) {
+				lbStatus.LoadbalancerName = info.LoadbalancerName
+				needUpdate = true
+			}
 		}
 	}
 	if needUpdate {
@@ -203,18 +234,32 @@ func (r *CLBPortPoolReconciler) ensureLbStatus(ctx context.Context, pool *networ
 	return nil
 }
 
+func getCLBInfoFromContext(ctx context.Context) map[string]*clb.CLBInfo {
+	info, ok := ctx.Value(lbInfoKey).(map[string]*clb.CLBInfo)
+	if ok {
+		return info
+	}
+	return nil
+}
+
 func (r *CLBPortPoolReconciler) ensureLb(ctx context.Context, pool *networkingv1alpha1.CLBPortPool) error {
+	// 查询 lb 信息并保存到 context，以供后面的 ensureXXX 对账使用
+	if info, err := r.getCLBInfo(ctx, pool); err != nil {
+		return errors.WithStack(err)
+	} else {
+		ctx = context.WithValue(ctx, lbInfoKey, info)
+	}
 	// 确保已有 lb 被添加到 status 中
 	if err := r.ensureExistedLB(ctx, pool); err != nil {
-		return err
+		return errors.WithStack(err)
 	}
 	// 同步 clb 信息到 status
 	if err := r.ensureLbStatus(ctx, pool); err != nil {
-		return err
+		return errors.WithStack(err)
 	}
 	// 确保所有 lb 都被添加到分配器的缓存中
 	if err := r.ensureLbInAllocator(ctx, pool); err != nil {
-		return err
+		return errors.WithStack(err)
 	}
 	// lb 准备就绪，确保状态为 Active
 	if err := r.ensureState(ctx, pool, networkingv1alpha1.CLBPortPoolStateActive); err != nil {
