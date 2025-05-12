@@ -559,7 +559,7 @@ networking.cloud.tencent.com/enable-clb-hostport-mapping: "true"
 
 > 内网 CLB 绑定弹性公网 IP 功能处于内测阶段，如需使用，请提交 [工单申请](https://console.cloud.tencent.com/workorder/category?level1_id=6&level2_id=660&source=0&data_title=%E5%BC%B9%E6%80%A7%E5%85%AC%E7%BD%91%20IP&step=1)。
 
-可参考 [内网负载均衡实例绑定 EIP](https://cloud.tencent.com/document/product/214/65682) 准备好 CLB 实例，然后将 CLB 通过添加已有 CLB 的方式加入端口池即可：
+用法很简单，可参考 [内网负载均衡实例绑定 EIP](https://cloud.tencent.com/document/product/214/65682) 准备好 CLB 实例，然后将 CLB 通过添加已有 CLB 的方式加入端口池即可：
 
 ```yaml
 apiVersion: networking.cloud.tencent.com/v1alpha1
