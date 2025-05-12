@@ -102,7 +102,7 @@ func (pp *PortPool) AllocatePort(ctx context.Context, ports ...ProtocolPort) ([]
 		}
 	}
 	if quotaExceeded { // 所有 lb 超配额，返回错误，调用方应尝试创建 CLB
-		return nil, ErrListenerQuotaExceeded
+		return nil, ErrNoFreeLb
 	}
 	// 所有 lb 都无法分配此端口，返回空结果
 	return nil, nil

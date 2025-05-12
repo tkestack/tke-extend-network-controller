@@ -60,8 +60,8 @@ LOOP_POOL:
 			// 尝试分配端口
 			result, err := pool.AllocatePort(ctx, portsToAllocate...)
 			if err != nil { // 有分配错误，释放已分配的端口
-				if err == ErrListenerQuotaExceeded { // 超配额，跳出端口循环，尝试创建 CLB
-					log.FromContext(ctx).V(10).Info("listener quota exceeded when allocate port", "pool", pool.GetName(), "tryPort", port)
+				if err == ErrNoFreeLb { // 超配额，跳出端口循环，尝试创建 CLB
+					log.FromContext(ctx).V(10).Info("no free lb available when allocate port", "pool", pool.GetName(), "tryPort", port)
 					break
 				}
 				allocatedPorts.Release()

@@ -438,6 +438,10 @@ LOOP_PORT:
 		// 未分配端口，执行分配
 		allocated, err := portpool.Allocator.Allocate(ctx, port.Pools, port.Protocol, util.GetValue(port.UseSamePortAcrossPools))
 		if err != nil {
+			if errors.Is(err, portpool.ErrNoPortAvailable) { // 端口不足，在 event 里告警，不返回错误
+				r.Recorder.Event(bd.GetObject(), corev1.EventTypeWarning, "NoPortAvailable", "no port available in port pool")
+				return nil
+			}
 			return errors.WithStack(err)
 		}
 		for _, allocatedPort := range allocated {
