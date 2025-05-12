@@ -6,6 +6,7 @@ import (
 )
 
 var (
-	Pod  = make(chan event.TypedGenericEvent[client.Object])
-	Node = make(chan event.TypedGenericEvent[client.Object])
+	Pod      = make(chan event.TypedGenericEvent[client.Object])
+	Node     = make(chan event.TypedGenericEvent[client.Object])
+	PortPool = make(chan event.TypedGenericEvent[client.Object])
 )

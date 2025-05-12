@@ -34,8 +34,11 @@ func SetIfEmpty[T any](ptr *T, val T) {
 
 func IsZero(v any) bool {
 	vv := reflect.ValueOf(v)
-	if vv.IsNil() || vv.IsZero() {
-		return true
+	if vv.Kind() == reflect.Pointer {
+		if vv.IsNil() {
+			return true
+		}
+		vv = vv.Elem()
 	}
-	return false
+	return vv.IsZero()
 }

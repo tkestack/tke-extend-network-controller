@@ -10,6 +10,7 @@ import (
 func ConvertCreateLoadBalancerRequest(p *networkingv1alpha1.CreateLBParameters) *clb.CreateLoadBalancerRequest {
 	req := clb.NewCreateLoadBalancerRequest()
 	req.LoadBalancerType = util.GetPtr("OPEN") // 默认使用公网 CLB
+	req.VpcId = &clusterinfo.VpcId
 
 	if p == nil { // 没指定参数，直接返回请求
 		return req
@@ -30,12 +31,11 @@ func ConvertCreateLoadBalancerRequest(p *networkingv1alpha1.CreateLBParameters) 
 	}
 	if p.DynamicVip != nil {
 		req.DynamicVip = p.DynamicVip
+	} else {
+		req.DynamicVip = util.GetPtr(true)
 	}
 	if p.VpcId != nil {
 		req.VpcId = p.VpcId
-	}
-	if req.VpcId == nil {
-		req.VpcId = &clusterinfo.VpcId
 	}
 	if p.Vip != nil {
 		req.Vip = p.Vip

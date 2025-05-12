@@ -142,6 +142,7 @@ func CreateCLB(ctx context.Context, region string, req *clb.CreateLoadBalancerRe
 	log.FromContext(ctx).V(10).Info("CreateLoadBalancer", "req", *req)
 	client := GetClient(region)
 	resp, err := client.CreateLoadBalancerWithContext(ctx, req)
+	LogAPI(ctx, "CreateLoadBalancer", req, resp, err)
 	if err != nil {
 		return
 	}

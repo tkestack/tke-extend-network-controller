@@ -30,11 +30,14 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
+	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/log"
+	"sigs.k8s.io/controller-runtime/pkg/source"
 
 	networkingv1alpha1 "github.com/imroc/tke-extend-network-controller/api/v1alpha1"
 	"github.com/imroc/tke-extend-network-controller/internal/portpool"
 	"github.com/imroc/tke-extend-network-controller/pkg/clb"
+	"github.com/imroc/tke-extend-network-controller/pkg/eventsource"
 	"github.com/imroc/tke-extend-network-controller/pkg/util"
 )
 
@@ -103,9 +106,12 @@ func (r *CLBPortPoolReconciler) getCLBInfo(ctx context.Context, pool *networking
 		lbIdMap[lbId] = true
 	}
 	for _, lb := range pool.Status.LoadbalancerStatuses {
-		if lb.State == networkingv1alpha1.LoadBalancerStateRunning && !lbIdMap[lb.LoadbalancerID] {
+		if !lbIdMap[lb.LoadbalancerID] {
 			lbIdMap[lb.LoadbalancerID] = true
 		}
+	}
+	if len(lbIdMap) == 0 {
+		return nil, nil
 	}
 	lbIds := []string{}
 	for lbId := range lbIdMap {
@@ -117,8 +123,6 @@ func (r *CLBPortPoolReconciler) getCLBInfo(ctx context.Context, pool *networking
 	}
 	return
 }
-
-var ErrNoLbInfo = errors.New("no lb info found in context")
 
 func (r *CLBPortPoolReconciler) ensureExistedLB(ctx context.Context, pool *networkingv1alpha1.CLBPortPool) error {
 	// 对账 clb
@@ -140,7 +144,7 @@ func (r *CLBPortPoolReconciler) ensureExistedLB(ctx context.Context, pool *netwo
 	lbInfos := getCLBInfoFromContext(ctx)
 	log.FromContext(ctx).V(10).Info("getCLBInfoFromContext", "lbInfos", lbInfos)
 	if lbInfos == nil {
-		return ErrNoLbInfo
+		return nil
 	}
 	// 确保所有已有 CLB 在 status 中存在
 	for _, lbId := range lbIdToAdd {
@@ -190,9 +194,6 @@ func (r *CLBPortPoolReconciler) ensureLbInAllocator(ctx context.Context, pool *n
 
 func (r *CLBPortPoolReconciler) ensureLbStatus(ctx context.Context, pool *networkingv1alpha1.CLBPortPool) error {
 	lbInfos := getCLBInfoFromContext(ctx)
-	if lbInfos == nil {
-		return ErrNoLbInfo
-	}
 	needUpdate := false
 	for i := range pool.Status.LoadbalancerStatuses {
 		lbStatus := &pool.Status.LoadbalancerStatuses[i]
@@ -238,7 +239,7 @@ func getCLBInfoFromContext(ctx context.Context) map[string]*clb.CLBInfo {
 	if ok {
 		return info
 	}
-	return nil
+	return make(map[string]*clb.CLBInfo)
 }
 
 func (r *CLBPortPoolReconciler) ensureLb(ctx context.Context, pool *networkingv1alpha1.CLBPortPool) error {
@@ -279,7 +280,7 @@ func (r *CLBPortPoolReconciler) createLB(ctx context.Context, pool *networkingv1
 	}
 	// 创建 CLB
 	r.Recorder.Event(pool, corev1.EventTypeNormal, "CreateLoadBalancer", "try to create clb")
-	lbId, err := clb.CreateCLB(ctx, pool.GetRegion(), pool.Spec.AutoCreate.Parameters.ExportCreateLoadBalancerRequest())
+	lbId, err := clb.CreateCLB(ctx, pool.GetRegion(), clb.ConvertCreateLoadBalancerRequest(pool.Spec.AutoCreate.Parameters))
 	if err != nil {
 		r.Recorder.Eventf(pool, corev1.EventTypeWarning, "CreateLoadBalancer", "create clb failed: %s", err.Error())
 		return errors.WithStack(err)
@@ -357,6 +358,7 @@ func (r *CLBPortPoolReconciler) SetupWithManager(mgr ctrl.Manager, workers int) 
 		WithOptions(controller.Options{
 			MaxConcurrentReconciles: workers,
 		}).
+		WatchesRawSource(source.Channel(eventsource.PortPool, &handler.EnqueueRequestForObject{})).
 		Named("clbportpool").
 		Complete(r)
 }
