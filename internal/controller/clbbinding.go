@@ -58,10 +58,19 @@ func (r *CLBBindingReconciler[T]) sync(ctx context.Context, bd T) (result ctrl.R
 		}
 	}
 	// 确保所有端口都已分配且绑定 obj
-	if newResult, err := r.ensureCLBBinding(ctx, bd); err != nil {
+	if err := r.ensureCLBBinding(ctx, bd); err != nil {
 		errCause := errors.Cause(err)
+		// 1. 扩容了 lb、或者正在扩容，忽略，因为会自动触发对账。
+		// 2. 端口不足无法分配、端口池不存在，忽略，因为如果端口池不改正或扩容 lb，无法重试成功。
+		// 3. lb 被删除或监听器被删除，自动移除了 status 中的记录，需重新入队对账。
 		switch errCause {
-		case portpool.ErrNewLBCreated, portpool.ErrNewLBCreating: // 扩容了 lb，或者正在扩容，忽略，因为会自动触发对账
+		case portpool.ErrNewLBCreated, portpool.ErrNewLBCreating, ErrNeedRetry:
+			return result, nil
+		case portpool.ErrNoPortAvailable:
+			r.Recorder.Event(bd.GetObject(), corev1.EventTypeWarning, "NoPortAvailable", "no port available in port pool, please add clb to port pool")
+			return result, nil
+		case portpool.ErrPoolNotFound:
+			r.Recorder.Event(bd.GetObject(), corev1.EventTypeWarning, "PoolNotFound", "port pool not found, please check the port pool name")
 			return result, nil
 		}
 		// 如果是被云 API 限流（默认每秒 20 qps 限制），1s 后重新入队
@@ -69,55 +78,48 @@ func (r *CLBBindingReconciler[T]) sync(ctx context.Context, bd T) (result ctrl.R
 			result.RequeueAfter = time.Second
 			return result, nil
 		}
-		// 其它非资源冲突的错误，将错误记录到状态中方便排障
-		if !apierrors.IsConflict(errCause) {
+
+		if apierrors.IsConflict(errCause) { // 资源冲突错误，直接重新入队触发重试
+			result.Requeue = true
+			return result, nil
+		} else { // 其它非资源冲突的错误，将错误记录到 event 和状态中方便排障
+			r.Recorder.Event(bd.GetObject(), corev1.EventTypeWarning, "SyncFailed", errCause.Error())
 			if status.State != networkingv1alpha1.CLBBindingStateFailed {
 				status.State = networkingv1alpha1.CLBBindingStateFailed
-				status.Message = err.Error()
+				status.Message = errCause.Error()
 				if err := r.Status().Update(ctx, bd.GetObject()); err != nil {
 					return result, errors.WithStack(err)
 				}
 			}
-			// lb 已不存在，没必要重新入队对账，保持 Failed 状态即可。
+			// lb 已不存在，没必要重新入队对账，不返回错误，保持 Failed 状态即可。
 			if clb.IsLbIdNotFoundError(errCause) {
 				return result, nil
 			}
+			// 其它错误，返回错误触发重试
 			return result, errors.WithStack(err)
-		}
-	} else {
-		if newResult != nil {
-			result = *newResult
 		}
 	}
 	return result, err
 }
 
-func (r *CLBBindingReconciler[T]) ensureCLBBinding(ctx context.Context, bd clbbinding.CLBBinding) (result *ctrl.Result, err error) {
+func (r *CLBBindingReconciler[T]) ensureCLBBinding(ctx context.Context, bd clbbinding.CLBBinding) error {
 	// 确保依赖的端口池和 CLB 都存在，如果已删除则释放端口并更新状态
 	if err := r.ensurePoolAndCLB(ctx, bd); err != nil {
-		return result, errors.WithStack(err)
+		return errors.WithStack(err)
 	}
 	// 确保所有端口都被分配
-	if result, err := r.ensurePortAllocated(ctx, bd); err != nil {
-		return result, errors.WithStack(err)
-	} else {
-		if result != nil {
-			return result, nil
-		}
+	if err := r.ensurePortAllocated(ctx, bd); err != nil {
+		return errors.WithStack(err)
 	}
 	// 确保所有监听器都已创建
-	if result, err = r.ensureListeners(ctx, bd); err != nil {
-		return result, errors.WithStack(err)
-	} else {
-		if result != nil {
-			return result, nil
-		}
+	if err := r.ensureListeners(ctx, bd); err != nil {
+		return errors.WithStack(err)
 	}
-	// 确保所有监听器都已绑定到 obj
+	// 确保所有监听器都已绑定到 backend
 	if err := r.ensureBackendBindings(ctx, bd); err != nil {
-		return result, errors.WithStack(err)
+		return errors.WithStack(err)
 	}
-	return result, nil
+	return nil
 }
 
 func (r *CLBBindingReconciler[T]) ensurePoolAndCLB(ctx context.Context, bd clbbinding.CLBBinding) error {
@@ -151,17 +153,19 @@ func (r *CLBBindingReconciler[T]) ensurePoolAndCLB(ctx context.Context, bd clbbi
 	return nil
 }
 
+var ErrNeedRetry = errors.New("need retry")
+
 // TODO: 优化性能：一次性查询所有监听器信息
-func (r *CLBBindingReconciler[T]) ensureListeners(ctx context.Context, bd clbbinding.CLBBinding) (result *ctrl.Result, err error) {
-	log.FromContext(ctx).V(10).Info("ensureListeners")
+func (r *CLBBindingReconciler[T]) ensureListeners(ctx context.Context, bd clbbinding.CLBBinding) error {
 	newBindings := []networkingv1alpha1.PortBindingStatus{}
 	needUpdate := false
+	needRetry := false
 	status := bd.GetStatus()
 	for i := range status.PortBindings {
 		binding := &status.PortBindings[i]
-		op, err := r.ensureListener(ctx, binding)
+		op, err := r.ensureListener(ctx, bd, binding)
 		if err != nil {
-			return result, errors.WithStack(err)
+			return errors.WithStack(err)
 		}
 		switch op {
 		case util.StatusOpNone:
@@ -171,67 +175,51 @@ func (r *CLBBindingReconciler[T]) ensureListeners(ctx context.Context, bd clbbin
 			newBindings = append(newBindings, *binding)
 		case util.StatusOpDelete:
 			needUpdate = true
-			result = &ctrl.Result{}
-			result.Requeue = true
+			needRetry = true
 		}
 	}
 	if needUpdate {
 		status.PortBindings = newBindings
 		if err := r.Status().Update(ctx, bd.GetObject()); err != nil {
-			return result, errors.WithStack(err)
+			return errors.WithStack(err)
 		}
 	}
-	return result, nil
+	if needRetry {
+		return ErrNeedRetry
+	}
+	return nil
 }
 
 func (r *CLBBindingReconciler[T]) ensureBackendBindings(ctx context.Context, bd clbbinding.CLBBinding) error {
 	status := bd.GetStatus()
-	log.FromContext(ctx).V(10).Info("ensureBackendBindings")
-	ensureWaitForBackend := func() error {
-		if err := bd.EnsureWaitBackendState(ctx, r.Client); err != nil {
-			return errors.WithStack(err)
-		}
-		needUpdate := false
-		for i := range status.PortBindings {
-			binding := &status.PortBindings[i]
-			if binding.ListenerId != "" {
-				if err := clb.DeregisterAllTargets(ctx, binding.Region, binding.LoadbalancerId, binding.ListenerId); err != nil {
-					return errors.WithStack(err)
-				}
-				needUpdate = true
-			}
-		}
-		if needUpdate {
-			if err := r.Status().Update(ctx, bd.GetObject()); err != nil {
-				return errors.WithStack(err)
-			}
-		}
-		return nil
-	}
 	backend, err := bd.GetAssociatedObject(ctx, r.Client)
 	if err != nil {
-		if apierrors.IsNotFound(err) { // 后端不存在，一般不存在，因为clbbinding 也会被 gc 自动清理，除非是手动管理 clbbinding
-			if err := ensureWaitForBackend(); err != nil {
+		if apierrors.IsNotFound(errors.Cause(err)) { // 后端不存在，一般是网络隔离场景，保持待绑定状态（正常情况 clbbinding 的 OwnerReference 是 pod/node，它们被清理后 clbbinding 也会被 gc 自动清理）
+			if err = r.ensureState(ctx, bd, networkingv1alpha1.CLBBindingStateNoBackend); err != nil {
 				return errors.WithStack(err)
 			}
 			return nil
 		}
+		// 其它错误，直接返回
+		return errors.WithStack(err)
 	}
-	if backend.GetIP() == "" { // 等待 obj 分配 IP
-		if err := ensureWaitForBackend(); err != nil {
+	if backend.GetIP() == "" { // 等待 backend 分配 IP
+		r.Recorder.Event(bd.GetObject(), corev1.EventTypeNormal, "WaitBackend", "wait backend network to be ready")
+		if err = r.ensureState(ctx, bd, networkingv1alpha1.CLBBindingStateWaitBackend); err != nil {
 			return errors.WithStack(err)
 		}
 		return nil
 	}
-	// obj 准备就绪，将 CLB 监听器绑定到 obj
+	// backend 准备就绪，将 CLB 监听器绑定到 bacekend
 	for i := range status.PortBindings {
 		binding := &status.PortBindings[i]
-		if err := r.ensurePortBound(ctx, backend, binding); err != nil {
+		if err := r.ensurePortBound(ctx, bd, backend, binding); err != nil {
 			return errors.WithStack(err)
 		}
 	}
-	// 所有端口都已绑定，更新状态并将绑定信息写入 obj 注解
+	// 所有端口都已绑定，更新状态并将绑定信息写入 backend 注解
 	if status.State != networkingv1alpha1.CLBBindingStateBound {
+		r.Recorder.Event(bd.GetObject(), corev1.EventTypeNormal, "AllBound", "all targets bound to listener")
 		status.State = networkingv1alpha1.CLBBindingStateBound
 		status.Message = ""
 		if err := r.Status().Update(ctx, bd.GetObject()); err != nil {
@@ -316,14 +304,13 @@ func (r *CLBBindingReconciler[T]) ensureBackendStatusAnnotation(ctx context.Cont
 	if err := kube.PatchMap(ctx, r.Client, backend.GetObject(), patchMap); err != nil {
 		return errors.WithStack(err)
 	}
-	log.FromContext(ctx).V(10).Info("patch clb port mapping status success", "value", string(val))
+	r.Recorder.Event(bd.GetObject(), corev1.EventTypeNormal, "PatchAnnotation", "clb port mapping result annotation is been patched")
+	log.FromContext(ctx).V(3).Info("patch clb port mapping status success", "value", string(val))
 	return nil
 }
 
-func (r *CLBBindingReconciler[T]) ensureListener(ctx context.Context, binding *networkingv1alpha1.PortBindingStatus) (op util.StatusOp, err error) {
-	log.FromContext(ctx).V(10).Info("ensureListener", "port", binding.Port, "protocol", binding.Protocol)
+func (r *CLBBindingReconciler[T]) ensureListener(ctx context.Context, bd clbbinding.CLBBinding, binding *networkingv1alpha1.PortBindingStatus) (op util.StatusOp, err error) {
 	createListener := func() {
-		log.FromContext(ctx).V(10).Info("create listener")
 		var lisId string
 		lisId, err = clb.CreateListenerTryBatch(
 			ctx,
@@ -335,12 +322,13 @@ func (r *CLBBindingReconciler[T]) ensureListener(ctx context.Context, binding *n
 			"",
 		)
 		if err != nil {
-			err = errors.Wrapf(err, "failed to create listener %d/%s", binding.Port, binding.Protocol)
+			r.Recorder.Eventf(bd.GetObject(), corev1.EventTypeWarning, "CreateListener", "failed to create clb listener for %d/%s: %s", binding.Port, binding.Protocol, err.Error())
+			err = errors.Wrapf(err, "failed to create clb listener %d/%s", binding.Port, binding.Protocol)
 			return
 		} else { // 创建监听器成功，更新状态
 			binding.ListenerId = lisId
 			op = util.StatusOpUpdate
-			log.FromContext(ctx).V(10).Info("create listener success", "listenerId", lisId)
+			r.Recorder.Eventf(bd.GetObject(), corev1.EventTypeNormal, "CreateListener", "create clb listener success for %d/%s: %d/%s", binding.Port, binding.Protocol, binding.LoadbalancerPort, lisId)
 		}
 	}
 	var lis *clb.Listener
@@ -359,7 +347,6 @@ func (r *CLBBindingReconciler[T]) ensureListener(ctx context.Context, binding *n
 		return
 	} else {
 		if lis == nil { // 还未创建监听器，执行创建
-			log.FromContext(ctx).V(10).Info("listener not create yet")
 			createListener()
 		} else { // 已创建监听器，检查是否符合预期
 			if lis.ListenerId != binding.ListenerId { // id 不匹配，包括还未写入 id 的情况，更新下 id
@@ -372,8 +359,7 @@ func (r *CLBBindingReconciler[T]) ensureListener(ctx context.Context, binding *n
 	return
 }
 
-func (r *CLBBindingReconciler[T]) ensurePortBound(ctx context.Context, backend clbbinding.Backend, binding *networkingv1alpha1.PortBindingStatus) error {
-	log.FromContext(ctx).V(10).Info("ensurePortBound", "port", binding.Port, "protocol", binding.Protocol)
+func (r *CLBBindingReconciler[T]) ensurePortBound(ctx context.Context, bd clbbinding.CLBBinding, backend clbbinding.Backend, binding *networkingv1alpha1.PortBindingStatus) error {
 	targets, err := clb.DescribeTargetsTryBatch(ctx, binding.Region, binding.LoadbalancerId, binding.ListenerId)
 	if err != nil {
 		return errors.WithStack(err)
@@ -389,19 +375,18 @@ func (r *CLBBindingReconciler[T]) ensurePortBound(ctx context.Context, backend c
 			alreadyAdded = true
 		} else {
 			targetToDelete = append(targetToDelete, target)
-			log.FromContext(ctx).V(10).Info("remove unexpected target", "got", target, "expect", backendTarget)
 		}
 	}
 	// 清理多余的 rs
 	if len(targetToDelete) > 0 {
-		log.FromContext(ctx).V(10).Info("deregister targets", "targets", targetToDelete)
+		r.Recorder.Eventf(bd.GetObject(), corev1.EventTypeNormal, "DeregisterTarget", "remove unexpected target: %v", targetToDelete)
 		if err := clb.DeregisterTargetsForListenerTryBatch(ctx, binding.Region, binding.LoadbalancerId, binding.ListenerId, targetToDelete...); err != nil {
 			return errors.WithStack(err)
 		}
 	}
 	// 绑定后端
 	if !alreadyAdded {
-		log.FromContext(ctx).V(10).Info("register target", "target", backendTarget)
+		r.Recorder.Eventf(bd.GetObject(), corev1.EventTypeNormal, "RegisterTarget", "register target %v to %d/%s", backendTarget, binding.LoadbalancerPort, binding.ListenerId)
 		startTime := time.Now()
 		if err := clb.RegisterTarget(ctx, binding.Region, binding.LoadbalancerId, binding.ListenerId, backendTarget); err != nil {
 			return errors.WithStack(err)
@@ -412,7 +397,7 @@ func (r *CLBBindingReconciler[T]) ensurePortBound(ctx context.Context, backend c
 	return nil
 }
 
-func (r *CLBBindingReconciler[T]) ensurePortAllocated(ctx context.Context, bd clbbinding.CLBBinding) (result *ctrl.Result, err error) {
+func (r *CLBBindingReconciler[T]) ensurePortAllocated(ctx context.Context, bd clbbinding.CLBBinding) error {
 	status := bd.GetStatus()
 	bindings := make(map[portKey]*networkingv1alpha1.PortBindingStatus)
 	bds := []networkingv1alpha1.PortBindingStatus{}
@@ -435,7 +420,7 @@ func (r *CLBBindingReconciler[T]) ensurePortAllocated(ctx context.Context, bd cl
 	if haveLbRemoved {
 		status.PortBindings = bds
 		if err := r.Status().Update(ctx, bd.GetObject()); err != nil {
-			return result, errors.WithStack(err)
+			return errors.WithStack(err)
 		}
 	}
 	var allocatedPorts portpool.PortAllocations
@@ -476,20 +461,7 @@ LOOP_PORT:
 		// 未分配端口，执行分配
 		allocated, err := portpool.Allocator.Allocate(ctx, port.Pools, port.Protocol, util.GetValue(port.UseSamePortAcrossPools))
 		if err != nil {
-			causeErr := errors.Cause(err)
-			if causeErr == portpool.ErrNoPortAvailable || causeErr == portpool.ErrPoolNotFound { // 端口不足，或端口池不存在，在 event 里告警，不返回错误
-				msg := causeErr.Error()
-				r.Recorder.Event(bd.GetObject(), corev1.EventTypeWarning, "AllocatePortFailed", msg)
-				if status.State != networkingv1alpha1.CLBBindingStateFailed {
-					status.State = networkingv1alpha1.CLBBindingStateFailed
-					status.Message = msg
-				}
-				if err := r.Status().Update(ctx, bd.GetObject()); err != nil {
-					return result, errors.WithStack(err)
-				}
-				return result, nil
-			}
-			return result, errors.WithStack(err)
+			return errors.WithStack(err)
 		}
 		for _, allocatedPort := range allocated {
 			binding := networkingv1alpha1.PortBindingStatus{
@@ -514,7 +486,7 @@ LOOP_PORT:
 		for _, binding := range bindings {
 			_, err := clb.DeleteListenerByPort(ctx, binding.Region, binding.LoadbalancerId, int64(binding.LoadbalancerPort), binding.Protocol)
 			if err != nil {
-				return result, errors.WithStack(err)
+				return errors.WithStack(err)
 			}
 		}
 		statuses := []networkingv1alpha1.PortBindingStatus{}
@@ -532,15 +504,15 @@ LOOP_PORT:
 	}
 
 	if len(allocatedPorts) == 0 && len(bindings) == 0 { // 没有新端口分配，也没有多余端口需要删除，直接返回
-		return result, nil
+		return nil
 	}
 	// 将已分配的端口写入 status
 	if err := r.Status().Update(ctx, bd.GetObject()); err != nil {
 		// 更新状态失败，释放已分配端口
 		allocatedPorts.Release()
-		return result, errors.WithStack(err)
+		return errors.WithStack(err)
 	}
-	return result, nil
+	return nil
 }
 
 func portFromPortBindingStatus(status *networkingv1alpha1.PortBindingStatus) portpool.ProtocolPort {

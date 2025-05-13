@@ -12,7 +12,6 @@ type CLBBinding interface {
 	GetSpec() *networkingv1alpha1.CLBBindingSpec
 	GetStatus() *networkingv1alpha1.CLBBindingStatus
 	GetAssociatedObject(context.Context, client.Client) (Backend, error)
-	EnsureWaitBackendState(context.Context, client.Client) error
 	GetObject() client.Object
 }
 

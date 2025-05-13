@@ -64,14 +64,3 @@ func (b *CLBPodBinding) GetAssociatedObject(ctx context.Context, apiClient clien
 	}
 	return podBackend{pod}, nil
 }
-
-func (b *CLBPodBinding) EnsureWaitBackendState(ctx context.Context, apiClient client.Client) error {
-	if b.Status.State != networkingv1alpha1.CLBBindingStateWaitForPod {
-		b.Status.State = networkingv1alpha1.CLBBindingStateWaitForPod
-		b.Status.Message = "wait pod network to be ready"
-		if err := apiClient.Status().Update(ctx, b.CLBPodBinding); err != nil {
-			return errors.WithStack(err)
-		}
-	}
-	return nil
-}

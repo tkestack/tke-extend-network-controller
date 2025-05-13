@@ -19,9 +19,8 @@ type CLBBindingState string
 const (
 	CLBBindingStatePending     CLBBindingState = "Pending"
 	CLBBindingStateBound       CLBBindingState = "Bound"
-	CLBBindingStateWaitForPod  CLBBindingState = "WaitForPod"
-	CLBBindingStateWaitForNode CLBBindingState = "WaitForNode"
-	CLBBindingStateWaitForLB   CLBBindingState = "WaitForLB"
+	CLBBindingStateNoBackend   CLBBindingState = "NoBackend"
+	CLBBindingStateWaitBackend CLBBindingState = "WaitBackend"
 	CLBBindingStateDisabled    CLBBindingState = "Disabled"
 	CLBBindingStateFailed      CLBBindingState = "Failed"
 	CLBBindingStateDeleting    CLBBindingState = "Deleting"
