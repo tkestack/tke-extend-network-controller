@@ -78,17 +78,17 @@ LOOP_POOL:
 		// 该端口池所有端口都无法分配，或者监听器数量超配额，为保证事务性，释放已分配的端口，并尝试通知端口池扩容 CLB 来补充端口池
 		allocatedPorts.Release()
 		// 检查端口池是否可以创建 CLB
-		result, err := pool.TryNotifyCreateLB(ctx)
+		result, err := pool.TryCreateLB(ctx)
 		if err != nil {
 			return nil, errors.WithStack(err)
 		}
 		switch result {
-		case -1: // 不能自动创建，返回端口不足的错误
-			log.FromContext(ctx).V(10).Info("port is not enough", "pool", pool.GetName())
+		case CreateLbResultForbidden: // 不能自动创建，返回端口不足的错误
 			return nil, ErrNoPortAvailable
-		case 2, 1: // 已经通知过或通知成功，重新入队
-			log.FromContext(ctx).V(10).Info("wait lb to scale", "pool", pool.GetName())
-			return nil, ErrWaitLBScale
+		case CreateLbResultCreating: // 正在创建 CLB，创建完后会自动触发对账
+			return nil, ErrNewLBCreating
+		case CreateLbResultSuccess: // 已经通知过或通知成功，重新入队
+			return nil, ErrNewLBCreated
 		default: // 不可能的状态
 			return nil, ErrUnknown
 		}

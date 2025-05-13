@@ -6,7 +6,6 @@ import (
 	"sync"
 
 	"github.com/pkg/errors"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 // PortAllocator 管理多个端口池
@@ -136,16 +135,6 @@ func (pa *PortAllocator) Release(pool, lbId string, port ProtocolPort) {
 }
 
 var Allocator = NewPortAllocator()
-
-var (
-	allocator    *PortAllocator
-	allocatorMux sync.Mutex
-	apiClient    client.Client
-)
-
-func Init(client client.Client) {
-	apiClient = client
-}
 
 func (pa *PortAllocator) MarkAllocated(poolName string, lbId string, port uint16, endPort *uint16, protocol string) {
 	pa.mu.Lock()

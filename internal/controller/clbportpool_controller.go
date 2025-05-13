@@ -266,50 +266,9 @@ func (r *CLBPortPoolReconciler) ensureLb(ctx context.Context, pool *networkingv1
 	return nil
 }
 
-// 扩容 CLB
-func (r *CLBPortPoolReconciler) createLB(ctx context.Context, pool *networkingv1alpha1.CLBPortPool) error {
-	if !portpoolutil.CanCreateLB(ctx, pool) { // 触发自动创建 CLB，但当前却无法扩容，一般不可能发生，除非代码 BUG
-		r.Recorder.Event(pool, corev1.EventTypeWarning, "CreateLoadBalancer", "not able to scale clb while scale is been tiggered")
-		if err := r.ensureState(ctx, pool, networkingv1alpha1.CLBPortPoolStateActive); err != nil {
-			return errors.WithStack(err)
-		}
-		return nil
-	}
-	// 创建 CLB
-	r.Recorder.Event(pool, corev1.EventTypeNormal, "CreateLoadBalancer", "try to create clb")
-	lbId, err := clb.CreateCLB(ctx, pool.GetRegion(), clb.ConvertCreateLoadBalancerRequest(pool.Spec.AutoCreate.Parameters))
-	if err != nil {
-		r.Recorder.Eventf(pool, corev1.EventTypeWarning, "CreateLoadBalancer", "create clb failed: %s", err.Error())
-		return errors.WithStack(err)
-	}
-	r.Recorder.Eventf(pool, corev1.EventTypeNormal, "CreateLoadBalancer", "create clb success: %s", lbId)
-	if err := portpool.Allocator.AddLbId(pool.Name, lbId); err != nil {
-		return errors.WithStack(err)
-	}
-	addLbIdToStatus := func() error {
-		p := &networkingv1alpha1.CLBPortPool{}
-		if err := r.Get(ctx, client.ObjectKeyFromObject(pool), p); err != nil {
-			return errors.WithStack(err)
-		}
-		p.Status.State = networkingv1alpha1.CLBPortPoolStateActive // 创建成功，状态改为 Active，以便再次可分配端口
-		p.Status.LoadbalancerStatuses = append(p.Status.LoadbalancerStatuses, networkingv1alpha1.LoadBalancerStatus{
-			LoadbalancerID: lbId,
-			AutoCreated:    util.GetPtr(true),
-		})
-		if err := r.Status().Update(ctx, p); err != nil {
-			return errors.WithStack(err)
-		}
-		return nil
-	}
-	if err := util.RetryIfPossible(addLbIdToStatus); err != nil {
-		return errors.WithStack(err)
-	}
-	return nil
-}
-
 func (r *CLBPortPoolReconciler) ensureAllocatorCache(_ context.Context, pool *networkingv1alpha1.CLBPortPool) error {
 	if !portpool.Allocator.IsPoolExists(pool.Name) { // 分配器缓存中不存在，则添加
-		if err := portpool.Allocator.AddPool(portpoolutil.NewPortPool(pool, r.Client)); err != nil {
+		if err := portpool.Allocator.AddPool(portpoolutil.NewPortPool(pool, r.Client, r.Recorder)); err != nil {
 			return errors.WithStack(err)
 		}
 	}
@@ -324,16 +283,6 @@ func (r *CLBPortPoolReconciler) sync(ctx context.Context, pool *networkingv1alph
 		if err := r.Status().Update(ctx, pool); err != nil {
 			return result, errors.WithStack(err)
 		}
-	}
-
-	// 被通知扩容CLB时，执行扩容操作
-	if pool.Status.State == networkingv1alpha1.CLBPortPoolStateScaling {
-		if err := r.createLB(ctx, pool); err != nil { // 执行扩容
-			return result, errors.WithStack(err)
-		}
-		// 扩容成功，重新对账
-		result.Requeue = true
-		return result, nil
 	}
 
 	// 确保分配器缓存中存在该 port pool

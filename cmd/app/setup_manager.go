@@ -10,6 +10,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
+	"k8s.io/client-go/tools/record"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
@@ -24,7 +25,7 @@ func init() {
 }
 
 func SetupManager(mgr ctrl.Manager) {
-	if err := mgr.Add(&initCache{mgr.GetClient()}); err != nil {
+	if err := mgr.Add(&initCache{mgr.GetClient(), mgr.GetEventRecorderFor("clbportpool-controller")}); err != nil {
 		setupLog.Error(err, "problem add init cache")
 		os.Exit(1)
 	}
@@ -44,6 +45,7 @@ func SetupManager(mgr ctrl.Manager) {
 
 type initCache struct {
 	client.Client
+	record.EventRecorder
 }
 
 func (i *initCache) NeedLeaderElection() bool {
@@ -60,7 +62,7 @@ func (i *initCache) Start(ctx context.Context) error {
 	}
 	for index := range ppl.Items {
 		pp := &ppl.Items[index]
-		if err := portpool.Allocator.AddPool(portpoolutil.NewPortPool(pp, i.Client)); err != nil {
+		if err := portpool.Allocator.AddPool(portpoolutil.NewPortPool(pp, i.Client, i.EventRecorder)); err != nil {
 			return err
 		}
 		lbIds := []string{}

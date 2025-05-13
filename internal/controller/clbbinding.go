@@ -59,18 +59,18 @@ func (r *CLBBindingReconciler[T]) sync(ctx context.Context, bd T) (result ctrl.R
 	}
 	// 确保所有端口都已分配且绑定 obj
 	if newResult, err := r.ensureCLBBinding(ctx, bd); err != nil {
-		//  如果是等待端口池扩容 CLB，确保状态为 WaitForLB，并重新入队，以便在 CLB 扩容完成后能自动分配端口并绑定 obj
-		if errors.Is(err, portpool.ErrWaitLBScale) {
-			result.RequeueAfter = 3 * time.Second
+		errCause := errors.Cause(err)
+		switch errCause {
+		case portpool.ErrNewLBCreated, portpool.ErrNewLBCreating: // 扩容了 lb，或者正在扩容，忽略，因为会自动触发对账
 			return result, nil
 		}
 		// 如果是被云 API 限流（默认每秒 20 qps 限制），1s 后重新入队
-		if clb.IsRequestLimitExceededError(errors.Cause(err)) {
+		if clb.IsRequestLimitExceededError(errCause) {
 			result.RequeueAfter = time.Second
 			return result, nil
 		}
 		// 其它非资源冲突的错误，将错误记录到状态中方便排障
-		if !apierrors.IsConflict(err) {
+		if !apierrors.IsConflict(errCause) {
 			if status.State != networkingv1alpha1.CLBBindingStateFailed {
 				status.State = networkingv1alpha1.CLBBindingStateFailed
 				status.Message = err.Error()
@@ -79,7 +79,7 @@ func (r *CLBBindingReconciler[T]) sync(ctx context.Context, bd T) (result ctrl.R
 				}
 			}
 			// lb 已不存在，没必要重新入队对账，保持 Failed 状态即可。
-			if clb.IsLbIdNotFoundError(errors.Cause(err)) {
+			if clb.IsLbIdNotFoundError(errCause) {
 				return result, nil
 			}
 			return result, errors.WithStack(err)
@@ -487,8 +487,6 @@ LOOP_PORT:
 				if err := r.Status().Update(ctx, bd.GetObject()); err != nil {
 					return result, errors.WithStack(err)
 				}
-				result = &ctrl.Result{}
-				result.RequeueAfter = 2 * time.Second
 				return result, nil
 			}
 			return result, errors.WithStack(err)

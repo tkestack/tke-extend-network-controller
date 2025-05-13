@@ -41,13 +41,22 @@ func (pas PortAllocations) Release() {
 	}
 }
 
+type CreateLbResult int
+
+const (
+	CreateLbResultError CreateLbResult = iota
+	CreateLbResultSuccess
+	CreateLbResultForbidden
+	CreateLbResultCreating
+)
+
 type CLBPortPool interface {
 	GetName() string
 	GetRegion() string
 	GetStartPort() uint16
 	GetEndPort() uint16
 	GetSegmentLength() uint16
-	TryNotifyCreateLB(ctx context.Context) (int, error)
+	TryCreateLB(ctx context.Context) (CreateLbResult, error)
 }
 
 // PortPool 管理单个端口池的状态
