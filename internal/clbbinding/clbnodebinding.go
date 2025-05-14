@@ -56,6 +56,10 @@ func (b nodeBackend) GetObject() client.Object {
 	return b.Node
 }
 
+func (b nodeBackend) GetNode(ctx context.Context) (*corev1.Node, error) {
+	return b.Node, nil
+}
+
 func (b nodeBackend) TriggerReconcile() {
 	eventsource.Node <- event.TypedGenericEvent[client.Object]{
 		Object: b.Node,

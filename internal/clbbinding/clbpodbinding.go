@@ -25,6 +25,7 @@ func WrapCLBPodBinding(pb *networkingv1alpha1.CLBPodBinding) *CLBPodBinding {
 
 type CLBPodBinding struct {
 	*networkingv1alpha1.CLBPodBinding
+	client.Client
 }
 
 func (b *CLBPodBinding) GetSpec() *networkingv1alpha1.CLBBindingSpec {
@@ -32,7 +33,7 @@ func (b *CLBPodBinding) GetSpec() *networkingv1alpha1.CLBBindingSpec {
 }
 
 func (b *CLBPodBinding) GetStatus() *networkingv1alpha1.CLBBindingStatus {
-	return &b.Status
+	return &b.CLBPodBinding.Status
 }
 
 func (b *CLBPodBinding) GetObject() client.Object {
@@ -41,14 +42,28 @@ func (b *CLBPodBinding) GetObject() client.Object {
 
 type podBackend struct {
 	*corev1.Pod
+	client.Client
 }
 
 func (b podBackend) GetIP() string {
-	return b.Status.PodIP
+	return b.Pod.Status.PodIP
 }
 
 func (b podBackend) GetObject() client.Object {
 	return b.Pod
+}
+
+func (b podBackend) GetNode(ctx context.Context) (*corev1.Node, error) {
+	nodeName := b.Pod.Spec.NodeName
+	if nodeName == "" {
+		return nil, errors.New("node name is empty")
+	}
+	node := &corev1.Node{}
+	err := b.Client.Get(ctx, client.ObjectKey{Name: nodeName}, node)
+	if err != nil {
+		return nil, err
+	}
+	return node, nil
 }
 
 func (b podBackend) TriggerReconcile() {
@@ -62,5 +77,5 @@ func (b *CLBPodBinding) GetAssociatedObject(ctx context.Context, apiClient clien
 	if err := apiClient.Get(ctx, client.ObjectKeyFromObject(b), pod); err != nil {
 		return nil, errors.WithStack(err)
 	}
-	return podBackend{pod}, nil
+	return podBackend{pod, apiClient}, nil
 }

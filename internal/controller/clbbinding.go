@@ -203,6 +203,23 @@ func (r *CLBBindingReconciler[T]) ensureBackendBindings(ctx context.Context, bd 
 		// 其它错误，直接返回
 		return errors.WithStack(err)
 	}
+	node, err := backend.GetNode(ctx)
+	if err != nil {
+		return errors.WithStack(err)
+	}
+	if !util.IsNodeTypeSupported(node) {
+		if status.State != networkingv1alpha1.CLBBindingStateNodeTypeNotSupported {
+			msg := "current node type is not supported, please use super node or native node"
+			r.Recorder.Event(bd.GetObject(), corev1.EventTypeWarning, "NodeNotSupported", msg)
+			r.Recorder.Event(backend.GetObject(), corev1.EventTypeWarning, "NodeNotSupported", msg)
+			status.State = networkingv1alpha1.CLBBindingStateNodeTypeNotSupported
+			status.Message = msg
+			if err := r.Status().Update(ctx, bd.GetObject()); err != nil {
+				return errors.WithStack(err)
+			}
+		}
+		return nil
+	}
 	if backend.GetIP() == "" { // 等待 backend 分配 IP
 		r.Recorder.Event(bd.GetObject(), corev1.EventTypeNormal, "WaitBackend", "wait backend network to be ready")
 		if err = r.ensureState(ctx, bd, networkingv1alpha1.CLBBindingStateWaitBackend); err != nil {
