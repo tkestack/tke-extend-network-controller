@@ -206,12 +206,20 @@ func BatchGetClbInfo(ctx context.Context, lbIds []string, region string) (info m
 	info = make(map[string]*CLBInfo)
 	insIds := []*string{}
 	for _, ins := range resp.Response.LoadBalancerSet {
-		info[*ins.LoadBalancerId] = &CLBInfo{
+		lbInfo := &CLBInfo{
 			LoadbalancerID:   *ins.LoadBalancerId,
 			LoadbalancerName: *ins.LoadBalancerName,
-			Ips:              util.ConvertPtrSlice(ins.LoadBalancerVips),
 			Hostname:         ins.Domain,
 		}
+		if !util.IsZero(ins.Domain) {
+			lbInfo.Hostname = ins.Domain
+		} else {
+			vips := util.ConvertPtrSlice(ins.LoadBalancerVips)
+			if len(vips) > 0 {
+				lbInfo.Ips = vips
+			}
+		}
+		info[*ins.LoadBalancerId] = lbInfo
 		insIds = append(insIds, ins.LoadBalancerId)
 	}
 	vpcClient := vpcpkg.GetClient(region)
