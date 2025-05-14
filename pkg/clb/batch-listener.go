@@ -189,7 +189,7 @@ func startDescribeListenerProccessor(concurrent int) {
 			delete(taskMap, *lis.ListenerId)
 		}
 		for listenerId, task := range taskMap {
-			err = fmt.Errorf("listener %s not found", listenerId)
+			err = errors.Wrapf(ErrListenerNotFound, "listener %s not found", listenerId)
 			task.Result <- &DescribeListenerResult{
 				Err: err,
 			}

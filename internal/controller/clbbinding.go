@@ -557,7 +557,7 @@ func (r *CLBBindingReconciler[T]) cleanup(ctx context.Context, bd T) (result ctr
 				result.Requeue = true
 				return result, nil
 			}
-			if clb.IsLbIdNotFoundError(e) { // lb 不存在，忽略
+			if clb.IsLoadBalancerNotExistsError(e) { // lb 不存在，忽略
 				continue
 			}
 			if clb.IsRequestLimitExceededError(e) {
