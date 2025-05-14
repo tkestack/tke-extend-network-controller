@@ -31,8 +31,6 @@ func ConvertCreateLoadBalancerRequest(p *networkingv1alpha1.CreateLBParameters) 
 	}
 	if p.DynamicVip != nil {
 		req.DynamicVip = p.DynamicVip
-	} else {
-		req.DynamicVip = util.GetPtr(true)
 	}
 	if p.VpcId != nil {
 		req.VpcId = p.VpcId
@@ -57,6 +55,7 @@ func ConvertCreateLoadBalancerRequest(p *networkingv1alpha1.CreateLBParameters) 
 	}
 	if p.SubnetId != nil {
 		req.SubnetId = p.SubnetId
+		req.LoadBalancerType = util.GetPtr("INTERNAL") // 指定了子网，必须是内网 CLB
 	}
 	if p.SlaType != nil {
 		req.SlaType = p.SlaType

@@ -209,7 +209,6 @@ func BatchGetClbInfo(ctx context.Context, lbIds []string, region string) (info m
 		lbInfo := &CLBInfo{
 			LoadbalancerID:   *ins.LoadBalancerId,
 			LoadbalancerName: *ins.LoadBalancerName,
-			Hostname:         ins.Domain,
 		}
 		if !util.IsZero(ins.Domain) {
 			lbInfo.Hostname = ins.Domain
