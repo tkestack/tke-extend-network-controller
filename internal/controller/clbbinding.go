@@ -67,7 +67,10 @@ func (r *CLBBindingReconciler[T]) sync(ctx context.Context, bd T) (result ctrl.R
 		// 2. 端口不足无法分配、端口池不存在，忽略，因为如果端口池不改正或扩容 lb，无法重试成功。
 		// 3. lb 被删除或监听器被删除，自动移除了 status 中的记录，需重新入队对账。
 		switch errCause {
-		case portpool.ErrNewLBCreated, portpool.ErrNewLBCreating, ErrNeedRetry:
+		case portpool.ErrNewLBCreated, portpool.ErrNewLBCreating:
+			return result, nil
+		case ErrNeedRetry:
+			result.Requeue = true
 			return result, nil
 		case portpool.ErrNoPortAvailable:
 			r.Recorder.Event(bd.GetObject(), corev1.EventTypeWarning, "NoPortAvailable", "no port available in port pool, please add clb to port pool")
@@ -348,13 +351,12 @@ func (r *CLBBindingReconciler[T]) ensureListener(ctx context.Context, bd clbbind
 			"",
 		)
 		if err != nil {
-			r.Recorder.Eventf(bd.GetObject(), corev1.EventTypeWarning, "CreateListener", "failed to create clb listener for %d/%s: %s", binding.Port, binding.Protocol, err.Error())
 			err = errors.Wrapf(err, "failed to create clb listener %d/%s", binding.Port, binding.Protocol)
 			return
 		} else { // 创建监听器成功，更新状态
 			binding.ListenerId = lisId
 			op = util.StatusOpUpdate
-			r.Recorder.Eventf(bd.GetObject(), corev1.EventTypeNormal, "CreateListener", "create clb listener success for %d/%s: %d/%s", binding.Port, binding.Protocol, binding.LoadbalancerPort, lisId)
+			log.FromContext(ctx).V(3).Info("create clb listener success", "port", binding.Port, "protocl", binding.Protocol, "listenerId", lisId, "lbPort", binding.LoadbalancerPort, "lbId", binding.LoadbalancerId)
 		}
 	}
 	var lis *clb.Listener
@@ -412,12 +414,11 @@ func (r *CLBBindingReconciler[T]) ensurePortBound(ctx context.Context, bd clbbin
 	}
 	// 绑定后端
 	if !alreadyAdded {
-		r.Recorder.Eventf(bd.GetObject(), corev1.EventTypeNormal, "RegisterTarget", "register target %v to %d/%s", backendTarget, binding.LoadbalancerPort, binding.ListenerId)
 		startTime := time.Now()
 		if err := clb.RegisterTarget(ctx, binding.Region, binding.LoadbalancerId, binding.ListenerId, backendTarget); err != nil {
 			return errors.WithStack(err)
 		}
-		log.FromContext(ctx).V(10).Info("RegisterTarget performance", "cost", time.Since(startTime).String())
+		log.FromContext(ctx).V(10).Info("RegisterTarget performance", "cost", time.Since(startTime).String(), "target", backendTarget.String(), "listenerId", binding.LoadbalancerId, "lbPort", binding.LoadbalancerPort, "protocol", binding.Protocol)
 	}
 	// 到这里，能确保后端 已绑定到所有 lb 监听器
 	return nil
@@ -503,12 +504,15 @@ LOOP_PORT:
 			}
 			status.PortBindings = append(status.PortBindings, binding)
 		}
-		if len(allocated) > 0 {
+		if len(allocated) > 0 { // 预期应该是每次 allocated 长度大于 0，否则应该有 error 返回，不会走到这后面的 else 语句
 			allocatedPorts = append(allocatedPorts, allocated...)
+		} else { // 兜底：为简化逻辑，保证事务性，只要有一个端口分配失败就认为失败
+			allocatedPorts.Release()
+			return portpool.ErrNoPortAvailable
 		}
 	}
 
-	if len(bindings) > 0 {
+	if len(bindings) > 0 { // 删除多余的端口绑定
 		for _, binding := range bindings {
 			_, err := clb.DeleteListenerByPort(ctx, binding.Region, binding.LoadbalancerId, int64(binding.LoadbalancerPort), binding.Protocol)
 			if err != nil {
