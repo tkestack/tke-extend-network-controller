@@ -39,6 +39,10 @@ func (b *CLBNodeBinding) GetObject() client.Object {
 	return b.CLBNodeBinding
 }
 
+func (b *CLBNodeBinding) GetType() string {
+	return "CLBNodeBinding"
+}
+
 type nodeBackend struct {
 	*corev1.Node
 }

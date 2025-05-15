@@ -40,6 +40,10 @@ func (b *CLBPodBinding) GetObject() client.Object {
 	return b.CLBPodBinding
 }
 
+func (b *CLBPodBinding) GetType() string {
+	return "CLBPodBinding"
+}
+
 type podBackend struct {
 	*corev1.Pod
 	client.Client

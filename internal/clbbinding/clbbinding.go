@@ -14,6 +14,7 @@ type CLBBinding interface {
 	GetStatus() *networkingv1alpha1.CLBBindingStatus
 	GetAssociatedObject(context.Context, client.Client) (Backend, error)
 	GetObject() client.Object
+	GetType() string
 }
 
 type Backend interface {

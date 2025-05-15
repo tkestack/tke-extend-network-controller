@@ -568,7 +568,7 @@ func (r *CLBBindingReconciler[T]) ensureState(ctx context.Context, bd clbbinding
 // 清理 CLBBinding
 func (r *CLBBindingReconciler[T]) cleanup(ctx context.Context, bd T) (result ctrl.Result, err error) {
 	log := log.FromContext(ctx)
-	log.Info("cleanup CLBBinding")
+	log.Info("cleanup " + bd.GetType())
 	if err = r.ensureState(ctx, bd, networkingv1alpha1.CLBBindingStateDeleting); err != nil {
 		return result, errors.WithStack(err)
 	}
@@ -669,18 +669,15 @@ func (r *CLBBindingReconciler[T]) syncCLBBinding(ctx context.Context, obj client
 	anno := obj.GetAnnotations()
 
 	portMappings := anno[constant.CLBPortMappingsKey]
-	if portMappings == "" {
-		log.FromContext(ctx).V(10).Info("skip without clb-port-mapping annotation")
-		return
-	}
 
+	bd := binding.GetObject()
+	err = r.Get(ctx, client.ObjectKeyFromObject(obj), bd)
 	// 获取 obj 的注解
 	enablePortMappings := anno[constant.EnableCLBPortMappingsKey]
 	switch enablePortMappings {
 	case "true", "false": // 确保 CLBBinding 存在且符合预期
 		// 获取 obj 对应的 CLBBinding
-		bd := binding.GetObject()
-		if err := r.Get(ctx, client.ObjectKeyFromObject(obj), bd); err != nil {
+		if err != nil {
 			if apierrors.IsNotFound(err) { // 不存在，自动创建
 				// 没有 CLBBinding，自动创建
 				bd.SetName(obj.GetName())
@@ -688,7 +685,7 @@ func (r *CLBBindingReconciler[T]) syncCLBBinding(ctx context.Context, obj client
 				// 生成期望的 CLBBindingSpec
 				spec, err := generateCLBBindingSpec(portMappings, enablePortMappings)
 				if err != nil {
-					return result, errors.Wrap(err, "failed to generate CLBBinding spec")
+					return result, errors.Wrapf(err, "failed to generate %s spec", binding.GetType())
 				}
 				*binding.GetSpec() = *spec
 				// 给 CLBBinding 添加 OwnerReference，让 obj 被删除时，CLBBinding 也被清理，保留 IP 场景除外
@@ -699,10 +696,10 @@ func (r *CLBBindingReconciler[T]) syncCLBBinding(ctx context.Context, obj client
 				}
 				log.FromContext(ctx).V(10).Info("create clbbinding", "binding", bd)
 				if err := r.Create(ctx, bd); err != nil {
-					r.Recorder.Event(obj, corev1.EventTypeWarning, "CreateCLBBinding", fmt.Sprintf("create CLBBinding %s failed: %s", obj.GetName(), err.Error()))
+					r.Recorder.Eventf(obj, corev1.EventTypeWarning, "CreateCLBBinding", "create %s %s failed: %s", binding.GetType(), obj.GetName(), err.Error())
 					return result, errors.WithStack(err)
 				}
-				r.Recorder.Event(obj, corev1.EventTypeNormal, "CreateCLBBinding", fmt.Sprintf("create CLBBinding %s successfully", obj.GetName()))
+				r.Recorder.Eventf(obj, corev1.EventTypeNormal, "CreateCLBBinding", "create %s %s successfully", binding.GetType(), obj.GetName())
 			} else { // 其它错误，直接返回错误
 				return result, errors.WithStack(err)
 			}
@@ -737,14 +734,23 @@ func (r *CLBBindingReconciler[T]) syncCLBBinding(ctx context.Context, obj client
 				log.FromContext(ctx).Info("update clbbinding", "oldSpec", *actualSpec, "newSpec", *spec)
 				*actualSpec = *spec
 				if err := r.Update(ctx, bd); err != nil {
-					r.Recorder.Eventf(obj, corev1.EventTypeWarning, "CLBBindingChanged", "update CLBBinding %s failed: %s", obj.GetName(), err.Error())
+					r.Recorder.Eventf(obj, corev1.EventTypeWarning, "CLBBindingChanged", "update %s %s failed: %s", binding.GetType(), obj.GetName(), err.Error())
 					return result, errors.WithStack(err)
 				}
-				r.Recorder.Eventf(obj, corev1.EventTypeNormal, "CLBBindingChanged", "update CLBBinding %s successfully", obj.GetName())
+				r.Recorder.Eventf(obj, corev1.EventTypeNormal, "CLBBindingChanged", "update %s %s successfully", binding.GetType(), obj.GetName())
 			}
 		}
 	default:
-		log.FromContext(ctx).Info("skip invalid enable-clb-port-mapping value", "value", enablePortMappings)
+		// 没有配置注解，如发现有 CLBBinding，则删除掉
+		if err == nil {
+			r.Recorder.Eventf(obj, corev1.EventTypeNormal, "DeleteCLBBinding", "delete %s %s", binding.GetType(), obj.GetName())
+			if err := r.Delete(ctx, bd); err != nil {
+				return result, errors.WithStack(err)
+			}
+		}
+	}
+	if apierrors.IsNotFound(err) {
+		return result, nil
 	}
 	return
 }
