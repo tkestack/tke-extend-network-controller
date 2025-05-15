@@ -47,6 +47,9 @@ type portKey struct {
 func (r *CLBBindingReconciler[T]) sync(ctx context.Context, bd T) (result ctrl.Result, err error) {
 	spec := bd.GetSpec()
 	if spec.Disabled != nil && *spec.Disabled {
+		if err := r.ensureState(ctx, bd, networkingv1alpha1.CLBBindingStateDisabled); err != nil {
+			return result, errors.WithStack(err)
+		}
 		return
 	}
 	status := bd.GetStatus()
@@ -68,9 +71,15 @@ func (r *CLBBindingReconciler[T]) sync(ctx context.Context, bd T) (result ctrl.R
 			return result, nil
 		case portpool.ErrNoPortAvailable:
 			r.Recorder.Event(bd.GetObject(), corev1.EventTypeWarning, "NoPortAvailable", "no port available in port pool, please add clb to port pool")
+			if err := r.ensureState(ctx, bd, networkingv1alpha1.CLBBindingStateNoPortAvailable); err != nil {
+				return result, errors.WithStack(err)
+			}
 			return result, nil
 		case portpool.ErrPoolNotFound:
 			r.Recorder.Event(bd.GetObject(), corev1.EventTypeWarning, "PoolNotFound", "port pool not found, please check the port pool name")
+			if err := r.ensureState(ctx, bd, networkingv1alpha1.CLBBindingStatePortPoolNotFound); err != nil {
+				return result, errors.WithStack(err)
+			}
 			return result, nil
 		}
 		// 如果是被云 API 限流（默认每秒 20 qps 限制），1s 后重新入队
@@ -549,6 +558,7 @@ func (r *CLBBindingReconciler[T]) ensureState(ctx context.Context, bd clbbinding
 		return nil
 	}
 	status.State = state
+	status.Message = ""
 	if err := r.Status().Update(ctx, bd.GetObject()); err != nil {
 		return errors.WithStack(err)
 	}

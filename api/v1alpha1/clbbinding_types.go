@@ -24,6 +24,8 @@ const (
 	CLBBindingStateNodeTypeNotSupported CLBBindingState = "NodeTypeNotSupported"
 	CLBBindingStateDisabled             CLBBindingState = "Disabled"
 	CLBBindingStateFailed               CLBBindingState = "Failed"
+	CLBBindingStatePortPoolNotFound     CLBBindingState = "PortPoolNotFound"
+	CLBBindingStateNoPortAvailable      CLBBindingState = "NoPortAvailable"
 	CLBBindingStateDeleting             CLBBindingState = "Deleting"
 )
 
