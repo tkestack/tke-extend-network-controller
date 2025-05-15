@@ -149,7 +149,6 @@ func (r *CLBBindingReconciler[T]) ensurePoolAndCLB(ctx context.Context, bd clbbi
 				r.Recorder.Event(bd.GetObject(), corev1.EventTypeWarning, "CLBDeleted", fmt.Sprintf("clb has been deleted (%s/%s/%d)", binding.Pool, binding.LoadbalancerId, binding.LoadbalancerPort))
 				needUpdateStatus = true
 			} else {
-				log.FromContext(ctx).V(10).Info("ensurePoolAndCLB - add newBinding", "binding", binding)
 				newBindings = append(newBindings, *binding)
 			}
 		}
