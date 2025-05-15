@@ -31,6 +31,7 @@ import (
 	"github.com/imroc/tke-extend-network-controller/pkg/util"
 	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/record"
@@ -128,6 +129,10 @@ func matchHostPort(hostPort, port, lbPort, lbEndPort uint16) (uint16, bool) {
 func (r *PodReconciler) syncCLBHostPortMapping(ctx context.Context, pod *corev1.Pod) (result ctrl.Result, err error) {
 	cbd := &networkingv1alpha1.CLBNodeBinding{}
 	if err = r.Get(ctx, client.ObjectKey{Name: pod.Spec.NodeName}, cbd); err != nil {
+		if apierrors.IsNotFound(err) {
+			r.Recorder.Eventf(pod, corev1.EventTypeWarning, "NoClbBoundNode", "no clb bound to node %s", pod.Spec.NodeName)
+			return result, nil
+		}
 		return result, errors.WithStack(err)
 	}
 	mappings := []HostPortMapping{}
@@ -153,28 +158,29 @@ func (r *PodReconciler) syncCLBHostPortMapping(ctx context.Context, pod *corev1.
 					}
 				}
 			}
-			if len(mappings) == 0 {
-				log.FromContext(ctx).V(5).Info("no hostport avaliable, make sure you enabled the clb port binding to the node")
-				return
-			}
-			val, err := json.Marshal(mappings)
-			if err != nil {
-				return result, errors.WithStack(err)
-			}
-			if pod.Annotations[constant.CLBHostPortMappingResultKey] != string(val) {
-				patchMap := map[string]any{
-					"metadata": map[string]any{
-						"annotations": map[string]string{
-							constant.CLBHostPortMappingResultKey:  string(val),
-							constant.CLBHostPortMappingStatuslKey: "Ready",
-						},
-					},
-				}
-				if err := kube.PatchMap(ctx, r.Client, pod, patchMap); err != nil {
-					return result, errors.WithStack(err)
-				}
-			}
 		}
+	}
+	if len(mappings) == 0 {
+		r.Recorder.Event(pod, corev1.EventTypeWarning, "NoPortAvailable", "no hostport avaliable, make sure you enabled the clb port binding to the node")
+		return
+	}
+	val, err := json.Marshal(mappings)
+	if err != nil {
+		return result, errors.WithStack(err)
+	}
+	if pod.Annotations[constant.CLBHostPortMappingResultKey] != string(val) {
+		patchMap := map[string]any{
+			"metadata": map[string]any{
+				"annotations": map[string]string{
+					constant.CLBHostPortMappingResultKey:  string(val),
+					constant.CLBHostPortMappingStatuslKey: "Ready",
+				},
+			},
+		}
+		if err := kube.PatchMap(ctx, r.Client, pod, patchMap); err != nil {
+			return result, errors.WithStack(err)
+		}
+		r.Recorder.Event(pod, corev1.EventTypeNormal, "PatchAnnotation", "clb port mapping result annotation is been patched")
 	}
 	return
 }
