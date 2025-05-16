@@ -128,10 +128,18 @@ func (pa *PortAllocator) Allocate(ctx context.Context, pools []string, protocol 
 }
 
 // Release 释放一个端口
-func (pa *PortAllocator) Release(pool, lbId string, port ProtocolPort) {
+func (pa *PortAllocator) Release(pool, lbId string, port ProtocolPort) bool {
 	if pp := pa.GetPool(pool); pp != nil {
-		pp.ReleasePort(lbId, port)
+		return pp.ReleasePort(lbId, port)
 	}
+	return false
+}
+
+func (pa *PortAllocator) IsAllocated(pool, lbId string, port ProtocolPort) bool {
+	if pp := pa.GetPool(pool); pp != nil {
+		return pp.IsAllocated(lbId, port)
+	}
+	return false
 }
 
 var Allocator = NewPortAllocator()

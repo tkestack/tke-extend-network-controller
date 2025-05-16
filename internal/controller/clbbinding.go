@@ -332,7 +332,6 @@ func (r *CLBBindingReconciler[T]) ensureBackendStatusAnnotation(ctx context.Cont
 	if err := kube.PatchMap(ctx, r.Client, backend.GetObject(), patchMap); err != nil {
 		return errors.WithStack(err)
 	}
-	r.Recorder.Event(bd.GetObject(), corev1.EventTypeNormal, "PatchAnnotation", "clb port mapping result annotation is been patched")
 	log.FromContext(ctx).V(3).Info("patch clb port mapping status success", "value", string(val))
 	return nil
 }
@@ -577,27 +576,40 @@ func (r *CLBBindingReconciler[T]) cleanup(ctx context.Context, bd T) (result ctr
 	}
 	status := bd.GetStatus()
 	for _, binding := range status.PortBindings {
+		// 确保端口从端口池被释放
+		allocated := portpool.Allocator.IsAllocated(binding.Pool, binding.LoadbalancerId, portFromPortBindingStatus(&binding))
+		if !allocated { // 已经清理过，忽略
+			continue
+		}
+		releasePort := func() {
+			portpool.Allocator.Release(binding.Pool, binding.LoadbalancerId, portFromPortBindingStatus(&binding))
+		}
 		// 解绑 lb
 		if err := clb.DeleteListenerByIdOrPort(ctx, binding.Region, binding.LoadbalancerId, binding.ListenerId, int64(binding.LoadbalancerPort), binding.Protocol); err != nil {
 			e := errors.Cause(err)
-			if e == clb.ErrListenerNotFound { // 监听器不存在，忽略
+			switch e {
+			case clb.ErrListenerNotFound: // 监听器不存在，认为成功，从端口池释放
+				log.Info("delete listener while listener not found, ignore")
+				releasePort()
 				continue
-			}
-			if e == clb.ErrOtherListenerNotFound { // 其它监听器不存在导致本批次删除失败，忽略错误重新入队重试
+			case clb.ErrOtherListenerNotFound: // 因同一批次删除的其它监听器不存在导致删除失败，需重试
+				log.Error(err, "delete listener failed cuz other listener not found, retry")
 				result.Requeue = true
 				return result, nil
 			}
 			if clb.IsLoadBalancerNotExistsError(e) { // lb 不存在，忽略
+				releasePort()
 				continue
 			}
 			if clb.IsRequestLimitExceededError(e) {
+				log.Info("request limit exceeded, retry")
 				result.RequeueAfter = time.Second
 				return result, nil
 			}
 			return result, errors.Wrapf(err, "failed to delete listener (%s/%d/%s/%s)", binding.LoadbalancerId, binding.LoadbalancerPort, binding.Protocol, binding.ListenerId)
+		} else { // 删除成功，释放端口
+			releasePort()
 		}
-		// 释放端口
-		portpool.Allocator.Release(binding.Pool, binding.LoadbalancerId, portFromPortBindingStatus(&binding))
 	}
 	// 清理完成，检查 obj 是否是正常状态，如果是，通常是手动删除 CLBBinding 场景，此时触发一次 obj 对账，让被删除的 CLBBinding 重新创建出来
 	backend, err := bd.GetAssociatedObject(ctx, r.Client)

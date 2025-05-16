@@ -117,15 +117,27 @@ func (pp *PortPool) AllocatePort(ctx context.Context, ports ...ProtocolPort) ([]
 	return nil, nil
 }
 
-// 释放已分配的端口
-func (pp *PortPool) ReleasePort(lbId string, port ProtocolPort) {
+func (pp *PortPool) IsAllocated(lbId string, port ProtocolPort) bool {
 	pp.mu.Lock()
 	defer pp.mu.Unlock()
 	cache := pp.cache[lbId]
 	if cache == nil {
-		return
+		return false
+	}
+	_, ok := cache[port]
+	return ok
+}
+
+// 释放已分配的端口
+func (pp *PortPool) ReleasePort(lbId string, port ProtocolPort) bool {
+	pp.mu.Lock()
+	defer pp.mu.Unlock()
+	cache := pp.cache[lbId]
+	if cache == nil {
+		return false
 	}
 	delete(cache, port)
+	return true
 }
 
 func (pp *PortPool) ReleaseLb(lbId string) {
