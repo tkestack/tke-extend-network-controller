@@ -539,7 +539,7 @@ networking.cloud.tencent.com/enable-clb-hostport-mapping: "true"
 
 ## 内网 CLB 绑 EIP 映射
 
-内网 CLB 支持绑定 EIP，在某些场景下，可能需要使用这种 CLB 来为 Pod 进行端口映射。
+在某些场景下，可能需要使用内网 CLB 支持绑定 EIP 这种方式来为 Pod 进行端口映射。
 
 > 内网 CLB 绑定弹性公网 IP 功能处于内测阶段，如需使用，请提交 [工单申请](https://console.cloud.tencent.com/workorder/category?level1_id=6&level2_id=660&source=0&data_title=%E5%BC%B9%E6%80%A7%E5%85%AC%E7%BD%91%20IP&step=1)。
 
