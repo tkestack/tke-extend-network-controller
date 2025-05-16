@@ -1,25 +1,4 @@
-# 使用 CLB 端口池为 Pod 映射公网地址（预览阶段）
-
-## 抢先体验
-
-本文中的功能将在 2.0.0 版本中正式发布，目前处于预览阶段，可通过以下 helm 安装方式测试和体验：
-
-```bash
-helm repo add tke-extend-network-controller https://tkestack.github.io/tke-extend-network-controller
-helm upgrade --install --devel -f values.yaml \
-  --namespace tke-extend-network-controller --create-namespace \
-  tke-extend-network-controller tke-extend-network-controller/tke-extend-network-controller
-```
-
-`--devel` 参数很重要，其中 `values.yaml` 需配置好以下必要的参数:
-
-```yaml
-vpcID: "" # TKE 集群所在 VPC ID (vpc-xxx)
-region: "" # TKE 集群所在地域，如 ap-guangzhou
-clusterID: "" # TKE 集群 ID (cls-xxx)
-secretID: "" # 腾讯云子账号的 SecretID
-secretKey: "" # 腾讯云子账号的 SecretKey
-```
+# 使用 CLB 端口池为 Pod 映射公网地址
 
 ## CLB 端口池介绍
 
@@ -101,6 +80,11 @@ spec:
 ```
 
 > 更详细的 API 说明请参考 [API 参考](api.md#clbportpool)
+
+## 使用约束
+
+- 需使用原生节点或超级节点部署 Pod，否则将无法为 Pod 映射 (从事件日志中可以看到 warning 信息)。
+- 部分场景需向 CLB 提工单开通特性（如端口段）以及调整配额（如单个 CLB 监听器的数量上限），可根据文中的指引进行操作。
 
 ## 创建 CLB 端口池
 

@@ -56,7 +56,7 @@ secretKey: "" # 腾讯云子账号的 SecretKey
 
 ```bash
 helm repo add tke-extend-network-controller https://tkestack.github.io/tke-extend-network-controller
-helm upgrade --install --devel -f values.yaml \
+helm upgrade --install -f values.yaml \
   --namespace tke-extend-network-controller --create-namespace \
   tke-extend-network-controller tke-extend-network-controller/tke-extend-network-controller
 ```
