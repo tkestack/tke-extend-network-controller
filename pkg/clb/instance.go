@@ -114,6 +114,7 @@ func Delete(ctx context.Context, region string, lbIds ...string) error {
 	req := clb.NewDeleteLoadBalancerRequest()
 	for _, lbId := range lbIds {
 		req.LoadBalancerIds = append(req.LoadBalancerIds, &lbId)
+		req.ForceDelete = common.BoolPtr(true)
 	}
 	client := GetClient(region)
 	resp, err := client.DeleteLoadBalancerWithContext(ctx, req)
