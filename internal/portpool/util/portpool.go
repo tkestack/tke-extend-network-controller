@@ -67,7 +67,7 @@ func (p *PortPool) TryCreateLB(ctx context.Context) (portpool.CreateLbResult, er
 		p.creating = false
 	}()
 	p.EventRecorder.Event(pp, corev1.EventTypeNormal, "CreateLoadBalancer", "try to create clb")
-	lbId, err := clb.CreateCLB(ctx, pp.GetRegion(), clb.ConvertCreateLoadBalancerRequest(pp.Spec.AutoCreate.Parameters, pp.Name))
+	lbId, err := clb.CreateCLB(ctx, pp.GetRegion(), clb.ConvertCreateLoadBalancerRequest(pp.Spec.AutoCreate.Parameters))
 	if err != nil {
 		p.EventRecorder.Eventf(pp, corev1.EventTypeWarning, "CreateLoadBalancer", "create clb failed: %s", err.Error())
 		return portpool.CreateLbResultError, errors.WithStack(err)
