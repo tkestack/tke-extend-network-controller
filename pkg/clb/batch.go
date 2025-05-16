@@ -14,12 +14,16 @@ func init() {
 	if concurrency < 1 {
 		concurrency = 1
 	}
-	go startRegisterTargetsProccessor(concurrency)
+	// RegisterTargets 一次性最大支持同时绑定 20 个 target: https://cloud.tencent.com/document/api/214/30676
+	go startRegisterTargetsProccessor(20)
 	go startCreateListenerProccessor(concurrency)
-	go startDescribeListenerProccessor(concurrency)
-	go startDescribeTargetsProccessor(concurrency)
-	go startDeregisterTargetsProccessor(concurrency)
-	go startDeleteListenerProccessor(concurrency)
+	// DescribeListeners 一次性最大支持查 100 个监听器: https://cloud.tencent.com/document/api/214/30686
+	go startDescribeListenerProccessor(100)
+	// DescribeTargets 一次性最大支持同时查 20 个监听器: https://cloud.tencent.com/document/api/214/30684
+	go startDescribeTargetsProccessor(20)
+	// DeregisterTargets 一次性最大支持同时解绑定 20 个 target (由于 task chan 中的 target 是数组，如果有数组长度大于 1，总数就可能操过 20，但正常情况下一个监听器只会有一个 target，不会有问题): https://cloud.tencent.com/document/api/214/30687
+	go startDeregisterTargetsProccessor(20)
+	go startDeleteListenerProccessor(20)
 }
 
 const (
@@ -72,7 +76,7 @@ func StartBatchProccessor[T Task](maxAccumulatedTask int, apiName string, taskCh
 				return
 			}
 			tasks = append(tasks, task)
-			if len(tasks) > maxAccumulatedTask {
+			if len(tasks) >= maxAccumulatedTask {
 				batchRequest()
 			}
 		case <-timer.C: // 累计时间后执行批量操作
