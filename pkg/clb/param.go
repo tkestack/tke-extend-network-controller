@@ -7,10 +7,11 @@ import (
 	clb "github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/clb/v20180317"
 )
 
-func ConvertCreateLoadBalancerRequest(p *networkingv1alpha1.CreateLBParameters) *clb.CreateLoadBalancerRequest {
+func ConvertCreateLoadBalancerRequest(p *networkingv1alpha1.CreateLBParameters, name string) *clb.CreateLoadBalancerRequest {
 	req := clb.NewCreateLoadBalancerRequest()
 	req.LoadBalancerType = util.GetPtr("OPEN") // 默认使用公网 CLB
 	req.VpcId = &clusterinfo.VpcId
+	req.LoadBalancerName = &name
 
 	if p == nil { // 没指定参数，直接返回请求
 		return req
