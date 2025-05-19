@@ -69,6 +69,68 @@ _Appears in:_
 | `parameters` _[CreateLBParameters](#createlbparameters)_ | 自动创建参数 |  |  |
 
 
+#### CLBBindingSpec
+
+
+
+CLBBindingSpec defines the desired state of CLBPodBinding.
+
+
+
+_Appears in:_
+- [CLBNodeBinding](#clbnodebinding)
+- [CLBPodBinding](#clbpodbinding)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `disabled` _boolean_ | 网络隔离 |  |  |
+| `ports` _[PortEntry](#portentry) array_ | 需要绑定的端口配置列表 |  |  |
+
+
+#### CLBBindingState
+
+_Underlying type:_ _string_
+
+
+
+
+
+_Appears in:_
+- [CLBBindingStatus](#clbbindingstatus)
+
+| Field | Description |
+| --- | --- |
+| `Pending` |  |
+| `Bound` |  |
+| `NoBackend` |  |
+| `WaitBackend` |  |
+| `NodeTypeNotSupported` |  |
+| `Disabled` |  |
+| `Failed` |  |
+| `PortPoolNotFound` |  |
+| `NoPortAvailable` |  |
+| `Deleting` |  |
+
+
+#### CLBBindingStatus
+
+
+
+CLBBindingStatus defines the observed state of CLBPodBinding.
+
+
+
+_Appears in:_
+- [CLBNodeBinding](#clbnodebinding)
+- [CLBPodBinding](#clbpodbinding)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `state` _[CLBBindingState](#clbbindingstate)_ | 绑定状态 |  |  |
+| `message` _string_ | 状态信息 |  |  |
+| `portBindings` _[PortBindingStatus](#portbindingstatus) array_ | 端口绑定详情 |  |  |
+
+
 #### CLBNodeBinding
 
 
@@ -86,36 +148,9 @@ CLBNodeBinding is the Schema for the clbnodebindings API.
 | `kind` _string_ | Kind is a string value representing the REST resource this object represents.<br />Servers may infer this from the endpoint the client submits requests to.<br />Cannot be updated.<br />In CamelCase.<br />More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds |  |  |
 | `apiVersion` _string_ | APIVersion defines the versioned schema of this representation of an object.<br />Servers should convert recognized schemas to the latest internal value, and<br />may reject unrecognized values.<br />More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources |  |  |
 | `metadata` _[ObjectMeta](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.28/#objectmeta-v1-meta)_ | Refer to Kubernetes API documentation for fields of `metadata`. |  |  |
-| `spec` _[CLBNodeBindingSpec](#clbnodebindingspec)_ |  |  |  |
-| `status` _[CLBNodeBindingStatus](#clbnodebindingstatus)_ |  |  |  |
+| `spec` _[CLBBindingSpec](#clbbindingspec)_ |  |  |  |
+| `status` _[CLBBindingStatus](#clbbindingstatus)_ |  |  |  |
 
-
-#### CLBNodeBindingSpec
-
-
-
-CLBNodeBindingSpec defines the desired state of CLBNodeBinding.
-
-
-
-_Appears in:_
-- [CLBNodeBinding](#clbnodebinding)
-
-| Field | Description | Default | Validation |
-| --- | --- | --- | --- |
-| `foo` _string_ | Foo is an example field of CLBNodeBinding. Edit clbnodebinding_types.go to remove/update |  |  |
-
-
-#### CLBNodeBindingStatus
-
-
-
-CLBNodeBindingStatus defines the observed state of CLBNodeBinding.
-
-
-
-_Appears in:_
-- [CLBNodeBinding](#clbnodebinding)
 
 
 
@@ -136,64 +171,8 @@ CLBPodBinding is the Schema for the clbpodbindings API.
 | `kind` _string_ | Kind is a string value representing the REST resource this object represents.<br />Servers may infer this from the endpoint the client submits requests to.<br />Cannot be updated.<br />In CamelCase.<br />More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds |  |  |
 | `apiVersion` _string_ | APIVersion defines the versioned schema of this representation of an object.<br />Servers should convert recognized schemas to the latest internal value, and<br />may reject unrecognized values.<br />More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources |  |  |
 | `metadata` _[ObjectMeta](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.28/#objectmeta-v1-meta)_ | Refer to Kubernetes API documentation for fields of `metadata`. |  |  |
-| `spec` _[CLBPodBindingSpec](#clbpodbindingspec)_ |  |  |  |
-| `status` _[CLBPodBindingStatus](#clbpodbindingstatus)_ |  |  |  |
-
-
-#### CLBPodBindingSpec
-
-
-
-CLBPodBindingSpec defines the desired state of CLBPodBinding.
-
-
-
-_Appears in:_
-- [CLBPodBinding](#clbpodbinding)
-
-| Field | Description | Default | Validation |
-| --- | --- | --- | --- |
-| `disabled` _boolean_ | 网络隔离 |  |  |
-| `ports` _[PortEntry](#portentry) array_ | 需要绑定的端口配置列表 |  |  |
-
-
-#### CLBPodBindingState
-
-_Underlying type:_ _string_
-
-
-
-
-
-_Appears in:_
-- [CLBPodBindingStatus](#clbpodbindingstatus)
-
-| Field | Description |
-| --- | --- |
-| `Pending` |  |
-| `Bound` |  |
-| `WaitForPod` |  |
-| `Disabled` |  |
-| `Failed` |  |
-| `Deleting` |  |
-
-
-#### CLBPodBindingStatus
-
-
-
-CLBPodBindingStatus defines the observed state of CLBPodBinding.
-
-
-
-_Appears in:_
-- [CLBPodBinding](#clbpodbinding)
-
-| Field | Description | Default | Validation |
-| --- | --- | --- | --- |
-| `state` _[CLBPodBindingState](#clbpodbindingstate)_ | 绑定状态 |  |  |
-| `message` _string_ | 状态信息 |  |  |
-| `portBindings` _[PortBindingStatus](#portbindingstatus) array_ | 端口绑定详情 |  |  |
+| `spec` _[CLBBindingSpec](#clbbindingspec)_ |  |  |  |
+| `status` _[CLBBindingStatus](#clbbindingstatus)_ |  |  |  |
 
 
 #### CLBPortPool
@@ -254,6 +233,7 @@ _Appears in:_
 | `Pending` |  |
 | `Active` |  |
 | `Scaling` |  |
+| `Deleting` |  |
 
 
 #### CLBPortPoolStatus
@@ -287,17 +267,17 @@ _Appears in:_
 
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
-| `vipIsp` _string_ | 仅适用于公网负载均衡。目前仅广州、上海、南京、济南、杭州、福州、北京、石家庄、武汉、长沙、成都、重庆地域支持静态单线 IP 线路类型，如需体验，请联系商务经理申请。申请通过后，即可选择中国移动（CMCC）、中国联通（CUCC）或中国电信（CTCC）的运营商类型，网络计费模式只能使用按带宽包计费(BANDWIDTH_PACKAGE)。 如果不指定本参数，则默认使用BGP。可通过 DescribeResources 接口查询一个地域所支持的Isp。 |  |  |
+| `vipIsp` _string_ | 仅适用于公网负载均衡。目前仅广州、上海、南京、济南、杭州、福州、北京、石家庄、武汉、长沙、成都、重庆地域支持静态单线 IP 线路类型，如需体验，请联系商务经理申请。申请通过后，即可选择中国移动（CMCC）、中国联通（CUCC）或中国电信（CTCC）的运营商类型，网络计费模式只能使用按带宽包计费(BANDWIDTH_PACKAGE)。 如果不指定本参数，则默认使用BGP。可通过 DescribeResources 接口查询一个地域所支持的Isp。 |  | Enum: [CMCC CUCC CTCC BGP] <br /> |
 | `bandwidthPackageId` _string_ | 带宽包ID，指定此参数时，网络计费方式（InternetAccessible.InternetChargeType）只支持按带宽包计费（BANDWIDTH_PACKAGE），带宽包的属性即为其结算方式。非上移用户购买的 IPv6 负载均衡实例，且运营商类型非 BGP 时 ，不支持指定具体带宽包id。 |  |  |
-| `addressIPVersion` _string_ | 仅适用于公网负载均衡。IP版本，可取值：IPV4、IPV6、IPv6FullChain，不区分大小写，默认值 IPV4。说明：取值为IPV6表示为IPV6 NAT64版本；取值为IPv6FullChain，表示为IPv6版本。 |  |  |
+| `addressIPVersion` _string_ | 仅适用于公网负载均衡。IP版本，可取值：IPV4、IPV6、IPv6FullChain，不区分大小写，默认值 IPV4。说明：取值为IPV6表示为IPV6 NAT64版本；取值为IPv6FullChain，表示为IPv6版本。 |  | Enum: [IPV4 IPV6 IPv6FullChain] <br /> |
 | `loadBalancerPassToTarget` _boolean_ | Target是否放通来自CLB的流量。开启放通（true）：只验证CLB上的安全组；不开启放通（false）：需同时验证CLB和后端实例上的安全组。默认值为 true。 |  |  |
 | `dynamicVip` _boolean_ | 是否创建域名化负载均衡。 |  |  |
 | `vpcId` _string_ | 负载均衡后端目标设备所属的网络 ID，如vpc-12345678，可以通过 DescribeVpcs 接口获取。 不填此参数则默认为当前集群所在 VPC。创建内网负载均衡实例时，此参数必填。 |  |  |
-| `vip` _string_ | 仅适用于公网负载均衡。目前仅广州、上海、南京、济南、杭州、福州、北京、石家庄、武汉、长沙、成都、重庆地域支持静态单线 IP 线路类型，如需体验，请联系商务经理申请。申请通过后，即可选择中国移动（CMCC）、中国联通（CUCC）或中国电信（CTCC）的运营商类型，网络计费模式只能使用按带宽包计费(BANDWIDTH_PACKAGE)。 如果不指定本参数，则默认使用BGP。可通过 DescribeResources 接口查询一个地域所支持的Isp。 |  |  |
+| `vip` _string_ | 指定VIP申请负载均衡。此参数选填，不填写此参数时自动分配VIP。IPv4和IPv6类型支持此参数，IPv6 NAT64类型不支持。<br />注意：当指定VIP创建内网实例、或公网IPv6 BGP实例时，若VIP不属于指定VPC子网的网段内时，会创建失败；若VIP已被占用，也会创建失败。 |  |  |
 | `tags` _[TagInfo](#taginfo) array_ | 购买负载均衡的同时，给负载均衡打上标签，最大支持20个标签键值对。 |  |  |
 | `projectId` _integer_ | 负载均衡实例所属的项目 ID，可以通过 DescribeProject 接口获取。不填此参数则视为默认项目。 |  |  |
 | `loadBalancerName` _string_ | 负载均衡实例的名称。规则：1-60 个英文、汉字、数字、连接线“-”或下划线“_”。 注意：如果名称与系统中已有负载均衡实例的名称相同，则系统将会自动生成此次创建的负载均衡实例的名称。 |  |  |
-| `loadBalancerType` _string_ | 负载均衡实例的网络类型：OPEN：公网属性， INTERNAL：内网属性。默认使用 OPEN（公网负载均衡）。 |  |  |
+| `loadBalancerType` _string_ | 负载均衡实例的网络类型：OPEN：公网属性， INTERNAL：内网属性。默认使用 OPEN（公网负载均衡）。 |  | Enum: [OPEN INTERNAL] <br /> |
 | `masterZoneId` _string_ | 仅适用于公网且IP版本为IPv4的负载均衡。设置跨可用区容灾时的主可用区ID，例如 100001 或 ap-guangzhou-1<br />注：主可用区是需要承载流量的可用区，备可用区默认不承载流量，主可用区不可用时才使用备可用区。目前仅广州、上海、南京、北京、成都、深圳金融、中国香港、首尔、法兰克福、新加坡地域的 IPv4 版本的 CLB 支持主备可用区。可通过 DescribeResources 接口查询一个地域的主可用区的列表。【如果您需要体验该功能，请通过 工单申请】 |  |  |
 | `zoneId` _string_ | 仅适用于公网且IP版本为IPv4的负载均衡。可用区ID，指定可用区以创建负载均衡实例。 |  |  |
 | `subnetId` _string_ | 在私有网络内购买内网负载均衡实例的情况下，必须指定子网 ID，内网负载均衡实例的 VIP 将从这个子网中产生。创建内网负载均衡实例时，此参数必填，创建公网IPv4负载均衡实例时，不支持指定该参数。 |  |  |
@@ -464,7 +444,7 @@ _Appears in:_
 | --- | --- | --- | --- |
 | `internetChargeType` _string_ | TRAFFIC_POSTPAID_BY_HOUR 按流量按小时后计费 ; BANDWIDTH_POSTPAID_BY_HOUR 按带宽按小时后计费; BANDWIDTH_PACKAGE 按带宽包计费;BANDWIDTH_PREPAID按带宽预付费。注意：此字段可能返回 null，表示取不到有效值。 |  | Enum: [TRAFFIC_POSTPAID_BY_HOUR BANDWIDTH_POSTPAID_BY_HOUR BANDWIDTH_PACKAGE BANDWIDTH_PREPAID] <br /> |
 | `internetMaxBandwidthOut` _integer_ | 最大出带宽，单位Mbps，仅对公网属性的共享型、性能容量型和独占型 CLB 实例、以及内网属性的性能容量型 CLB 实例生效。<br />- 对于公网属性的共享型和独占型 CLB 实例，最大出带宽的范围为1Mbps-2048Mbps。<br />- 对于公网属性和内网属性的性能容量型 CLB实例，最大出带宽的范围为1Mbps-61440Mbps。<br />（调用CreateLoadBalancer创建LB时不指定此参数则设置为默认值10Mbps。此上限可调整） |  |  |
-| `bandwidthpkgSubType` _string_ | 带宽包的类型，如SINGLEISP（单线）、BGP（多线）。 |  | Enum: [SINGLEISP BGP] <br /> |
+| `bandwidthpkgSubType` _string_ | 带宽包的类型，如 SINGLEISP（单线）、BGP（多线）。 |  | Enum: [SINGLEISP BGP] <br /> |
 
 
 #### LbAutoCreate
@@ -484,6 +464,23 @@ _Appears in:_
 | `extensiveParameters` _string_ | 创建 CLB 时的参数，JSON 格式，详细参数请参考 CreateLoadBalancer 接口：https://cloud.tencent.com/document/api/214/30692 |  |  |
 
 
+#### LoadBalancerState
+
+_Underlying type:_ _string_
+
+
+
+
+
+_Appears in:_
+- [LoadBalancerStatus](#loadbalancerstatus)
+
+| Field | Description |
+| --- | --- |
+| `Running` |  |
+| `NotFound` |  |
+
+
 #### LoadBalancerStatus
 
 
@@ -498,6 +495,7 @@ _Appears in:_
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
 | `autoCreated` _boolean_ |  |  |  |
+| `state` _[LoadBalancerState](#loadbalancerstate)_ |  |  |  |
 | `loadbalancerID` _string_ |  |  |  |
 | `loadbalancerName` _string_ |  |  |  |
 | `ips` _string array_ |  |  |  |
@@ -513,7 +511,7 @@ PortBindingStatus 描述单个端口的实际绑定情况
 
 
 _Appears in:_
-- [CLBPodBindingStatus](#clbpodbindingstatus)
+- [CLBBindingStatus](#clbbindingstatus)
 
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
@@ -536,7 +534,8 @@ PortEntry 定义单个端口的绑定配置
 
 
 _Appears in:_
-- [CLBPodBindingSpec](#clbpodbindingspec)
+- [CLBBindingSpec](#clbbindingspec)
+- [CLBNodeBindingSpec](#clbnodebindingspec)
 
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
