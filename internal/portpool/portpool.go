@@ -78,7 +78,7 @@ func (pp *PortPool) AllocatePort(ctx context.Context, ports ...ProtocolPort) ([]
 	pp.mu.Lock()
 	defer pp.mu.Unlock()
 	// 获取监听器数量配额
-	quota, err := clb.GetQuota(ctx, pp.GetRegion(), clb.TOTAL_LISTENER_QUOTA)
+	quota, err := clb.Quota.GetQuota(ctx, pp.GetRegion(), clb.TOTAL_LISTENER_QUOTA)
 	if err != nil {
 		return nil, err
 	}

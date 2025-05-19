@@ -51,9 +51,9 @@ func runManager() {
 		viper.GetString(secretIdFlag),
 		viper.GetString(secretKeyFlag),
 	)
-	_, err := clb.SyncQuota(context.Background(), region)
+	_, err := clb.Quota.Get(context.Background(), region)
 	if err != nil {
-		setupLog.Error(err, "failed to sync clb quota")
+		setupLog.Error(err, "failed to get clb quota")
 		os.Exit(1)
 	}
 

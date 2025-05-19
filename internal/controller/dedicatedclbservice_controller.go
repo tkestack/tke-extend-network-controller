@@ -192,7 +192,7 @@ func (r *DedicatedCLBServiceReconciler) sync(ctx context.Context, ds *networking
 		allocatableListeners[lis.Spec.Protocol] = append(allocatableListeners[lis.Spec.Protocol], lis)
 	}
 
-	listenerQuota, err := clb.GetQuota(ctx, ds.Spec.LbRegion, clb.TOTAL_LISTENER_QUOTA)
+	listenerQuota, err := clb.Quota.GetQuota(ctx, ds.Spec.LbRegion, clb.TOTAL_LISTENER_QUOTA)
 	if err != nil {
 		r.Recorder.Event(ds, corev1.EventTypeWarning, "GetQuota", fmt.Sprintf("failed to get clb listener quota: %s", err.Error()))
 		return err

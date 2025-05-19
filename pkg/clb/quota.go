@@ -2,28 +2,72 @@ package clb
 
 import (
 	"context"
+	"reflect"
 	"sync"
 	"time"
 
 	"github.com/imroc/tke-extend-network-controller/pkg/clusterinfo"
+	"github.com/pkg/errors"
 	clb "github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/clb/v20180317"
 )
 
-var (
-	quota     = make(map[string]map[string]int64)
-	quotaLock sync.Mutex
-)
+type quotaManager struct {
+	cache map[string]map[string]int64
+	mu    sync.Mutex
+}
 
-const (
-	TOTAL_INTERNAL_CLB_QUOTA             = "TOTAL_INTERNAL_CLB_QUOTA"
-	TOTAL_TARGET_BIND_QUOTA              = "TOTAL_TARGET_BIND_QUOTA"
-	TOTAL_OPEN_CLB_QUOTA                 = "TOTAL_OPEN_CLB_QUOTA"
-	TOTAL_LISTENER_QUOTA                 = "TOTAL_LISTENER_QUOTA"
-	TOTAL_SNAT_IP_QUOTA                  = "TOTAL_SNAT_IP_QUOTA"
-	TOTAL_LISTENER_RULE_QUOTA            = "TOTAL_LISTENER_RULE_QUOTA"
-	TOTAL_FULL_PORT_RANGE_LISTENER_QUOTA = "TOTAL_FULL_PORT_RANGE_LISTENER_QUOTA"
-	TOTAL_ISP_CLB_QUOTA                  = "TOTAL_ISP_CLB_QUOTA"
-)
+var Quota = &quotaManager{
+	cache: make(map[string]map[string]int64),
+}
+
+func (q *quotaManager) GetQuota(ctx context.Context, region, id string) (int64, error) {
+	quota, err := q.Get(ctx, region)
+	if err != nil {
+		return 0, errors.WithStack(err)
+	}
+	return quota[id], nil
+}
+
+func (q *quotaManager) Get(ctx context.Context, region string) (map[string]int64, error) {
+	if region == "" {
+		region = clusterinfo.Region
+	}
+	// 尝试从缓存拿 quota
+	q.mu.Lock()
+	cache, ok := q.cache[region]
+	q.mu.Unlock()
+	if ok {
+		return cache, nil
+	}
+	// 没有获取到过 quota，调 API 获取并存入缓存
+	quotaMap, err := DescribeQuota(ctx, region)
+	if err != nil {
+		return nil, errors.WithStack(err)
+	}
+	q.mu.Lock()
+	q.cache[region] = quotaMap
+	q.mu.Unlock()
+	clbLog.Info("clb quota", "region", region, "quota", quotaMap)
+	// 首次获取成功，后续定时同步
+	go func() {
+		for {
+			time.Sleep(5 * time.Minute)
+			quotaMap, err := DescribeQuota(ctx, region)
+			if err != nil {
+				clbLog.Error(err, "failed to sync clb quota periodically", "region", region)
+			} else {
+				q.mu.Lock()
+				oldCache := q.cache[region]
+				if !reflect.DeepEqual(oldCache, quotaMap) {
+					q.cache[region] = quotaMap
+					clbLog.Info("sync clb quota successfully", "region", region, "quota", quotaMap)
+				}
+				q.mu.Unlock()
+			}
+		}
+	}()
+	return quotaMap, nil
+}
 
 /** Response of DescribeQuota:
 * {
@@ -74,51 +118,33 @@ const (
 *   }
 * }
 **/
-
-func SyncQuota(ctx context.Context, region string) (map[string]int64, error) {
+func DescribeQuota(ctx context.Context, region string) (quotaMap map[string]int64, err error) {
 	client := GetClient(region)
 	req := clb.NewDescribeQuotaRequest()
 	resp, err := client.DescribeQuotaWithContext(ctx, req)
-	LogAPI(nil, "DescribeQuota", req, resp, err)
+	LogAPI(ctx, "DescribeQuota", req, resp, err)
 	if err != nil {
-		return nil, err
+		return nil, errors.WithStack(err)
 	}
 	m := make(map[string]int64)
 	for _, q := range resp.Response.QuotaSet {
 		m[*q.QuotaId] = *q.QuotaLimit
 	}
-	quotaLock.Lock()
-	_, workerStarted := quota[region]
-	quota[region] = m
-	quotaLock.Unlock()
-	if !workerStarted {
-		go func() {
-			for {
-				time.Sleep(5 * time.Minute)
-				m, err := SyncQuota(context.Background(), region)
-				if err != nil {
-					clbLog.Error(err, "failed to sync clb quota periodically", "region", region)
-				} else {
-					clbLog.V(2).Info("sync clb quota successfully", "region", region, "quota", m)
-				}
-			}
-		}()
-	}
 	return m, nil
 }
 
-func GetQuota(ctx context.Context, region, id string) (int64, error) {
-	if region == "" {
-		region = clusterinfo.Region
-	}
-	quotaLock.Lock()
-	m, ok := quota[region]
-	quotaLock.Unlock()
-	if !ok {
-		var err error
-		if m, err = SyncQuota(ctx, region); err != nil {
-			return 0, err
-		}
-	}
-	return m[id], nil
-}
+var (
+	quota     = make(map[string]map[string]int64)
+	quotaLock sync.Mutex
+)
+
+const (
+	TOTAL_INTERNAL_CLB_QUOTA             = "TOTAL_INTERNAL_CLB_QUOTA"
+	TOTAL_TARGET_BIND_QUOTA              = "TOTAL_TARGET_BIND_QUOTA"
+	TOTAL_OPEN_CLB_QUOTA                 = "TOTAL_OPEN_CLB_QUOTA"
+	TOTAL_LISTENER_QUOTA                 = "TOTAL_LISTENER_QUOTA"
+	TOTAL_SNAT_IP_QUOTA                  = "TOTAL_SNAT_IP_QUOTA"
+	TOTAL_LISTENER_RULE_QUOTA            = "TOTAL_LISTENER_RULE_QUOTA"
+	TOTAL_FULL_PORT_RANGE_LISTENER_QUOTA = "TOTAL_FULL_PORT_RANGE_LISTENER_QUOTA"
+	TOTAL_ISP_CLB_QUOTA                  = "TOTAL_ISP_CLB_QUOTA"
+)
