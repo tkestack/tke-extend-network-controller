@@ -81,9 +81,9 @@ func GetListenerByPort(ctx context.Context, region, lbId string, port int64, pro
 
 const TkePodListenerName = "TKE-DEDICATED-POD"
 
-func CreateListenerTryBatch(ctx context.Context, region, lbId string, port, endPort int64, protocol, extensiveParameters string) (id string, err error) {
+func CreateListenerTryBatch(ctx context.Context, region, lbId string, port, endPort int64, protocol, certId, extensiveParameters string) (id string, err error) {
 	if endPort > 0 {
-		id, err = CreateListener(ctx, region, lbId, port, endPort, protocol, extensiveParameters, TkeListenerName)
+		id, err = CreateListener(ctx, region, lbId, port, endPort, protocol, certId, extensiveParameters, TkeListenerName)
 		if err != nil {
 			err = errors.WithStack(err)
 		}
@@ -93,6 +93,7 @@ func CreateListenerTryBatch(ctx context.Context, region, lbId string, port, endP
 		Ctx:                 ctx,
 		Region:              region,
 		LbId:                lbId,
+		CertId:              certId,
 		Port:                port,
 		Protocol:            protocol,
 		ExtensiveParameters: extensiveParameters,
@@ -107,11 +108,17 @@ func CreateListenerTryBatch(ctx context.Context, region, lbId string, port, endP
 	return
 }
 
-func CreateListener(ctx context.Context, region, lbId string, port, endPort int64, protocol, extensiveParameters, listenerName string) (id string, err error) {
+func CreateListener(ctx context.Context, region, lbId string, port, endPort int64, protocol, certId, extensiveParameters, listenerName string) (id string, err error) {
 	req := clb.NewCreateListenerRequest()
 	req.HealthCheck = &clb.HealthCheck{
 		HealthSwitch: common.Int64Ptr(0),
 		SourceIpType: common.Int64Ptr(1),
+	}
+	if certId != "" {
+		req.Certificate = &clb.CertificateInput{
+			SSLMode: common.StringPtr("UNIDIRECTIONAL"),
+			CertId:  &certId,
+		}
 	}
 	if extensiveParameters != "" {
 		err = json.Unmarshal([]byte(extensiveParameters), req)

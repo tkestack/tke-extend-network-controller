@@ -517,6 +517,7 @@ _Appears in:_
 | --- | --- | --- | --- |
 | `port` _integer_ | 应用端口 |  |  |
 | `protocol` _string_ | 协议类型 |  |  |
+| `certId` _string_ | 服务端证书 ID（仅在 TCP_SSL 和 QUIC 协议下有效） |  |  |
 | `pool` _string_ | 使用的端口池 |  |  |
 | `region` _string_ | 地域信息 |  |  |
 | `loadbalancerId` _string_ | 负载均衡器ID |  |  |
@@ -540,9 +541,10 @@ _Appears in:_
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
 | `port` _integer_ | 应用监听的端口号 |  |  |
-| `protocol` _string_ | 端口使用的协议 |  | Enum: [TCP UDP TCPUDP] <br /> |
+| `protocol` _string_ | 端口使用的协议 |  | Enum: [TCP UDP TCPUDP TCP_SSL QUIC] <br /> |
 | `pools` _string array_ | 使用的端口池列表 |  |  |
 | `useSamePortAcrossPools` _boolean_ | 是否跨端口池分配相同端口号 |  |  |
+| `certSecretName` _string_ | 包含服务端证书的 ID 的 Secret 名称。仅对 TCP_SSL 和 QUIC 协议有效。 |  |  |
 
 
 #### TagInfo

@@ -346,6 +346,7 @@ func (r *CLBBindingReconciler[T]) ensureListener(ctx context.Context, bd clbbind
 			int64(binding.LoadbalancerPort),
 			int64(util.GetValue(binding.LoadbalancerEndPort)),
 			binding.Protocol,
+			binding.CertId,
 			"",
 		)
 		if err != nil {
@@ -422,6 +423,8 @@ func (r *CLBBindingReconciler[T]) ensurePortBound(ctx context.Context, bd clbbin
 	return nil
 }
 
+var ErrCertIdNotFound = errors.New("no cert id found from secret")
+
 func (r *CLBBindingReconciler[T]) ensurePortAllocated(ctx context.Context, bd clbbinding.CLBBinding) error {
 	status := bd.GetStatus()
 	bindings := make(map[portKey]*networkingv1alpha1.PortBindingStatus)
@@ -483,26 +486,44 @@ LOOP_PORT:
 		if alreadyAllocated {
 			continue LOOP_PORT
 		}
-		// 未分配端口，执行分配
+		// 未分配端口，先检查证书配置
+		var certId string
+		if secretName := port.CertSecretName; secretName != nil && *secretName != "" {
+			id, err := kube.GetCertIdFromSecret(ctx, r.Client, client.ObjectKey{
+				Namespace: bd.GetNamespace(),
+				Name:      *secretName,
+			})
+			if err != nil {
+				allocatedPorts.Release()
+				if apierrors.IsNotFound(errors.Cause(err)) {
+					r.Recorder.Eventf(bd.GetObject(), corev1.EventTypeWarning, "CertNotFound", "cert secret %q not found", *secretName)
+					return errors.Wrapf(ErrCertIdNotFound, "cert secret %q not found", *secretName)
+				}
+				return errors.WithStack(err)
+			}
+			certId = id
+		}
+		// 配置无误，执行分配
 		allocated, err := portpool.Allocator.Allocate(ctx, port.Pools, port.Protocol, util.GetValue(port.UseSamePortAcrossPools))
 		if err != nil {
 			return errors.WithStack(err)
 		}
-		for _, allocatedPort := range allocated {
-			binding := networkingv1alpha1.PortBindingStatus{
-				Port:             port.Port,
-				Protocol:         allocatedPort.Protocol,
-				Pool:             allocatedPort.GetName(),
-				LoadbalancerId:   allocatedPort.LbId,
-				LoadbalancerPort: allocatedPort.Port,
-				Region:           allocatedPort.GetRegion(),
-			}
-			if allocatedPort.EndPort > 0 {
-				binding.LoadbalancerEndPort = &allocatedPort.EndPort
-			}
-			status.PortBindings = append(status.PortBindings, binding)
-		}
 		if len(allocated) > 0 { // 预期应该是每次 allocated 长度大于 0，否则应该有 error 返回，不会走到这后面的 else 语句
+			for _, allocatedPort := range allocated {
+				binding := networkingv1alpha1.PortBindingStatus{
+					Port:             port.Port,
+					Protocol:         allocatedPort.Protocol,
+					CertId:           certId,
+					Pool:             allocatedPort.GetName(),
+					LoadbalancerId:   allocatedPort.LbId,
+					LoadbalancerPort: allocatedPort.Port,
+					Region:           allocatedPort.GetRegion(),
+				}
+				if allocatedPort.EndPort > 0 {
+					binding.LoadbalancerEndPort = &allocatedPort.EndPort
+				}
+				status.PortBindings = append(status.PortBindings, binding)
+			}
 			allocatedPorts = append(allocatedPorts, allocated...)
 		} else { // 兜底：为简化逻辑，保证事务性，只要有一个端口分配失败就认为失败
 			allocatedPorts.Release()

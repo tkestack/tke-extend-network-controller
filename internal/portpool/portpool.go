@@ -20,7 +20,22 @@ type LBPort struct {
 type ProtocolPort struct {
 	Port     uint16 // 端口号
 	EndPort  uint16 // 结束端口号
-	Protocol string // 协议 TCP/UDP
+	Protocol string // 协议 TCP/UDP/QUIC/TCP_SSL
+}
+
+func (p ProtocolPort) Key() ProtocolPort {
+	l4Protocol := p.Protocol
+	switch p.Protocol {
+	case "TCP_SSL":
+		l4Protocol = "TCP"
+	case "QUIC":
+		l4Protocol = "UDP"
+	}
+	return ProtocolPort{
+		Port:     p.Port,
+		EndPort:  p.EndPort,
+		Protocol: l4Protocol,
+	}
 }
 
 type PortAllocation struct {
@@ -91,7 +106,7 @@ func (pp *PortPool) AllocatePort(ctx context.Context, ports ...ProtocolPort) ([]
 		quotaExceeded = false
 		canAllocate := true
 		for _, port := range ports { // 确保所有待分配的端口都未被分配
-			if _, exists := allocated[port]; exists { // 有端口已被占用，标记无法分配
+			if _, exists := allocated[port.Key()]; exists { // 有端口已被占用，标记无法分配
 				canAllocate = false
 				break
 			}
@@ -99,7 +114,7 @@ func (pp *PortPool) AllocatePort(ctx context.Context, ports ...ProtocolPort) ([]
 		if canAllocate { // 找到有 lb 可分配端口，分配端口并返回
 			result := []PortAllocation{}
 			for _, port := range ports {
-				allocated[port] = struct{}{}
+				allocated[port.Key()] = struct{}{}
 				pa := PortAllocation{
 					PortPool:     pp,
 					ProtocolPort: port,

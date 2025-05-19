@@ -17,6 +17,7 @@ type CreateListenerTask struct {
 	Ctx                 context.Context
 	Region              string
 	LbId                string
+	CertId              string
 	Port                int64
 	Protocol            string
 	ExtensiveParameters string
@@ -40,16 +41,23 @@ var CreateListenerChan = make(chan *CreateListenerTask, 100)
 
 type listenerKey struct {
 	Protocol            string
+	CertId              string
 	ExtensiveParameters string
 }
 
 const TkeListenerName = "TKE-LISTENER"
 
-func doBatchCreateListener(apiName, region, lbId, protocol, extensiveParameters string, tasks []*CreateListenerTask) (listenerIds []string, err error) {
+func doBatchCreateListener(apiName, region, lbId, protocol, certId, extensiveParameters string, tasks []*CreateListenerTask) (listenerIds []string, err error) {
 	req := clb.NewCreateListenerRequest()
 	req.HealthCheck = &clb.HealthCheck{
 		HealthSwitch: common.Int64Ptr(0),
 		SourceIpType: common.Int64Ptr(1),
+	}
+	if certId != "" {
+		req.Certificate = &clb.CertificateInput{
+			SSLMode: common.StringPtr("UNIDIRECTIONAL"),
+			CertId:  &certId,
+		}
 	}
 	if extensiveParameters != "" {
 		err = json.Unmarshal([]byte(extensiveParameters), req)
@@ -90,12 +98,13 @@ func startCreateListenerProccessor(concurrent int) {
 		for _, task := range tasks {
 			key := listenerKey{
 				Protocol:            task.Protocol,
+				CertId:              task.CertId,
 				ExtensiveParameters: task.ExtensiveParameters,
 			}
 			groupTask[key] = append(groupTask[key], task)
 		}
 		for lis, tasks := range groupTask {
-			listenerIds, err := doBatchCreateListener(apiName, region, lbId, lis.Protocol, lis.ExtensiveParameters, tasks)
+			listenerIds, err := doBatchCreateListener(apiName, region, lbId, lis.Protocol, lis.CertId, lis.ExtensiveParameters, tasks)
 			if err != nil {
 				clbLog.Error(err, "batch create listener failed")
 				for _, task := range tasks {

@@ -79,6 +79,14 @@ rules:
   - patch
   - update
 - apiGroups:
+  - ""
+  resources:
+  - secrets
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
   - networking.cloud.tencent.com
   resources:
   - clbnodebindings

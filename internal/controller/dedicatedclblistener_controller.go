@@ -490,7 +490,7 @@ func (r *DedicatedCLBListenerReconciler) createListener(ctx context.Context, log
 			return r.changeState(ctx, lis, networkingv1alpha1.DedicatedCLBListenerStateFailed, msg)
 		}
 	} else { // 没有端口冲突，创建监听器
-		id, err := clb.CreateListener(ctx, lis.Spec.LbRegion, lis.Spec.LbId, lis.Spec.LbPort, lis.Spec.LbEndPort, lis.Spec.Protocol, lis.Spec.ExtensiveParameters, clb.TkePodListenerName)
+		id, err := clb.CreateListener(ctx, lis.Spec.LbRegion, lis.Spec.LbId, lis.Spec.LbPort, lis.Spec.LbEndPort, lis.Spec.Protocol, "", lis.Spec.ExtensiveParameters, clb.TkePodListenerName)
 		if err != nil {
 			r.Recorder.Event(lis, corev1.EventTypeWarning, "CreateListener", err.Error())
 			return err

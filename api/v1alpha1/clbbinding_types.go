@@ -5,13 +5,16 @@ type PortEntry struct {
 	// 应用监听的端口号
 	Port uint16 `json:"port"`
 	// 端口使用的协议
-	// +kubebuilder:validation:Enum=TCP;UDP;TCPUDP
+	// +kubebuilder:validation:Enum=TCP;UDP;TCPUDP;TCP_SSL;QUIC
 	Protocol string `json:"protocol"`
 	// 使用的端口池列表
 	Pools []string `json:"pools"`
 	// 是否跨端口池分配相同端口号
 	// +optional
 	UseSamePortAcrossPools *bool `json:"useSamePortAcrossPools,omitempty"`
+	// 包含服务端证书的 ID 的 Secret 名称。仅对 TCP_SSL 和 QUIC 协议有效。
+	// +optional
+	CertSecretName *string `json:"certSecretName,omitempty"`
 }
 
 type CLBBindingState string
@@ -45,6 +48,9 @@ type PortBindingStatus struct {
 	Port uint16 `json:"port"`
 	// 协议类型
 	Protocol string `json:"protocol"`
+	// 服务端证书 ID（仅在 TCP_SSL 和 QUIC 协议下有效）
+	// +optional
+	CertId string `json:"certId"`
 	// 使用的端口池
 	Pool string `json:"pool"`
 	// 地域信息
