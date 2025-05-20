@@ -139,7 +139,7 @@ func (pp *PortPool) IsAllocated(lbId string, port ProtocolPort) bool {
 	if cache == nil {
 		return false
 	}
-	_, ok := cache[port]
+	_, ok := cache[port.Key()]
 	return ok
 }
 
@@ -151,7 +151,7 @@ func (pp *PortPool) ReleasePort(lbId string, port ProtocolPort) bool {
 	if cache == nil {
 		return false
 	}
-	delete(cache, port)
+	delete(cache, port.Key())
 	return true
 }
 

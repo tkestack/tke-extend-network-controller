@@ -607,9 +607,11 @@ func (r *CLBBindingReconciler[T]) cleanup(ctx context.Context, bd T) (result ctr
 		// 确保端口从端口池被释放
 		allocated := portpool.Allocator.IsAllocated(binding.Pool, binding.LoadbalancerId, portFromPortBindingStatus(&binding))
 		if !allocated { // 已经清理过，忽略
+			log.Info("ignore already released port", "port", binding.LoadbalancerPort, "protocol", binding.Protocol, "pool", binding.Pool, "lb", binding.LoadbalancerId)
 			continue
 		}
 		releasePort := func() {
+			log.V(3).Info("release allocated port", "port", binding.LoadbalancerPort, "protocol", binding.Protocol, "pool", binding.Pool, "lb", binding.LoadbalancerId)
 			portpool.Allocator.Release(binding.Pool, binding.LoadbalancerId, portFromPortBindingStatus(&binding))
 		}
 		// 解绑 lb
