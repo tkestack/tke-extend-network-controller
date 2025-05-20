@@ -216,6 +216,13 @@ func (r *CLBBindingReconciler[T]) ensureBackendBindings(ctx context.Context, bd 
 	}
 	node, err := backend.GetNode(ctx)
 	if err != nil {
+		if err == clbbinding.ErrNodeNameIsEmpty { // pod 还未调度
+			r.Recorder.Event(bd.GetObject(), corev1.EventTypeNormal, "WaitBackend", "wait pod to be scheduled")
+			if err = r.ensureState(ctx, bd, networkingv1alpha1.CLBBindingStateWaitBackend); err != nil {
+				return errors.WithStack(err)
+			}
+			return nil
+		}
 		return errors.WithStack(err)
 	}
 	if !util.IsNodeTypeSupported(node) {

@@ -57,10 +57,12 @@ func (b podBackend) GetObject() client.Object {
 	return b.Pod
 }
 
+var ErrNodeNameIsEmpty = errors.New("node name is empty")
+
 func (b podBackend) GetNode(ctx context.Context) (*corev1.Node, error) {
 	nodeName := b.Pod.Spec.NodeName
 	if nodeName == "" {
-		return nil, errors.New("node name is empty")
+		return nil, ErrNodeNameIsEmpty
 	}
 	node := &corev1.Node{}
 	err := b.Client.Get(ctx, client.ObjectKey{Name: nodeName}, node)
