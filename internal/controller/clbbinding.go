@@ -671,15 +671,34 @@ func generatePortsFromAnnotation(anno string) (ports []networkingv1alpha1.PortEn
 		protocol := fields[1]
 		pools := strings.Split(fields[2], ",")
 		var useSamePortAcrossPools *bool
-		if len(fields) >= 4 && fields[3] == "useSamePortAcrossPools" {
-			b := true
-			useSamePortAcrossPools = &b
+		var certSecretName *string
+		if len(fields) >= 4 {
+			options := fields[3]
+			optionList := strings.Split(options, ",")
+			for _, option := range optionList {
+				kv := strings.Split(option, "=")
+				if len(kv) == 1 {
+					switch kv[0] {
+					case "useSamePortAcrossPools":
+						b := true
+						useSamePortAcrossPools = &b
+					}
+				} else if len(kv) == 2 {
+					key := kv[0]
+					value := kv[1]
+					switch key {
+					case "certSecret":
+						certSecretName = &value
+					}
+				}
+			}
 		}
 		ports = append(ports, networkingv1alpha1.PortEntry{
 			Port:                   port,
 			Protocol:               protocol,
 			Pools:                  pools,
 			UseSamePortAcrossPools: useSamePortAcrossPools,
+			CertSecretName:         certSecretName,
 		})
 	}
 	return
