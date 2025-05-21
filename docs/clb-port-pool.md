@@ -575,7 +575,7 @@ stringData:
   qcloud_cert_id: "O6TkzGNJ"
 ```
 
-> 创建 Secret 时，数据 `stringData` 保存时，证书 ID 的值无需 base64 编码，否则需要手动进行 base64 编码再写入。
+> 创建 Secret 时，如果数据 `stringData` 保存，证书 ID 的值无需 base64 编码；用 `data` 保存则需要手动进行 base64 编码后再写入。
 
 3. 最后，在声明端口映射的注解中指定使用相应的协议，并指定包含证书 ID 的 Secret 名称：
 
