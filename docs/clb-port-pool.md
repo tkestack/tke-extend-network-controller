@@ -152,7 +152,7 @@ spec:
 
 Pod 注解配置方法：
 1. 指定注解 `networking.cloud.tencent.com/enable-clb-port-mapping` 为 `true` 开启使用 CLB 端口池为 Pod 映射公网地址。
-2. 指定注解 `networking.cloud.tencent.com/clb-port-mapping` 配置映射规则，比如 `8000 UDP pool-test`，其中 `8000` 表示 Pod 监听的端口号，`UDP` 表示端口协议（支持 TCP、UDP 和 TCPUDP，其中 TCPUDP 表示该端口同时监听了 TCP 和 UDP），`pool-test` 表示 CLB 端口池名称，可指定多行来配置多个端口映射。
+2. 指定注解 `networking.cloud.tencent.com/clb-port-mapping` 配置映射规则，比如 `8000 UDP pool-test`，其中 `8000` 表示 Pod 监听的端口号，`UDP` 表示端口协议（支持 TCP、UDP、TCP_SSL、QUIC 和 TCPUDP，其中 TCPUDP 表示该端口同时监听了 TCP 和 UDP），`pool-test` 表示 CLB 端口池名称，可指定多行来配置多个端口映射。
 
 `StatefulSet` 配置示例：
 
@@ -558,9 +558,37 @@ spec:
 
 > 控制器会自动检测内网 CLB 是否绑定了 EIP，如果绑定 EIP 就认为此 CLB 的 VIP 为绑定的 EIP，映射结果也会使用 EIP 地址。
 
+## 使用 TLS
+
+有些场景可能会用到 TLS，比如 websocket H5 小游戏，这时你可以根据需求使用 CLB 的 TCP_SSL 或 QUIC 协议来接入，下面介绍配置方法。
+
+1. 首先，在 [证书管理](https://console.cloud.tencent.com/clb/certificate) 创建好证书并复制证书 ID。
+2. 然后，在要为 Pod 映射端口的命名空间中创建一个 Secret，写入 `qcloud_cert_id` 字段，值为证书 ID：
+
+```yaml
+apiVersion: v1
+kind: Secret
+metadata:
+  name: cert-secret
+type: Opaque
+stringData:
+  qcloud_cert_id: "O6TkzGNJ"
+```
+
+> 创建 Secret 时，数据 `stringData` 保存时，证书 ID 的值无需 base64 编码，否则需要手动进行 base64 编码再写入。
+
+3. 最后，在声明端口映射的注解中指定使用相应的协议，并指定包含证书 ID 的 Secret 名称：
+
+```yaml
+networking.cloud.tencent.com/enable-clb-port-mapping: "true"
+networking.cloud.tencent.com/clb-port-mapping: |-
+  8000 TCP_SSL pool-test certSecret=cert-secret
+```
+
+> `certSecret` 选项表示要挂载的证书 Secret 名称，Secret 中必须包含 `qcloud_cert_id` 字段，值为证书 ID。
+
 ## TODO
 
-- 支持 tcp_ssl、quic 等协议。
 - 端口分配算法：支持先把 clb 分配满，再分配下一个 clb。
 - 与 Agones 和 OKG 联动，映射信息写入 GameServer CR。
 - 通过 EIP、NATGW 等方式映射。
