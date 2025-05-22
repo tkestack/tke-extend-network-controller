@@ -32,8 +32,16 @@ type CLBPortPoolSpec struct {
 	// 端口池的结束端口号
 	// +kubebuilder:validation:XValidation:rule="self == oldSelf", message="Value is immutable"
 	EndPort *uint16 `json:"endPort,omitempty"`
-	// 端口段的长度
+	// 监听器数量配额。仅用在单独调整了指定 CLB 实例监听器数量配额的场景（TOTAL_LISTENER_QUOTA），
+	// 控制器默认会获取账号维度的监听器数量配额作为端口分配的依据，如果 listenerQuota 不为空，
+	// 将以它的值作为该端口池中所有 CLB 监听器数量配额覆盖账号维度的监听器数量配额。
+	//
+	// 注意：如果指定了 listenerQuota，不支持启用 CLB 自动创建，且需自行保证该端口池中所有 CLB
+	// 实例的监听器数量配额均等于 listenerQuota 的值。
 	// +kubebuilder:validation:XValidation:rule="self == oldSelf", message="Value is immutable"
+	ListenerQuota *uint16 `json:"listenerQuota,omitempty"`
+	// +kubebuilder:validation:XValidation:rule="self == oldSelf", message="Value is immutable"
+	// 端口段的长度
 	SegmentLength *uint16 `json:"segmentLength,omitempty"`
 	// 地域代码，如ap-chengdu
 	// +kubebuilder:validation:XValidation:rule="self == oldSelf", message="Value is immutable"
