@@ -381,7 +381,24 @@ metadata:
 
 ### 方案一：提升 CLB 监听器的配额
 
-根据需求 [提工单](https://console.cloud.tencent.com/workorder/category?level1_id=6&level2_id=163&source=14&data_title=%E8%B4%9F%E8%BD%BD%E5%9D%87%E8%A1%A1&step=1) 申请提升 CLB `一个实例可添加的监听器数量` 的配额限制（比如调到 2000）。
+根据需求 [提工单](https://console.cloud.tencent.com/workorder/category?level1_id=6&level2_id=163&source=14&data_title=%E8%B4%9F%E8%BD%BD%E5%9D%87%E8%A1%A1&step=1) 申请提升 CLB `一个实例可添加的监听器数量` 的配额限制。
+
+配额调整分为账号维度和实例维度，如果希望调整到很大（比如 2000），通常只能在实例维度调整。如果在实例维度调整，在定义端口池时只能添加已有 CLB 实例的方式（不能启用自动创建），且需要手动指定下 `listenerQuota` 的值，与申请到的配额需一致：
+
+```yaml
+apiVersion: networking.cloud.tencent.com/v1alpha1
+kind: CLBPortPool
+metadata:
+  name: pool-quota
+spec:
+  startPort: 30000
+  exsistedLoadBalancerIDs: [lb-cxxc6xup, lb-mq3rs6h9] # 指定已申请调整配额的 CLB 实例
+  listenerQuota: 2000 # 指定调整后的配额值
+```
+
+另外需要注意的是，用多端口池映射时（多线接入场景），每个端口池配置的 `listenerQuota` 值必须一致。
+
+如果调整的是账号维度的配额，则没有上述约束，也无需显式配置 `listenerQuota`。
 
 ### 方案二：单 Pod 多 DS + CLB 端口段
 
