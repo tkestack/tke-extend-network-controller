@@ -133,7 +133,7 @@ func (v *CLBPortPoolCustomValidator) validate(pool *networkingv1alpha1.CLBPortPo
 		)
 	}
 
-	// 如果定义了 endPort，要确保 endPort 大于 startPort
+	// 如果定义了 endPort，要确保 endPort 大于 startPort，且不能与 listenerQuota 同时定义
 	if pool.Spec.EndPort != nil {
 		if *pool.Spec.EndPort <= pool.Spec.StartPort {
 			allErrs = append(
@@ -144,7 +144,30 @@ func (v *CLBPortPoolCustomValidator) validate(pool *networkingv1alpha1.CLBPortPo
 				),
 			)
 		}
+		if pool.Spec.ListenerQuota != nil {
+			allErrs = append(
+				allErrs,
+				field.Invalid(
+					field.NewPath("spec").Child("endPort"), *pool.Spec.EndPort,
+					"endPort and listenerQuota cannot be specifed at the same time",
+				),
+			)
+		}
 	}
+
+	// 如果手动配置了 listenerQuota (提工单对指定 clb 实例调整了 quota)，不能启用自动创建，
+	// 因为自动创建粗的 clb 的 quota 只有账号维度的默认 quota 大小，导致同一个端口池中不同
+	// clb quota 不一样，端口分配器无法正常工作。
+	if pool.Spec.ListenerQuota != nil && pool.Spec.AutoCreate != nil && pool.Spec.AutoCreate.Enabled {
+		allErrs = append(
+			allErrs,
+			field.Invalid(
+				field.NewPath("spec").Child("listenerQuota"), *pool.Spec.EndPort,
+				"autoCreate should not be enabled if listenerQuota is specified",
+			),
+		)
+	}
+
 	if len(allErrs) == 0 {
 		return nil
 	}
