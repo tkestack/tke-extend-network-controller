@@ -340,6 +340,11 @@ func (in *CLBPortPoolSpec) DeepCopyInto(out *CLBPortPoolSpec) {
 		*out = new(uint16)
 		**out = **in
 	}
+	if in.ListenerQuota != nil {
+		in, out := &in.ListenerQuota, &out.ListenerQuota
+		*out = new(uint16)
+		**out = **in
+	}
 	if in.SegmentLength != nil {
 		in, out := &in.SegmentLength, &out.SegmentLength
 		*out = new(uint16)
