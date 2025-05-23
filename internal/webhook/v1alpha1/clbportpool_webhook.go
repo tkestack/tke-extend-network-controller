@@ -107,19 +107,18 @@ func (v *CLBPortPoolCustomValidator) ValidateUpdate(ctx context.Context, oldObj,
 }
 
 func (v *CLBPortPoolCustomValidator) validate(pool *networkingv1alpha1.CLBPortPool) error {
-	// 确保要有CLB，自动创建或使用已有 CLB，至少有一个指定
-	if len(pool.Spec.ExsistedLoadBalancerIDs) > 0 {
-		return nil
-	}
 	var allErrs field.ErrorList
-	if pool.Spec.AutoCreate == nil || !pool.Spec.AutoCreate.Enabled {
-		allErrs = append(
-			allErrs,
-			field.Invalid(
-				field.NewPath("spec").Child("autoCreate").Child("enabled"), nil,
-				"autoCreate should be enabled if there is no exsistedLoadBalancerIDs",
-			),
-		)
+	// 确保要有CLB，自动创建或使用已有 CLB，至少有一个指定
+	if len(pool.Spec.ExsistedLoadBalancerIDs) == 0 {
+		if pool.Spec.AutoCreate == nil || !pool.Spec.AutoCreate.Enabled {
+			allErrs = append(
+				allErrs,
+				field.Invalid(
+					field.NewPath("spec").Child("autoCreate").Child("enabled"), nil,
+					"autoCreate should be enabled if there is no exsistedLoadBalancerIDs",
+				),
+			)
+		}
 	}
 
 	// startPort 必须大于 0
@@ -162,7 +161,7 @@ func (v *CLBPortPoolCustomValidator) validate(pool *networkingv1alpha1.CLBPortPo
 		allErrs = append(
 			allErrs,
 			field.Invalid(
-				field.NewPath("spec").Child("listenerQuota"), *pool.Spec.EndPort,
+				field.NewPath("spec").Child("listenerQuota"), *pool.Spec.ListenerQuota,
 				"autoCreate should not be enabled if listenerQuota is specified",
 			),
 		)
