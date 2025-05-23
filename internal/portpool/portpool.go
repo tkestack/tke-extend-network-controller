@@ -5,6 +5,7 @@ import (
 	"sync"
 
 	"github.com/imroc/tke-extend-network-controller/pkg/clb"
+	"github.com/pkg/errors"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
@@ -70,6 +71,7 @@ type CLBPortPool interface {
 	GetRegion() string
 	GetStartPort() uint16
 	GetEndPort() uint16
+	GetListenerQuota() uint16
 	GetSegmentLength() uint16
 	TryCreateLB(ctx context.Context) (CreateLbResult, error)
 }
@@ -89,13 +91,16 @@ func (pp *PortPool) IsLbExists(lbId string) bool {
 }
 
 // 分配指定端口
-func (pp *PortPool) AllocatePort(ctx context.Context, ports ...ProtocolPort) ([]PortAllocation, error) {
+func (pp *PortPool) AllocatePort(ctx context.Context, quota int64, ports ...ProtocolPort) ([]PortAllocation, error) {
 	pp.mu.Lock()
 	defer pp.mu.Unlock()
 	// 获取监听器数量配额
-	quota, err := clb.Quota.GetQuota(ctx, pp.GetRegion(), clb.TOTAL_LISTENER_QUOTA)
-	if err != nil {
-		return nil, err
+	if quota == 0 {
+		q, err := clb.Quota.GetQuota(ctx, pp.GetRegion(), clb.TOTAL_LISTENER_QUOTA)
+		if err != nil {
+			return nil, errors.WithStack(err)
+		}
+		quota = q
 	}
 	quotaExceeded := true
 	for lbId, allocated := range pp.cache { // 遍历所有 lb，尝试分配端口

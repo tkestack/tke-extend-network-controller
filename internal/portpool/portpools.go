@@ -35,7 +35,7 @@ func (pp PortPools) Names() string {
 // 从所有端口池中都分配出指定端口，不同端口池可分配不同端口
 func (pp PortPools) allocatePortAcrossPools(
 	ctx context.Context,
-	startPort, endPort, segmentLength uint16,
+	startPort, endPort, quota, segmentLength uint16,
 	getPortsToAllocate func(port, endPort uint16) (ports []ProtocolPort),
 ) (PortAllocations, error) {
 	log.FromContext(ctx).V(10).Info("allocatePortAcrossPools", "pools", pp.Names(), "startPort", startPort, "endPort", endPort, "segmentLength", segmentLength)
@@ -58,7 +58,7 @@ LOOP_POOL:
 			}
 			portsToAllocate := getPortsToAllocate(port, endPort)
 			// 尝试分配端口
-			result, err := pool.AllocatePort(ctx, portsToAllocate...)
+			result, err := pool.AllocatePort(ctx, int64(quota), portsToAllocate...)
 			if err != nil { // 有分配错误，释放已分配的端口
 				if err == ErrNoFreeLb { // 超配额，跳出端口循环，尝试创建 CLB
 					log.FromContext(ctx).V(10).Info("no free lb available when allocate port", "pool", pool.GetName(), "tryPort", port)
@@ -100,7 +100,7 @@ LOOP_POOL:
 // 从所有端口池中都分配出指定端口，不同端口池必须分配相同端口
 func (pp PortPools) allocateSamePortAcrossPools(
 	ctx context.Context,
-	startPort, endPort, segmentLength uint16,
+	startPort, endPort, quota, segmentLength uint16,
 	getPortsToAllocate func(port, endPort uint16) (ports []ProtocolPort),
 ) (PortAllocations, error) {
 	log.FromContext(ctx).Info("allocateSamePortAcrossPools", "pools", pp.Names(), "startPort", startPort, "endPort", endPort, "segmentLength", segmentLength)
@@ -122,7 +122,7 @@ LOOP_PORT:
 				return nil, nil
 			default:
 			}
-			results, err := pool.AllocatePort(ctx, portsToAllocate...)
+			results, err := pool.AllocatePort(ctx, int64(quota), portsToAllocate...)
 			if err != nil || len(results) == 0 { // 有端口池无法分配或出错，为保证事务性，释放已分配的端口
 				allocatedPorts.Release()
 				if err != nil { // 分配出错，返回错误
@@ -141,6 +141,8 @@ LOOP_PORT:
 	// 所有端口池都无法分配，返回错误告知分配失败
 	return nil, fmt.Errorf("no available port can be allocated across port pools %q", pp.Names())
 }
+
+var ErrQuotaNotEqual = errors.New("quota not equal")
 
 // 从一个或多个端口池中分配一个指定协议的端口，分配成功返回端口号，失败返回错误
 func (pp PortPools) AllocatePort(ctx context.Context, protocol string, useSamePortAcrossPools bool) (ports PortAllocations, err error) {
@@ -165,6 +167,25 @@ func (pp PortPools) AllocatePort(ctx context.Context, protocol string, useSamePo
 		err = fmt.Errorf("there is no intersection between port ranges of port pools: %s", pp.Names())
 		return
 	}
+	// 检查 quota，保证使用的所有端口池的 quota 都相同（要么都没设置，要么都设置了且相同）
+	n := 0
+	quota := uint16(0)
+	for _, portPool := range pp {
+		if q := portPool.GetListenerQuota(); q > 0 {
+			n++
+			if quota == 0 {
+				quota = q
+			} else {
+				if quota != q { // 端口池 quota 设置的不相同，返回错误
+					return nil, ErrQuotaNotEqual
+				}
+			}
+		}
+	}
+	if quota > 0 && n != len(pp) { // 只有部分端口池设置了 quota，也返回错误
+		return nil, ErrQuotaNotEqual
+	}
+
 	getPortsToAllocate := func(port, endPort uint16) (ports []ProtocolPort) {
 		if protocol == constant.ProtocolTCPUDP {
 			ports = append(ports, ProtocolPort{
@@ -188,9 +209,9 @@ func (pp PortPools) AllocatePort(ctx context.Context, protocol string, useSamePo
 	}
 
 	if useSamePortAcrossPools {
-		ports, err = pp.allocateSamePortAcrossPools(ctx, startPort, endPort, segmentLength, getPortsToAllocate)
+		ports, err = pp.allocateSamePortAcrossPools(ctx, startPort, endPort, quota, segmentLength, getPortsToAllocate)
 	} else {
-		ports, err = pp.allocatePortAcrossPools(ctx, startPort, endPort, segmentLength, getPortsToAllocate)
+		ports, err = pp.allocatePortAcrossPools(ctx, startPort, endPort, quota, segmentLength, getPortsToAllocate)
 	}
 	if err != nil {
 		return nil, errors.WithStack(err)

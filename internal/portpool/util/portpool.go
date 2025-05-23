@@ -109,6 +109,13 @@ func (p *PortPool) GetEndPort() uint16 {
 	return *p.Spec.EndPort
 }
 
+func (p *PortPool) GetListenerQuota() uint16 {
+	if p.Spec.ListenerQuota == nil {
+		return 0
+	}
+	return *p.Spec.ListenerQuota
+}
+
 func (p *PortPool) GetSegmentLength() uint16 {
 	if p.Spec.SegmentLength == nil || *p.Spec.SegmentLength == 0 {
 		return 1
