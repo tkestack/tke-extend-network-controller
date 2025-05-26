@@ -128,7 +128,7 @@ LOOP_PORT:
 			if len(results) > 0 {
 				// 此端口池分配到了此端口，追加到结果中
 				allocatedPorts = append(allocatedPorts, results...)
-			} else { // 有端口池无法分配此端口号，换下一个端口
+			} else { // 有端口池无法分配此端口号，释放已分配端口，换下一个端口
 				allocatedPorts.Release()
 				continue LOOP_PORT
 			}
@@ -136,8 +136,8 @@ LOOP_PORT:
 		// 分配结束，返回结果（可能为空）
 		return allocatedPorts, nil
 	}
-	// 所有端口池都无法分配，返回错误告知分配失败
-	return nil, fmt.Errorf("no available port can be allocated across port pools %q", pp.Names())
+	// 所有端口池都无法分配，返回端口不足的错误
+	return nil, ErrNoPortAvailable
 }
 
 var ErrQuotaNotEqual = errors.New("quota not equal")
