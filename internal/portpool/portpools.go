@@ -60,22 +60,19 @@ LOOP_POOL:
 			// 尝试分配端口
 			result, err := pool.AllocatePort(ctx, int64(quota), portsToAllocate...)
 			if err != nil { // 有分配错误，释放已分配的端口
-				if err == ErrNoFreeLb { // 超配额，跳出端口循环，尝试创建 CLB
-					log.FromContext(ctx).V(10).Info("no free lb available when allocate port", "pool", pool.GetName(), "tryPort", port)
-					break
-				}
 				allocatedPorts.Release()
-				return nil, err
+				return nil, errors.WithStack(err)
 			}
 			if len(result) > 0 { // 该端口池分配到了端口，追加到结果中
 				allocatedPorts = append(allocatedPorts, result...)
 				log.FromContext(ctx).V(10).Info("allocated port", "pool", pool.GetName(), "port", port)
 				continue LOOP_POOL
+			} else {
+				// 该端口池中无法分配此端口，尝试下一个端口
+				log.FromContext(ctx).V(10).Info("no available port can be allocated, try next port", "pool", pool.GetName(), "port", port)
 			}
-			// 该端口池中无法分配此端口，尝试下一个端口
-			log.FromContext(ctx).V(10).Info("no available port can be allocated, try next port", "pool", pool.GetName(), "port", port)
 		}
-		// 该端口池所有端口都无法分配，或者监听器数量超配额，为保证事务性，释放已分配的端口，并尝试通知端口池扩容 CLB 来补充端口池
+		// 该端口池所有端口都无法分配，为保证事务性，释放已分配的端口，并尝试通知端口池扩容 CLB 来补充端口池
 		allocatedPorts.Release()
 		// 检查端口池是否可以创建 CLB
 		result, err := pool.TryCreateLB(ctx)
@@ -122,18 +119,19 @@ LOOP_PORT:
 				return nil, nil
 			default:
 			}
+
 			results, err := pool.AllocatePort(ctx, int64(quota), portsToAllocate...)
-			if err != nil || len(results) == 0 { // 有端口池无法分配或出错，为保证事务性，释放已分配的端口
+			if err != nil {
 				allocatedPorts.Release()
-				if err != nil { // 分配出错，返回错误
-					return nil, errors.Wrap(err, "allocate port failed")
-				} else { // 有端口池无法分配此端口号，换下一个端口号
-					allocatedPorts = nil
-					continue LOOP_PORT
-				}
+				return nil, errors.Wrapf(err, "allocate same port across pools failed")
 			}
-			// 此端口池分配到了此端口，追加到结果中
-			allocatedPorts = append(allocatedPorts, results...)
+			if len(results) > 0 {
+				// 此端口池分配到了此端口，追加到结果中
+				allocatedPorts = append(allocatedPorts, results...)
+			} else { // 有端口池无法分配此端口号，换下一个端口
+				allocatedPorts.Release()
+				continue LOOP_PORT
+			}
 		}
 		// 分配结束，返回结果（可能为空）
 		return allocatedPorts, nil

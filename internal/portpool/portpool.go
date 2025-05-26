@@ -7,7 +7,6 @@ import (
 	"github.com/imroc/tke-extend-network-controller/pkg/clb"
 	"github.com/pkg/errors"
 	ctrl "sigs.k8s.io/controller-runtime"
-	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 var ppLog = ctrl.Log.WithName("portpool")
@@ -102,10 +101,8 @@ func (pp *PortPool) AllocatePort(ctx context.Context, quota int64, ports ...Prot
 		}
 		quota = q
 	}
-	quotaExceeded := true
 	for lbId, allocated := range pp.cache { // 遍历所有 lb，尝试分配端口
 		if int64(len(allocated)+len(ports)) > quota { // 监听器数量已满，换下个 lb
-			log.FromContext(ctx).V(10).Info("listener full", "quota", quota, "portsToAllocate", ports, "lbId", lbId)
 			continue
 		}
 		canAllocate := true
@@ -116,7 +113,6 @@ func (pp *PortPool) AllocatePort(ctx context.Context, quota int64, ports ...Prot
 			}
 		}
 		if canAllocate { // 找到有 lb 可分配端口，分配端口并返回
-			quotaExceeded = false
 			result := []PortAllocation{}
 			for _, port := range ports {
 				allocated[port.Key()] = struct{}{}
@@ -129,9 +125,6 @@ func (pp *PortPool) AllocatePort(ctx context.Context, quota int64, ports ...Prot
 			}
 			return result, nil
 		}
-	}
-	if quotaExceeded { // 所有 lb 超配额，返回错误，调用方应尝试创建 CLB
-		return nil, ErrNoFreeLb
 	}
 	// 所有 lb 都无法分配此端口，返回空结果
 	return nil, nil
