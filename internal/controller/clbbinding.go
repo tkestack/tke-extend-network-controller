@@ -494,7 +494,7 @@ LOOP_PORT:
 			continue LOOP_PORT
 		}
 		// 未分配端口，先检查证书配置
-		var certId string
+		var certId *string
 		if secretName := port.CertSecretName; secretName != nil && *secretName != "" {
 			id, err := kube.GetCertIdFromSecret(ctx, r.Client, client.ObjectKey{
 				Namespace: bd.GetNamespace(),
@@ -508,7 +508,7 @@ LOOP_PORT:
 				}
 				return errors.WithStack(err)
 			}
-			certId = id
+			certId = &id
 		}
 		// 配置无误，执行分配
 		before := time.Now()

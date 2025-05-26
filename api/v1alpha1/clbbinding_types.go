@@ -50,7 +50,7 @@ type PortBindingStatus struct {
 	Protocol string `json:"protocol"`
 	// 服务端证书 ID（仅在 TCP_SSL 和 QUIC 协议下有效）
 	// +optional
-	CertId string `json:"certId"`
+	CertId *string `json:"certId,omitempty"`
 	// 使用的端口池
 	Pool string `json:"pool"`
 	// 地域信息

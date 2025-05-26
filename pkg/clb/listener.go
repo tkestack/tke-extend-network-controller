@@ -81,9 +81,13 @@ func GetListenerByPort(ctx context.Context, region, lbId string, port int64, pro
 
 const TkePodListenerName = "TKE-DEDICATED-POD"
 
-func CreateListenerTryBatch(ctx context.Context, region, lbId string, port, endPort int64, protocol, certId, extensiveParameters string) (id string, err error) {
+func CreateListenerTryBatch(ctx context.Context, region, lbId string, port, endPort int64, protocol string, certId *string, extensiveParameters string) (id string, err error) {
+	cid := ""
+	if certId != nil {
+		cid = *certId
+	}
 	if endPort > 0 {
-		id, err = CreateListener(ctx, region, lbId, port, endPort, protocol, certId, extensiveParameters, TkeListenerName)
+		id, err = CreateListener(ctx, region, lbId, port, endPort, protocol, cid, extensiveParameters, TkeListenerName)
 		if err != nil {
 			err = errors.WithStack(err)
 		}
@@ -93,7 +97,7 @@ func CreateListenerTryBatch(ctx context.Context, region, lbId string, port, endP
 		Ctx:                 ctx,
 		Region:              region,
 		LbId:                lbId,
-		CertId:              certId,
+		CertId:              cid,
 		Port:                port,
 		Protocol:            protocol,
 		ExtensiveParameters: extensiveParameters,
