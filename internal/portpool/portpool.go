@@ -108,7 +108,6 @@ func (pp *PortPool) AllocatePort(ctx context.Context, quota int64, ports ...Prot
 			log.FromContext(ctx).V(10).Info("listener full", "quota", quota, "portsToAllocate", ports, "lbId", lbId)
 			continue
 		}
-		quotaExceeded = false
 		canAllocate := true
 		for _, port := range ports { // 确保所有待分配的端口都未被分配
 			if _, exists := allocated[port.Key()]; exists { // 有端口已被占用，标记无法分配
@@ -117,6 +116,7 @@ func (pp *PortPool) AllocatePort(ctx context.Context, quota int64, ports ...Prot
 			}
 		}
 		if canAllocate { // 找到有 lb 可分配端口，分配端口并返回
+			quotaExceeded = false
 			result := []PortAllocation{}
 			for _, port := range ports {
 				allocated[port.Key()] = struct{}{}
