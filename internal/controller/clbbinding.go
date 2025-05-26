@@ -71,6 +71,7 @@ func (r *CLBBindingReconciler[T]) sync(ctx context.Context, bd T) (result ctrl.R
 			return result, nil
 		case ErrNeedRetry:
 			result.Requeue = true
+			log.FromContext(ctx).Info("requeue because of listener need to be re-allocated")
 			return result, nil
 		case portpool.ErrNoPortAvailable:
 			r.Recorder.Event(bd.GetObject(), corev1.EventTypeWarning, "NoPortAvailable", "no port available in port pool, please add clb to port pool")
@@ -88,13 +89,11 @@ func (r *CLBBindingReconciler[T]) sync(ctx context.Context, bd T) (result ctrl.R
 		// 如果是被云 API 限流（默认每秒 20 qps 限制），1s 后重新入队
 		if clb.IsRequestLimitExceededError(errCause) {
 			result.RequeueAfter = time.Second
-			return result, nil
+			log.FromContext(ctx).Info("requeue because of clb api request limit exceeded")
+			return result, errors.WithStack(err)
 		}
 
-		if apierrors.IsConflict(errCause) { // 资源冲突错误，直接重新入队触发重试
-			result.Requeue = true
-			return result, nil
-		} else { // 其它非资源冲突的错误，将错误记录到 event 和状态中方便排障
+		if !apierrors.IsConflict(errCause) { // 其它非资源冲突的错误，将错误记录到 event 和状态中方便排障
 			r.Recorder.Event(bd.GetObject(), corev1.EventTypeWarning, "SyncFailed", errCause.Error())
 			if status.State != networkingv1alpha1.CLBBindingStateFailed {
 				status.State = networkingv1alpha1.CLBBindingStateFailed
@@ -105,13 +104,14 @@ func (r *CLBBindingReconciler[T]) sync(ctx context.Context, bd T) (result ctrl.R
 			}
 			// lb 已不存在，没必要重新入队对账，不返回错误，保持 Failed 状态即可。
 			if clb.IsLbIdNotFoundError(errCause) {
+				log.FromContext(ctx).Info("lbId not found, ignore")
 				return result, nil
 			}
-			// 其它错误，返回错误触发重试
-			return result, errors.WithStack(err)
 		}
+		// 其它错误
+		return result, errors.WithStack(err)
 	}
-	return result, err
+	return result, nil
 }
 
 func (r *CLBBindingReconciler[T]) ensureCLBBinding(ctx context.Context, bd clbbinding.CLBBinding) error {

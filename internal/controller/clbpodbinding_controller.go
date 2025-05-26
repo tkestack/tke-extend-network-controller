@@ -34,6 +34,7 @@ import (
 	networkingv1alpha1 "github.com/imroc/tke-extend-network-controller/api/v1alpha1"
 	"github.com/imroc/tke-extend-network-controller/internal/clbbinding"
 	"github.com/imroc/tke-extend-network-controller/internal/constant"
+	"github.com/pkg/errors"
 )
 
 // CLBPodBindingReconciler reconciles a CLBPodBinding object
@@ -61,7 +62,11 @@ func (r *CLBPodBindingReconciler) cleanup(ctx context.Context, pb *networkingv1a
 		Scheme:   r.Scheme,
 		Recorder: r.Recorder,
 	}
-	return rr.cleanup(ctx, clbbinding.WrapCLBPodBinding(pb))
+	result, err = rr.cleanup(ctx, clbbinding.WrapCLBPodBinding(pb))
+	if err != nil {
+		err = errors.WithStack(err)
+	}
+	return
 }
 
 func (r *CLBPodBindingReconciler) sync(ctx context.Context, pb *networkingv1alpha1.CLBPodBinding) (result ctrl.Result, err error) {
@@ -70,7 +75,11 @@ func (r *CLBPodBindingReconciler) sync(ctx context.Context, pb *networkingv1alph
 		Scheme:   r.Scheme,
 		Recorder: r.Recorder,
 	}
-	return rr.sync(ctx, clbbinding.WrapCLBPodBinding(pb))
+	result, err = rr.sync(ctx, clbbinding.WrapCLBPodBinding(pb))
+	if err != nil {
+		err = errors.WithStack(err)
+	}
+	return
 }
 
 // SetupWithManager sets up the controller with the Manager.

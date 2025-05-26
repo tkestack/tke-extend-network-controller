@@ -10,6 +10,7 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 type ObjectWrapper interface {
@@ -18,12 +19,18 @@ type ObjectWrapper interface {
 
 func Reconcile[T client.Object](ctx context.Context, req ctrl.Request, apiClient client.Client, obj T, sync func(ctx context.Context, obj T) (ctrl.Result, error)) (ctrl.Result, error) {
 	if err := apiClient.Get(ctx, req.NamespacedName, obj); err != nil {
-		return ctrl.Result{}, client.IgnoreNotFound(err)
+		err = client.IgnoreNotFound(err)
+		if err != nil {
+			return ctrl.Result{}, errors.WithStack(err)
+		} else {
+			return ctrl.Result{}, nil
+		}
 	}
 	result, err := sync(ctx, obj)
 	if err != nil {
 		if apierrors.IsConflict(err) {
 			if !result.Requeue && result.RequeueAfter == 0 {
+				log.FromContext(ctx).Info("requeueue due to conflict")
 				result.Requeue = true
 			}
 			return result, nil
@@ -34,7 +41,7 @@ func Reconcile[T client.Object](ctx context.Context, req ctrl.Request, apiClient
 }
 
 func ReconcileWithFinalizer[T client.Object](ctx context.Context, req ctrl.Request, apiClient client.Client, obj T, syncFunc func(ctx context.Context, obj T) (ctrl.Result, error), cleanupFunc func(ctx context.Context, obj T) (ctrl.Result, error)) (ctrl.Result, error) {
-	return Reconcile(ctx, req, apiClient, obj, func(ctx context.Context, obj T) (ctrl.Result, error) {
+	result, err := Reconcile(ctx, req, apiClient, obj, func(ctx context.Context, obj T) (ctrl.Result, error) {
 		if obj.GetDeletionTimestamp().IsZero() { // 没有删除
 			// 确保 finalizer 存在，阻塞资源删除
 			if !controllerutil.ContainsFinalizer(obj, constant.Finalizer) {
@@ -70,10 +77,14 @@ func ReconcileWithFinalizer[T client.Object](ctx context.Context, req ctrl.Reque
 			return result, nil
 		}
 	})
+	if err != nil {
+		return result, errors.WithStack(err)
+	}
+	return result, nil
 }
 
 func ReconcilePodWithFinalizer[T client.Object](ctx context.Context, req ctrl.Request, apiClient client.Client, obj T, syncFunc func(ctx context.Context, obj T) (ctrl.Result, error), cleanFunc func(ctx context.Context, obj T) (ctrl.Result, error)) (ctrl.Result, error) {
-	return Reconcile(ctx, req, apiClient, obj, func(ctx context.Context, obj T) (ctrl.Result, error) {
+	result, err := Reconcile(ctx, req, apiClient, obj, func(ctx context.Context, obj T) (ctrl.Result, error) {
 		if obj.GetDeletionTimestamp().IsZero() { // 没有删除
 			// 确保 finalizer 存在
 			if !controllerutil.ContainsFinalizer(obj, constant.Finalizer) {
@@ -98,4 +109,8 @@ func ReconcilePodWithFinalizer[T client.Object](ctx context.Context, req ctrl.Re
 			return result, nil
 		}
 	})
+	if err != nil {
+		return result, errors.WithStack(err)
+	}
+	return result, nil
 }
