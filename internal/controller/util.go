@@ -30,7 +30,7 @@ func Reconcile[T client.Object](ctx context.Context, req ctrl.Request, apiClient
 	if err != nil {
 		if apierrors.IsConflict(err) {
 			if !result.Requeue && result.RequeueAfter == 0 {
-				log.FromContext(ctx).Info("requeueue due to conflict")
+				log.FromContext(ctx).Info("requeue due to k8s api conflict")
 				result.Requeue = true
 			}
 			return result, nil
