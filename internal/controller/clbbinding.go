@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/imroc/tke-extend-network-controller/internal/constant"
+	"go.uber.org/multierr"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/tools/record"
@@ -176,18 +177,35 @@ func (r *CLBBindingReconciler[T]) ensureListeners(ctx context.Context, bd clbbin
 	needUpdate := false
 	needRetry := false
 	status := bd.GetStatus()
+	var err error
+	type Result struct {
+		Op      util.StatusOp
+		Err     error
+		Binding *networkingv1alpha1.PortBindingStatus
+	}
+	ch := make(chan Result)
 	for i := range status.PortBindings {
 		binding := &status.PortBindings[i]
-		op, err := r.ensureListener(ctx, bd, binding)
-		if err != nil {
-			return errors.WithStack(err)
+		go func(binding *networkingv1alpha1.PortBindingStatus) {
+			op, err := r.ensureListener(ctx, bd, binding)
+			ch <- Result{
+				Op:      op,
+				Err:     err,
+				Binding: binding,
+			}
+		}(binding)
+	}
+	for range status.PortBindings {
+		result := <-ch
+		if result.Err != nil {
+			err = multierr.Append(err, result.Err)
 		}
-		switch op {
+		switch result.Op {
 		case util.StatusOpNone:
-			newBindings = append(newBindings, *binding)
+			newBindings = append(newBindings, *result.Binding)
 		case util.StatusOpUpdate:
 			needUpdate = true
-			newBindings = append(newBindings, *binding)
+			newBindings = append(newBindings, *result.Binding)
 		case util.StatusOpDelete:
 			needUpdate = true
 			needRetry = true
@@ -195,12 +213,18 @@ func (r *CLBBindingReconciler[T]) ensureListeners(ctx context.Context, bd clbbin
 	}
 	if needUpdate {
 		status.PortBindings = newBindings
-		if err := r.Status().Update(ctx, bd.GetObject()); err != nil {
-			return errors.WithStack(err)
+		if e := r.Status().Update(ctx, bd.GetObject()); e != nil {
+			err = multierr.Append(err, e)
 		}
 	}
 	if needRetry {
+		if err != nil {
+			log.FromContext(ctx).Error(err, "failed to ensure listeners")
+		}
 		return ErrNeedRetry
+	}
+	if err != nil {
+		return errors.WithStack(err)
 	}
 	return nil
 }
@@ -363,6 +387,10 @@ func (r *CLBBindingReconciler[T]) ensureListener(ctx context.Context, bd clbbind
 			"",
 		)
 		if err != nil {
+			errCause := errors.Cause(err)
+			if clb.IsLbIdNotFoundError(errCause) || clb.IsLoadBalancerNotExistsError(errCause) { // lb 不存在，删除该绑定，重新分配
+				op = util.StatusOpDelete
+			}
 			err = errors.Wrapf(err, "failed to create clb listener %d/%s", binding.Port, binding.Protocol)
 			return
 		} else { // 创建监听器成功，更新状态
