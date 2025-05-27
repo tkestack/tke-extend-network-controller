@@ -172,12 +172,15 @@ func DeleteListenerByIdOrPort(ctx context.Context, region, lbId, listenerId stri
 		if _, err := DeleteListenerByPort(ctx, region, lbId, port, protocol); err != nil {
 			return errors.WithStack(err)
 		}
+		// 删除成功
+		return nil
+	} else { // 有监听器 ID，走快路径 (批量删除)
+		if err := DeleteListenerById(ctx, region, lbId, listenerId); err != nil {
+			return errors.WithStack(err)
+		}
+		// 删除成功
 		return nil
 	}
-	if err := DeleteListenerById(ctx, region, lbId, listenerId); err != nil {
-		return errors.WithStack(err)
-	}
-	return nil
 }
 
 func DeleteListenerById(ctx context.Context, region, lbId, listenerId string) error {

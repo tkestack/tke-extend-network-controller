@@ -171,12 +171,11 @@ func (r *CLBBindingReconciler[T]) ensurePoolAndCLB(ctx context.Context, bd clbbi
 		}
 	}
 	if needUpdateStatus {
-		log.FromContext(ctx).V(10).Info("update status newBindings", "newBindings", newBindings)
+		log.FromContext(ctx).V(10).Info("update status bindings", "oldBindings", status.PortBindings, "newBindings", newBindings)
 		status.PortBindings = newBindings
 		if err := r.Status().Update(ctx, bd.GetObject()); err != nil {
 			return errors.WithStack(err)
 		}
-		log.FromContext(ctx).V(10).Info("after update status newBindings", "obj", bd.GetObject())
 	}
 	return nil
 }
@@ -665,11 +664,11 @@ func (r *CLBBindingReconciler[T]) ensureState(ctx context.Context, bd clbbinding
 // 清理 CLBBinding
 func (r *CLBBindingReconciler[T]) cleanup(ctx context.Context, bd T) (result ctrl.Result, err error) {
 	log := log.FromContext(ctx)
-	log.Info("cleanup " + bd.GetType())
+	status := bd.GetStatus()
+	log.Info("cleanup "+bd.GetType(), "bindings", len(status.PortBindings))
 	if err = r.ensureState(ctx, bd, networkingv1alpha1.CLBBindingStateDeleting); err != nil {
 		return result, errors.WithStack(err)
 	}
-	status := bd.GetStatus()
 	for _, binding := range status.PortBindings {
 		releasePort := func() {
 			log.V(3).Info("release allocated port", "port", binding.LoadbalancerPort, "protocol", binding.Protocol, "pool", binding.Pool, "lb", binding.LoadbalancerId)
@@ -689,6 +688,7 @@ func (r *CLBBindingReconciler[T]) cleanup(ctx context.Context, bd T) (result ctr
 				return result, nil
 			}
 			if clb.IsLoadBalancerNotExistsError(e) { // lb 不存在，忽略
+				log.Info("lb not found, ignore when cleanup listener")
 				releasePort()
 				continue
 			}
