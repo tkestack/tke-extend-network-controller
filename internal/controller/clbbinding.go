@@ -516,7 +516,7 @@ LOOP_PORT:
 		before := time.Now()
 		allocated, err := portpool.Allocator.Allocate(ctx, port.Pools, port.Protocol, util.GetValue(port.UseSamePortAcrossPools))
 		cost := time.Since(before)
-		log.FromContext(ctx).V(3).Info("allocate port", "cost", cost.String(), "protocol", port.Protocol, "pools", port.Pools, "useSamePortAcrossPools", util.GetValue(port.UseSamePortAcrossPools), "err", err)
+		log.FromContext(ctx).V(3).Info("allocate port performance", "cost", cost.String(), "protocol", port.Protocol, "pools", port.Pools, "useSamePortAcrossPools", util.GetValue(port.UseSamePortAcrossPools), "err", err)
 		if err != nil {
 			return errors.WithStack(err)
 		}
