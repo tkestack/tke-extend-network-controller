@@ -674,6 +674,17 @@ func (r *CLBBindingReconciler[T]) cleanup(ctx context.Context, bd T) (result ctr
 			log.V(3).Info("release allocated port", "port", binding.LoadbalancerPort, "protocol", binding.Protocol, "pool", binding.Pool, "lb", binding.LoadbalancerId)
 			portpool.Allocator.Release(binding.Pool, binding.LoadbalancerId, portFromPortBindingStatus(&binding))
 		}
+		if lis, err := clb.GetListenerByIdOrPort(ctx, binding.Region, binding.LoadbalancerId, binding.ListenerId, int64(binding.LoadbalancerPort), binding.Protocol); err != nil {
+			if errors.Is(err, clb.ErrListenerNotFound) { // 监听器已删除，忽略
+				releasePort()
+				continue
+			}
+		} else {
+			if lis == nil { // 监听器已删除，忽略
+				releasePort()
+				continue
+			}
+		}
 		// 解绑 lb
 		if err := clb.DeleteListenerByIdOrPort(ctx, binding.Region, binding.LoadbalancerId, binding.ListenerId, int64(binding.LoadbalancerPort), binding.Protocol); err != nil {
 			e := errors.Cause(err)
