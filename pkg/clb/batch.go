@@ -16,7 +16,7 @@ func init() {
 	}
 	// RegisterTargets 一次性最大支持同时绑定 20 个 target: https://cloud.tencent.com/document/api/214/30676
 	go startRegisterTargetsProccessor(20)
-	go startCreateListenerProccessor(concurrency)
+	go startCreateListenerProccessor(800)
 	// DescribeListeners 一次性最大支持查 100 个监听器: https://cloud.tencent.com/document/api/214/30686
 	go startDescribeListenerProccessor(100)
 	// DescribeTargets 一次性最大支持同时查 20 个监听器: https://cloud.tencent.com/document/api/214/30684
@@ -40,7 +40,9 @@ type Task interface {
 	GetRegion() string
 }
 
-func StartBatchProccessor[T Task](maxAccumulatedTask int, apiName string, writeOp bool, taskChan chan T, doBatch func(region, lbId string, tasks []T)) {
+const maxAccumulatedTask = 800
+
+func StartBatchProccessor[T Task](maxTaskOneBatch int, apiName string, writeOp bool, taskChan chan T, doBatch func(region, lbId string, tasks []T)) {
 	tasks := []T{}
 	timer := time.NewTimer(MaxBatchInternal)
 	batchRequest := func() {
@@ -60,14 +62,19 @@ func StartBatchProccessor[T Task](maxAccumulatedTask int, apiName string, writeO
 		// 将合并后的 task 通过 clb 的 BatchXXX 接口批量操作
 		// TODO: 能否细化到部分成功的场景？
 		for lb, tasks := range groupTasks {
-			go func(region, lbId string, tasks []T) {
-				if writeOp { // 写操作加实例锁
-					mu := getLbLock(lbId)
-					mu.Lock()
-					defer mu.Unlock()
-				}
-				doBatch(region, lbId, tasks)
-			}(lb.Region, lb.LbId, tasks)
+			for len(tasks) > 0 {
+				num := min(len(tasks), maxTaskOneBatch)
+				t := tasks[:num]
+				tasks = tasks[num:]
+				go func(region, lbId string, tasks []T) {
+					if writeOp { // 写操作加实例锁
+						mu := getLbLock(lbId)
+						mu.Lock()
+						defer mu.Unlock()
+					}
+					doBatch(region, lbId, tasks)
+				}(lb.Region, lb.LbId, t)
+			}
 		}
 	}
 	for {
