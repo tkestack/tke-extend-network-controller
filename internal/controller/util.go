@@ -2,6 +2,7 @@ package controller
 
 import (
 	"context"
+	"time"
 
 	"github.com/imroc/tke-extend-network-controller/internal/constant"
 	"github.com/imroc/tke-extend-network-controller/pkg/kube"
@@ -31,7 +32,7 @@ func Reconcile[T client.Object](ctx context.Context, req ctrl.Request, apiClient
 		if apierrors.IsConflict(err) {
 			if !result.Requeue && result.RequeueAfter == 0 {
 				log.FromContext(ctx).Info("requeue due to k8s api conflict")
-				result.Requeue = true
+				result.RequeueAfter = 20 * time.Millisecond
 			}
 			return result, nil
 		}

@@ -71,11 +71,11 @@ func (r *CLBBindingReconciler[T]) sync(ctx context.Context, bd T) (result ctrl.R
 		case portpool.ErrNewLBCreated, portpool.ErrNewLBCreating:
 			return result, nil
 		case portpool.ErrNoLbReady:
-			result.Requeue = true
+			result.RequeueAfter = time.Second
 			log.FromContext(ctx).Info("requeue due to lb not ready yet")
 			return result, nil
 		case ErrNeedRetry:
-			result.Requeue = true
+			result.RequeueAfter = 20 * time.Millisecond
 			log.FromContext(ctx).Info("requeue due to listener need to be re-allocated")
 			return result, nil
 		case portpool.ErrNoPortAvailable:
@@ -98,7 +98,7 @@ func (r *CLBBindingReconciler[T]) sync(ctx context.Context, bd T) (result ctrl.R
 				}
 				return result, errors.WithStack(err)
 			} else { // 端口池存在，但还没更新到分配器缓存，重新入队
-				result.Requeue = true
+				result.RequeueAfter = 20 * time.Millisecond
 				log.FromContext(ctx).Info("requeue due to port pool not ready yet")
 				return result, nil
 			}
@@ -107,7 +107,7 @@ func (r *CLBBindingReconciler[T]) sync(ctx context.Context, bd T) (result ctrl.R
 		if clb.IsRequestLimitExceededError(errCause) {
 			result.RequeueAfter = time.Second
 			log.FromContext(ctx).Info("requeue due to clb api request limit exceeded when reconciling")
-			return result, errors.WithStack(err)
+			return result, nil
 		}
 
 		if !apierrors.IsConflict(errCause) { // 其它非资源冲突的错误，将错误记录到 event 和状态中方便排障
@@ -684,7 +684,7 @@ func (r *CLBBindingReconciler[T]) cleanup(ctx context.Context, bd T) (result ctr
 				continue
 			case clb.ErrOtherListenerNotFound: // 因同一批次删除的其它监听器不存在导致删除失败，需重试
 				log.Error(err, "requeue due to delete listener failed cuz other listener not found")
-				result.Requeue = true
+				result.RequeueAfter = 20 * time.Millisecond
 				return result, nil
 			}
 			if clb.IsLoadBalancerNotExistsError(e) { // lb 不存在，忽略
