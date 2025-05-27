@@ -371,6 +371,11 @@ func (r *CLBBindingReconciler[T]) ensureListener(ctx context.Context, bd clbbind
 			log.FromContext(ctx).V(3).Info("create clb listener success", "port", binding.Port, "protocl", binding.Protocol, "listenerId", lisId, "lbPort", binding.LoadbalancerPort, "lbId", binding.LoadbalancerId)
 		}
 	}
+	if binding.ListenerId == "" { // 通常是还未创建监听器，不查询直接尝试创建，以提升扩容场景的速度
+		createListener()
+		return
+	}
+
 	var lis *clb.Listener
 	if lis, err = clb.GetListenerByIdOrPort(ctx, binding.Region, binding.LoadbalancerId, binding.ListenerId, int64(binding.LoadbalancerPort), binding.Protocol); err != nil {
 		if clb.IsLbIdNotFoundError(errors.Cause(err)) { // lb 已删除，通知关联的端口池重新对账

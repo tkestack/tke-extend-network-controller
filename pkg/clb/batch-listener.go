@@ -90,7 +90,7 @@ func doBatchCreateListener(apiName, region, lbId, protocol, certId, extensivePar
 
 func startCreateListenerProccessor(concurrent int) {
 	apiName := "CreateListener"
-	StartBatchProccessor(concurrent, apiName, CreateListenerChan, func(region, lbId string, tasks []*CreateListenerTask) {
+	StartBatchProccessor(concurrent, apiName, true, CreateListenerChan, func(region, lbId string, tasks []*CreateListenerTask) {
 		startTime := time.Now()
 		defer func() {
 			clbLog.V(10).Info(fmt.Sprintf("batch proccess %s performance", apiName), "cost", time.Since(startTime).String())
@@ -157,7 +157,7 @@ var DescribeListenerChan = make(chan *DescribeListenerTask, 100)
 
 func startDescribeListenerProccessor(concurrent int) {
 	apiName := "DescribeListeners"
-	StartBatchProccessor(concurrent, apiName, DescribeListenerChan, func(region, lbId string, tasks []*DescribeListenerTask) {
+	StartBatchProccessor(concurrent, apiName, false, DescribeListenerChan, func(region, lbId string, tasks []*DescribeListenerTask) {
 		startTime := time.Now()
 		defer func() {
 			clbLog.V(10).Info(fmt.Sprintf("batch proccess %s performance", apiName), "cost", time.Since(startTime).String())
@@ -232,7 +232,7 @@ var (
 
 func startDeleteListenerProccessor(concurrent int) {
 	apiName := "DeleteLoadBalancerListeners"
-	StartBatchProccessor(concurrent, apiName, DeleteListenerChan, func(region, lbId string, tasks []*DeleteListenerTask) {
+	StartBatchProccessor(concurrent, apiName, true, DeleteListenerChan, func(region, lbId string, tasks []*DeleteListenerTask) {
 		startTime := time.Now()
 		defer func() {
 			clbLog.V(10).Info(fmt.Sprintf("batch proccess %s performance", apiName), "cost", time.Since(startTime).String())

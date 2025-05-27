@@ -29,7 +29,7 @@ var RegisterTargetChan = make(chan *RegisterTargetTask, 100)
 
 func startRegisterTargetsProccessor(concurrent int) {
 	apiName := "BatchRegisterTargets"
-	StartBatchProccessor(concurrent, apiName, RegisterTargetChan, func(region, lbId string, tasks []*RegisterTargetTask) {
+	StartBatchProccessor(concurrent, apiName, true, RegisterTargetChan, func(region, lbId string, tasks []*RegisterTargetTask) {
 		req := clb.NewBatchRegisterTargetsRequest()
 		req.LoadBalancerId = &lbId
 		for _, task := range tasks {
@@ -81,7 +81,7 @@ var DescribeTargetsChan = make(chan *DescribeTargetsTask, 100)
 
 func startDescribeTargetsProccessor(concurrent int) {
 	apiName := "DescribeTargets"
-	StartBatchProccessor(concurrent, apiName, DescribeTargetsChan, func(region, lbId string, tasks []*DescribeTargetsTask) {
+	StartBatchProccessor(concurrent, apiName, false, DescribeTargetsChan, func(region, lbId string, tasks []*DescribeTargetsTask) {
 		req := clb.NewDescribeTargetsRequest()
 		req.LoadBalancerId = &lbId
 		for _, task := range tasks {
@@ -148,7 +148,7 @@ var DeregisterTargetsChan = make(chan *DeregisterTargetsTask, 100)
 
 func startDeregisterTargetsProccessor(concurrent int) {
 	apiName := "BatchDeregisterTargets"
-	StartBatchProccessor(concurrent, apiName, DeregisterTargetsChan, func(region, lbId string, tasks []*DeregisterTargetsTask) {
+	StartBatchProccessor(concurrent, apiName, true, DeregisterTargetsChan, func(region, lbId string, tasks []*DeregisterTargetsTask) {
 		req := clb.NewBatchDeregisterTargetsRequest()
 		req.LoadBalancerId = &lbId
 		for _, task := range tasks {

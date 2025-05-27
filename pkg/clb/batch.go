@@ -40,7 +40,7 @@ type Task interface {
 	GetRegion() string
 }
 
-func StartBatchProccessor[T Task](maxAccumulatedTask int, apiName string, taskChan chan T, doBatch func(region, lbId string, tasks []T)) {
+func StartBatchProccessor[T Task](maxAccumulatedTask int, apiName string, writeOp bool, taskChan chan T, doBatch func(region, lbId string, tasks []T)) {
 	tasks := []T{}
 	timer := time.NewTimer(MaxBatchInternal)
 	batchRequest := func() {
@@ -61,9 +61,11 @@ func StartBatchProccessor[T Task](maxAccumulatedTask int, apiName string, taskCh
 		// TODO: 能否细化到部分成功的场景？
 		for lb, tasks := range groupTasks {
 			go func(region, lbId string, tasks []T) {
-				mu := getLbLock(lbId)
-				mu.Lock()
-				defer mu.Unlock()
+				if writeOp { // 写操作加实例锁
+					mu := getLbLock(lbId)
+					mu.Lock()
+					defer mu.Unlock()
+				}
 				doBatch(region, lbId, tasks)
 			}(lb.Region, lb.LbId, tasks)
 		}
