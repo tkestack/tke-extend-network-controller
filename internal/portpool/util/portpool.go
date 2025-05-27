@@ -79,7 +79,7 @@ func (p *PortPool) TryCreateLB(ctx context.Context) (portpool.CreateLbResult, er
 	addLbIdToStatus := func() error {
 		pp := &networkingv1alpha1.CLBPortPool{}
 		if err := p.Client.Get(ctx, client.ObjectKeyFromObject(p.CLBPortPool), pp); err != nil {
-			return errors.WithStack(err)
+			return err
 		}
 		pp.Status.State = networkingv1alpha1.CLBPortPoolStateActive // 创建成功，状态改为 Active，以便再次可分配端口
 		pp.Status.LoadbalancerStatuses = append(pp.Status.LoadbalancerStatuses, networkingv1alpha1.LoadBalancerStatus{
@@ -87,7 +87,7 @@ func (p *PortPool) TryCreateLB(ctx context.Context) (portpool.CreateLbResult, er
 			AutoCreated:    util.GetPtr(true),
 		})
 		if err := p.Client.Status().Update(ctx, pp); err != nil {
-			return errors.WithStack(err)
+			return err
 		}
 		p.CLBPortPool = pp
 		return nil

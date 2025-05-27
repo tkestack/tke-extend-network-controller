@@ -15,6 +15,7 @@ type CLBBinding interface {
 	GetAssociatedObject(context.Context, client.Client) (Backend, error)
 	GetObject() client.Object
 	GetType() string
+	GetNewest(context.Context, client.Client) (CLBBinding, error)
 }
 
 type Backend interface {

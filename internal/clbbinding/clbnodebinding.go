@@ -43,6 +43,15 @@ func (b *CLBNodeBinding) GetType() string {
 	return "CLBNodeBinding"
 }
 
+func (b *CLBNodeBinding) GetNewest(ctx context.Context, c client.Client) (CLBBinding, error) {
+	nbd := &networkingv1alpha1.CLBNodeBinding{}
+	err := c.Get(ctx, client.ObjectKeyFromObject(b), nbd)
+	if err == nil {
+		b.CLBNodeBinding = nbd
+	}
+	return WrapCLBNodeBinding(nbd), err
+}
+
 type nodeBackend struct {
 	*corev1.Node
 }

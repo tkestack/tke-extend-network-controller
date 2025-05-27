@@ -224,7 +224,15 @@ func (r *CLBBindingReconciler[T]) ensureListeners(ctx context.Context, bd clbbin
 	}
 	if needUpdate {
 		status.PortBindings = newBindings
-		if e := r.Status().Update(ctx, bd.GetObject()); e != nil {
+		update := func() error {
+			newBd, err := bd.GetNewest(ctx, r.Client)
+			if err != nil {
+				return err
+			}
+			newBd.GetStatus().PortBindings = newBindings
+			return r.Status().Update(ctx, newBd.GetObject())
+		}
+		if e := util.RetryIfPossible(update); e != nil {
 			err = multierr.Append(err, e)
 		}
 	}
@@ -419,6 +427,7 @@ func (r *CLBBindingReconciler[T]) ensureListener(ctx context.Context, bd clbbind
 			log.FromContext(ctx).V(3).Info("create clb listener success", "port", binding.Port, "protocol", binding.Protocol, "listenerId", lisId, "lbPort", binding.LoadbalancerPort, "lbId", binding.LoadbalancerId)
 		}
 	}
+
 	if binding.ListenerId == "" { // 通常是还未创建监听器，不查询直接尝试创建，以提升扩容场景的速度
 		createListener()
 		return

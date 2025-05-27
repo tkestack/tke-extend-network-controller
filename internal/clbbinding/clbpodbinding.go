@@ -25,7 +25,6 @@ func WrapCLBPodBinding(pb *networkingv1alpha1.CLBPodBinding) *CLBPodBinding {
 
 type CLBPodBinding struct {
 	*networkingv1alpha1.CLBPodBinding
-	client.Client
 }
 
 func (b *CLBPodBinding) GetSpec() *networkingv1alpha1.CLBBindingSpec {
@@ -42,6 +41,15 @@ func (b *CLBPodBinding) GetObject() client.Object {
 
 func (b *CLBPodBinding) GetType() string {
 	return "CLBPodBinding"
+}
+
+func (b *CLBPodBinding) GetNewest(ctx context.Context, c client.Client) (CLBBinding, error) {
+	pb := &networkingv1alpha1.CLBPodBinding{}
+	err := c.Get(ctx, client.ObjectKeyFromObject(b), pb)
+	if err == nil {
+		b.CLBPodBinding = pb
+	}
+	return WrapCLBPodBinding(pb), err
 }
 
 type podBackend struct {
