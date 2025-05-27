@@ -21,4 +21,5 @@ var (
 	ErrUnknown               = errors.New("unknown error")
 	ErrNoFreeLb              = errors.New("no free lb available")
 	ErrNoLbReady             = errors.New("no lb ready")
+	ErrListenerQuotaExceeded = errors.New("listener quota exceeded")
 )

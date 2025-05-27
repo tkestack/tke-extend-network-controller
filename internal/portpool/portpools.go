@@ -60,6 +60,9 @@ LOOP_POOL:
 			// 尝试分配端口
 			result, err := pool.AllocatePort(ctx, int64(quota), portsToAllocate...)
 			if err != nil { // 有分配错误，释放已分配的端口
+				if err == ErrNoLbReady || err == ErrListenerQuotaExceeded { // 端口池中没有 CLB，或者都超配额了，直接尝试新建 lb
+					goto TRY_CREATE_LB
+				}
 				allocatedPorts.Release()
 				return nil, errors.WithStack(err)
 			}
@@ -72,6 +75,7 @@ LOOP_POOL:
 				log.FromContext(ctx).V(10).Info("no available port can be allocated, try next port", "pool", pool.GetName(), "port", port)
 			}
 		}
+	TRY_CREATE_LB:
 		// 该端口池所有端口都无法分配，为保证事务性，释放已分配的端口，并尝试通知端口池扩容 CLB 来补充端口池
 		allocatedPorts.Release()
 		// 检查端口池是否可以创建 CLB
@@ -123,6 +127,23 @@ LOOP_PORT:
 			results, err := pool.AllocatePort(ctx, int64(quota), portsToAllocate...)
 			if err != nil {
 				allocatedPorts.Release()
+				if err == ErrNoLbReady || err == ErrListenerQuotaExceeded {
+					// 检查端口池是否可以创建 CLB
+					result, err := pool.TryCreateLB(ctx)
+					if err != nil {
+						return nil, errors.WithStack(err)
+					}
+					switch result {
+					case CreateLbResultForbidden: // 不能自动创建，返回端口不足的错误
+						return nil, ErrNoPortAvailable
+					case CreateLbResultCreating: // 正在创建 CLB，创建完后会自动触发对账
+						return nil, ErrNewLBCreating
+					case CreateLbResultSuccess: // 已经通知过或通知成功，重新入队
+						return nil, ErrNewLBCreated
+					default: // 不可能的状态
+						return nil, ErrUnknown
+					}
+				}
 				return nil, errors.Wrapf(err, "allocate same port across pools failed")
 			}
 			if len(results) > 0 {

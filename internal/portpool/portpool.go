@@ -104,10 +104,12 @@ func (pp *PortPool) AllocatePort(ctx context.Context, quota int64, ports ...Prot
 		}
 		quota = q
 	}
+	quotaExceeded := true
 	for lbId, allocated := range pp.cache { // 遍历所有 lb，尝试分配端口
 		if int64(len(allocated)+len(ports)) > quota { // 监听器数量已满，换下个 lb
 			continue
 		}
+		quotaExceeded = false
 		canAllocate := true
 		for _, port := range ports { // 确保所有待分配的端口都未被分配
 			if _, exists := allocated[port.Key()]; exists { // 有端口已被占用，标记无法分配
@@ -128,6 +130,10 @@ func (pp *PortPool) AllocatePort(ctx context.Context, quota int64, ports ...Prot
 			}
 			return result, nil
 		}
+	}
+
+	if quotaExceeded { // 所有 lb  都超配额了，返回错误告诉调用方不要尝试其它端口
+		return nil, ErrListenerQuotaExceeded
 	}
 	// 所有 lb 都无法分配此端口，返回空结果
 	return nil, nil
