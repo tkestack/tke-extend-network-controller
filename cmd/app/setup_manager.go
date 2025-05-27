@@ -62,9 +62,8 @@ func (i *initCache) Start(ctx context.Context) error {
 	}
 	for index := range ppl.Items {
 		pp := &ppl.Items[index]
-		if err := portpool.Allocator.AddPool(portpoolutil.NewPortPool(pp, i.Client, i.EventRecorder)); err != nil {
-			return err
-		}
+		portpool.Allocator.EnsurePool(portpoolutil.NewPortPool(pp, i.Client, i.EventRecorder))
+
 		lbIds := []string{}
 		for _, lbStatus := range pp.Status.LoadbalancerStatuses {
 			if lbStatus.State != networkingv1alpha1.LoadBalancerStateNotFound {

@@ -23,6 +23,7 @@ import (
 	"strings"
 
 	portpoolutil "github.com/imroc/tke-extend-network-controller/internal/portpool/util"
+
 	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -266,28 +267,22 @@ func (r *CLBPortPoolReconciler) ensureLb(ctx context.Context, pool *networkingv1
 	return nil
 }
 
-func (r *CLBPortPoolReconciler) ensureAllocatorCache(_ context.Context, pool *networkingv1alpha1.CLBPortPool) error {
-	if !portpool.Allocator.IsPoolExists(pool.Name) { // 分配器缓存中不存在，则添加
-		if err := portpool.Allocator.AddPool(portpoolutil.NewPortPool(pool, r.Client, r.Recorder)); err != nil {
-			return errors.WithStack(err)
-		}
-	}
-	return nil
+func (r *CLBPortPoolReconciler) ensureAllocatorCache(_ context.Context, pool *networkingv1alpha1.CLBPortPool) {
 }
 
 // 同步端口池
 func (r *CLBPortPoolReconciler) sync(ctx context.Context, pool *networkingv1alpha1.CLBPortPool) (result ctrl.Result, err error) {
+	// 确保分配器缓存中存在该 port pool，放在最开头，避免同时创建 CLBPortPool 和 CLBBinding 导致分配端口时找不到 pool
+	if !portpool.Allocator.IsPoolExists(pool.Name) { // 分配器缓存中不存在，则添加
+		portpool.Allocator.EnsurePool(portpoolutil.NewPortPool(pool, r.Client, r.Recorder))
+		return result, nil
+	}
 	// 初始化状态
 	if pool.Status.State == "" {
 		pool.Status.State = networkingv1alpha1.CLBPortPoolStatePending
 		if err := r.Status().Update(ctx, pool); err != nil {
 			return result, errors.WithStack(err)
 		}
-	}
-
-	// 确保分配器缓存中存在该 port pool
-	if err := r.ensureAllocatorCache(ctx, pool); err != nil {
-		return result, errors.WithStack(err)
 	}
 
 	// 确保 lb 列表可用

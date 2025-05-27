@@ -79,13 +79,13 @@ func (pa *PortAllocator) EnsureLbIds(name string, lbIds []string) error {
 	return nil
 }
 
-// AddPool 添加新的端口池
-func (pa *PortAllocator) AddPool(pp CLBPortPool) error {
+// EnsurePool 添加新的端口池
+func (pa *PortAllocator) EnsurePool(pp CLBPortPool) {
 	pa.mu.Lock()
 	defer pa.mu.Unlock()
 
 	if _, exists := pa.pools[pp.GetName()]; exists {
-		return nil
+		return
 	}
 
 	pool := &PortPool{
@@ -94,7 +94,6 @@ func (pa *PortAllocator) AddPool(pp CLBPortPool) error {
 	}
 
 	pa.pools[pp.GetName()] = pool
-	return nil
 }
 
 // RemovePool 移除端口池
