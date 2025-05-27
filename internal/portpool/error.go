@@ -10,4 +10,5 @@ var (
 	ErrNewLBCreating         = errors.New("new lb is creating")
 	ErrUnknown               = errors.New("unknown error")
 	ErrNoFreeLb              = errors.New("no free lb available")
+	ErrNoLbReady             = errors.New("no lb ready")
 )

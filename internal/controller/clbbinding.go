@@ -69,9 +69,13 @@ func (r *CLBBindingReconciler[T]) sync(ctx context.Context, bd T) (result ctrl.R
 		switch errCause {
 		case portpool.ErrNewLBCreated, portpool.ErrNewLBCreating:
 			return result, nil
+		case portpool.ErrNoLbReady:
+			result.Requeue = true
+			log.FromContext(ctx).Info("requeue due to lb not ready yet")
+			return result, nil
 		case ErrNeedRetry:
 			result.Requeue = true
-			log.FromContext(ctx).Info("requeue because of listener need to be re-allocated")
+			log.FromContext(ctx).Info("requeue due to listener need to be re-allocated")
 			return result, nil
 		case portpool.ErrNoPortAvailable:
 			r.Recorder.Event(bd.GetObject(), corev1.EventTypeWarning, "NoPortAvailable", "no port available in port pool, please add clb to port pool")
@@ -89,7 +93,7 @@ func (r *CLBBindingReconciler[T]) sync(ctx context.Context, bd T) (result ctrl.R
 		// 如果是被云 API 限流（默认每秒 20 qps 限制），1s 后重新入队
 		if clb.IsRequestLimitExceededError(errCause) {
 			result.RequeueAfter = time.Second
-			log.FromContext(ctx).Info("requeue because of clb api request limit exceeded")
+			log.FromContext(ctx).Info("requeue due to clb api request limit exceeded")
 			return result, errors.WithStack(err)
 		}
 

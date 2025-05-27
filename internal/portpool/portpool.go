@@ -93,6 +93,9 @@ func (pp *PortPool) IsLbExists(lbId string) bool {
 func (pp *PortPool) AllocatePort(ctx context.Context, quota int64, ports ...ProtocolPort) ([]PortAllocation, error) {
 	pp.mu.Lock()
 	defer pp.mu.Unlock()
+	if len(pp.cache) == 0 {
+		return nil, ErrNoLbReady
+	}
 	// 获取监听器数量配额
 	if quota == 0 {
 		q, err := clb.Quota.GetQuota(ctx, pp.GetRegion(), clb.TOTAL_LISTENER_QUOTA)
