@@ -18,7 +18,7 @@ func (pp PortPools) Sub(poolNames ...string) (PortPools, error) {
 		if pool, exists := pp[poolName]; exists {
 			sub[poolName] = pool
 		} else {
-			return nil, errors.Wrapf(ErrPoolNotFound, "pool %q is not exists", poolName)
+			return nil, &ErrPoolNotFound{Pool: poolName}
 		}
 	}
 	return sub, nil

@@ -84,12 +84,24 @@ func (r *CLBBindingReconciler[T]) sync(ctx context.Context, bd T) (result ctrl.R
 				return result, errors.WithStack(err)
 			}
 			return result, nil
-		case portpool.ErrPoolNotFound:
-			r.Recorder.Event(bd.GetObject(), corev1.EventTypeWarning, "PoolNotFound", "port pool not found, please check the port pool name")
-			if err := r.ensureState(ctx, bd, networkingv1alpha1.CLBBindingStatePortPoolNotFound); err != nil {
+		}
+		if e, ok := errCause.(*portpool.ErrPoolNotFound); ok {
+			poolName := e.Pool
+			pp := &networkingv1alpha1.CLBPortPool{}
+			if err := r.Client.Get(ctx, client.ObjectKey{Name: poolName}, pp); err != nil {
+				if apierrors.IsNotFound(err) { // 端口池确实不存在，更新状态和 event
+					r.Recorder.Event(bd.GetObject(), corev1.EventTypeWarning, "PoolNotFound", "port pool not found, please check the port pool name")
+					if err := r.ensureState(ctx, bd, networkingv1alpha1.CLBBindingStatePortPoolNotFound); err != nil {
+						return result, errors.WithStack(err)
+					}
+					return result, nil
+				}
 				return result, errors.WithStack(err)
+			} else { // 端口池存在，但还没更新到分配器缓存，重新入队
+				result.Requeue = true
+				log.FromContext(ctx).Info("requeue due to port pool not ready yet")
+				return result, nil
 			}
-			return result, nil
 		}
 		// 如果是被云 API 限流（默认每秒 20 qps 限制），1s 后重新入队
 		if clb.IsRequestLimitExceededError(errCause) {
@@ -469,7 +481,10 @@ func (r *CLBBindingReconciler[T]) ensurePortBound(ctx context.Context, bd clbbin
 	return nil
 }
 
-var ErrCertIdNotFound = errors.New("no cert id found from secret")
+var (
+	ErrCertIdNotFound = errors.New("no cert id found from secret")
+	ErrPoolNotReady   = errors.New("pool not ready")
+)
 
 func (r *CLBBindingReconciler[T]) ensurePortAllocated(ctx context.Context, bd clbbinding.CLBBinding) error {
 	status := bd.GetStatus()
