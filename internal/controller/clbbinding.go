@@ -255,7 +255,7 @@ func (r *CLBBindingReconciler[T]) ensureBackendBindings(ctx context.Context, bd 
 	// 所有端口都已绑定，更新状态并将绑定信息写入 backend 注解
 	if status.State != networkingv1alpha1.CLBBindingStateBound {
 		cost := time.Since(bd.GetCreationTimestamp().Time)
-		log.FromContext(ctx).V(3).Info("binding performance", "cost", cost)
+		log.FromContext(ctx).V(3).Info("binding performance", "cost", cost.String())
 		r.Recorder.Event(bd.GetObject(), corev1.EventTypeNormal, "AllBound", "all targets bound to listener")
 		status.State = networkingv1alpha1.CLBBindingStateBound
 		status.Message = ""
