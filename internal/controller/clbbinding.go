@@ -93,7 +93,7 @@ func (r *CLBBindingReconciler[T]) sync(ctx context.Context, bd T) (result ctrl.R
 		// 如果是被云 API 限流（默认每秒 20 qps 限制），1s 后重新入队
 		if clb.IsRequestLimitExceededError(errCause) {
 			result.RequeueAfter = time.Second
-			log.FromContext(ctx).Info("requeue due to clb api request limit exceeded")
+			log.FromContext(ctx).Info("requeue due to clb api request limit exceeded when reconciling")
 			return result, errors.WithStack(err)
 		}
 
@@ -598,6 +598,7 @@ func (r *CLBBindingReconciler[T]) ensureState(ctx context.Context, bd clbbinding
 	}
 	status.State = state
 	status.Message = ""
+	log.FromContext(ctx).V(10).Info("ensure state", "state", state)
 	if err := r.Status().Update(ctx, bd.GetObject()); err != nil {
 		return errors.WithStack(err)
 	}
@@ -613,12 +614,6 @@ func (r *CLBBindingReconciler[T]) cleanup(ctx context.Context, bd T) (result ctr
 	}
 	status := bd.GetStatus()
 	for _, binding := range status.PortBindings {
-		// 确保端口从端口池被释放
-		allocated := portpool.Allocator.IsAllocated(binding.Pool, binding.LoadbalancerId, portFromPortBindingStatus(&binding))
-		if !allocated { // 已经清理过，忽略
-			log.Info("ignore already released port", "port", binding.LoadbalancerPort, "protocol", binding.Protocol, "pool", binding.Pool, "lb", binding.LoadbalancerId)
-			continue
-		}
 		releasePort := func() {
 			log.V(3).Info("release allocated port", "port", binding.LoadbalancerPort, "protocol", binding.Protocol, "pool", binding.Pool, "lb", binding.LoadbalancerId)
 			portpool.Allocator.Release(binding.Pool, binding.LoadbalancerId, portFromPortBindingStatus(&binding))
@@ -632,7 +627,7 @@ func (r *CLBBindingReconciler[T]) cleanup(ctx context.Context, bd T) (result ctr
 				releasePort()
 				continue
 			case clb.ErrOtherListenerNotFound: // 因同一批次删除的其它监听器不存在导致删除失败，需重试
-				log.Error(err, "delete listener failed cuz other listener not found, retry")
+				log.Error(err, "requeue due to delete listener failed cuz other listener not found")
 				result.Requeue = true
 				return result, nil
 			}
@@ -641,7 +636,7 @@ func (r *CLBBindingReconciler[T]) cleanup(ctx context.Context, bd T) (result ctr
 				continue
 			}
 			if clb.IsRequestLimitExceededError(e) {
-				log.Info("request limit exceeded, retry")
+				log.Info("requeue due to clb api request limit exceeded when cleanup listener")
 				result.RequeueAfter = time.Second
 				return result, nil
 			}
