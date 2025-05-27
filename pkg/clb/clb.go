@@ -2,6 +2,7 @@ package clb
 
 import (
 	"context"
+	"time"
 
 	"github.com/go-logr/logr"
 	"github.com/imroc/tke-extend-network-controller/pkg/cloudapi"
@@ -31,12 +32,12 @@ func GetClient(region string) *clb.Client {
 	return client
 }
 
-func LogAPI(ctx context.Context, apiName string, req, resp any, err error) {
+func LogAPI(ctx context.Context, apiName string, req, resp any, cost time.Duration, err error) {
 	var logger logr.Logger
 	if ctx != nil {
 		logger = log.FromContext(ctx)
 	} else {
 		logger = clbLog
 	}
-	logger.V(10).Info("CLB API Call", "api", apiName, "request", req, "response", resp, "error", err)
+	logger.V(10).Info("CLB API Call", "api", apiName, "request", req, "response", resp, "cost", cost.String(), "error", err)
 }

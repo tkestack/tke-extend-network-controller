@@ -40,8 +40,9 @@ func GetClb(ctx context.Context, lbId, region string) (instance *clb.LoadBalance
 	req := clb.NewDescribeLoadBalancersRequest()
 	req.LoadBalancerIds = []*string{&lbId}
 
+	before := time.Now()
 	resp, err := client.DescribeLoadBalancersWithContext(ctx, req)
-	LogAPI(ctx, "DescribeLoadBalancers", req, resp, err)
+	LogAPI(ctx, "DescribeLoadBalancers", req, resp, time.Since(before), err)
 	if err != nil {
 		return
 	}
@@ -78,8 +79,9 @@ func Create(ctx context.Context, region, vpcId, extensiveParameters string, num 
 		}
 	}
 	client := GetClient(region)
+	before := time.Now()
 	resp, err := client.CreateLoadBalancerWithContext(ctx, req)
-	LogAPI(ctx, "CreateLoadBalancer", req, resp, err)
+	LogAPI(ctx, "CreateLoadBalancer", req, resp, time.Since(before), err)
 	if err != nil {
 		return
 	}
@@ -117,8 +119,9 @@ func Delete(ctx context.Context, region string, lbIds ...string) error {
 		req.ForceDelete = common.BoolPtr(true)
 	}
 	client := GetClient(region)
+	before := time.Now()
 	resp, err := client.DeleteLoadBalancerWithContext(ctx, req)
-	LogAPI(ctx, "DeleteLoadBalancer", req, resp, err)
+	LogAPI(ctx, "DeleteLoadBalancer", req, resp, time.Since(before), err)
 	if err != nil {
 		if IsLbIdNotFoundError(err) {
 			if len(lbIds) == 1 { // lb 已全部删除，忽略
@@ -142,8 +145,9 @@ func Delete(ctx context.Context, region string, lbIds ...string) error {
 func CreateCLB(ctx context.Context, region string, req *clb.CreateLoadBalancerRequest) (lbId string, err error) {
 	log.FromContext(ctx).V(10).Info("CreateLoadBalancer", "req", *req)
 	client := GetClient(region)
+	before := time.Now()
 	resp, err := client.CreateLoadBalancerWithContext(ctx, req)
-	LogAPI(ctx, "CreateLoadBalancer", req, resp, err)
+	LogAPI(ctx, "CreateLoadBalancer", req, resp, time.Since(before), err)
 	if err != nil {
 		return
 	}
@@ -196,8 +200,9 @@ func BatchGetClbInfo(ctx context.Context, lbIds []string, region string) (info m
 	client := GetClient(region)
 	req := clb.NewDescribeLoadBalancersRequest()
 	req.LoadBalancerIds = common.StringPtrs(lbIds)
+	before := time.Now()
 	resp, err := client.DescribeLoadBalancersWithContext(ctx, req)
-	LogAPI(ctx, "DescribeLoadBalancers", req, resp, err)
+	LogAPI(ctx, "DescribeLoadBalancers", req, resp, time.Since(before), err)
 	if err != nil {
 		return
 	}

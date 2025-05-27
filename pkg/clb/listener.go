@@ -67,8 +67,9 @@ func GetListenerByPort(ctx context.Context, region, lbId string, port int64, pro
 	req.LoadBalancerId = &lbId
 	req.Protocol = &protocol
 	client := GetClient(region)
+	before := time.Now()
 	resp, err := client.DescribeListenersWithContext(ctx, req)
-	LogAPI(ctx, "DescribeListeners", req, resp, err)
+	LogAPI(ctx, "DescribeListeners", req, resp, time.Since(before), err)
 	if err != nil {
 		return nil, errors.WithStack(err)
 	}
@@ -142,8 +143,9 @@ func CreateListener(ctx context.Context, region, lbId string, port, endPort int6
 	mu := getLbLock(lbId)
 	mu.Lock()
 	defer mu.Unlock()
+	before := time.Now()
 	resp, err := client.CreateListenerWithContext(ctx, req)
-	LogAPI(ctx, "CreateListener", req, resp, err)
+	LogAPI(ctx, "CreateListener", req, resp, time.Since(before), err)
 	if err != nil {
 		err = errors.WithStack(err)
 		return

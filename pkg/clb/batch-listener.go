@@ -73,8 +73,9 @@ func doBatchCreateListener(apiName, region, lbId, protocol, certId, extensivePar
 		req.ListenerNames = append(req.ListenerNames, common.StringPtr(TkeListenerName))
 	}
 	client := GetClient(region)
+	before := time.Now()
 	resp, err := client.CreateListener(req)
-	LogAPI(nil, apiName, req, resp, err)
+	LogAPI(nil, apiName, req, resp, time.Since(before), err)
 	if err != nil {
 		err = errors.WithStack(err)
 		return
@@ -167,8 +168,9 @@ func startDescribeListenerProccessor(concurrent int) {
 			req.ListenerIds = append(req.ListenerIds, &task.ListenerId)
 		}
 		client := GetClient(region)
+		before := time.Now()
 		resp, err := client.DescribeListeners(req)
-		LogAPI(nil, apiName, req, resp, err)
+		LogAPI(nil, apiName, req, resp, time.Since(before), err)
 		if err != nil {
 			for _, task := range tasks {
 				task.Result <- &DescribeListenerResult{
@@ -241,8 +243,9 @@ func startDeleteListenerProccessor(concurrent int) {
 			req.ListenerIds = append(req.ListenerIds, &task.ListenerId)
 		}
 		client := GetClient(region)
+		before := time.Now()
 		resp, err := client.DeleteLoadBalancerListeners(req)
-		LogAPI(nil, apiName, req, resp, err)
+		LogAPI(nil, apiName, req, resp, time.Since(before), err)
 		if err != nil {
 			// 部分要删除的监听器不存在
 			if strings.Contains(err.Error(), "Code=InvalidParameter") && strings.Contains(err.Error(), "some ListenerId") && strings.Contains(err.Error(), "not found") {

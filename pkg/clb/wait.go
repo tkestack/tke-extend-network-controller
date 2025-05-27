@@ -21,8 +21,9 @@ func Wait(ctx context.Context, region, reqId, taskName string) (ids []string, er
 		default:
 			req := clb.NewDescribeTaskStatusRequest()
 			req.TaskId = &reqId
+			before := time.Now()
 			resp, err := client.DescribeTaskStatusWithContext(ctx, req)
-			LogAPI(ctx, "DescribeTaskStatus", req, resp, err)
+			LogAPI(ctx, "DescribeTaskStatus", req, resp, time.Since(before), err)
 			if err != nil {
 				if IsRequestLimitExceededError(err) {
 					clbLog.Info("request limit exceeded when wait for task, retry", "reqId", reqId, "taskName", taskName)

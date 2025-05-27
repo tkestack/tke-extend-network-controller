@@ -3,6 +3,7 @@ package clb
 import (
 	"context"
 	"fmt"
+	"time"
 
 	clb "github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/clb/v20180317"
 )
@@ -39,8 +40,9 @@ func startRegisterTargetsProccessor(concurrent int) {
 			})
 		}
 		client := GetClient(region)
+		before := time.Now()
 		resp, err := client.BatchRegisterTargets(req)
-		LogAPI(nil, apiName, req, resp, err)
+		LogAPI(nil, apiName, req, resp, time.Since(before), err)
 		if err != nil {
 			for _, task := range tasks {
 				task.Result <- err
@@ -86,8 +88,9 @@ func startDescribeTargetsProccessor(concurrent int) {
 			req.ListenerIds = append(req.ListenerIds, &task.ListenerId)
 		}
 		client := GetClient(region)
+		before := time.Now()
 		resp, err := client.DescribeTargets(req)
-		LogAPI(nil, apiName, req, resp, err)
+		LogAPI(nil, apiName, req, resp, time.Since(before), err)
 		if err != nil {
 			for _, task := range tasks {
 				task.Result <- &DescribeTargetsResult{
@@ -158,8 +161,9 @@ func startDeregisterTargetsProccessor(concurrent int) {
 			}
 		}
 		client := GetClient(region)
+		before := time.Now()
 		resp, err := client.BatchDeregisterTargets(req)
-		LogAPI(nil, apiName, req, resp, err)
+		LogAPI(nil, apiName, req, resp, time.Since(before), err)
 		// 调用失败
 		if err != nil {
 			for _, task := range tasks {

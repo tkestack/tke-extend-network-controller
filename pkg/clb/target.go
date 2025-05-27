@@ -3,6 +3,7 @@ package clb
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/pkg/errors"
 	clb "github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/clb/v20180317"
@@ -22,8 +23,9 @@ func ContainsTarget(ctx context.Context, region, lbId string, port int64, protoc
 		},
 	}
 	client := GetClient(region)
+	before := time.Now()
 	resp, err := client.DescribeTargets(req)
-	LogAPI(ctx, "DescribeTargets", req, resp, err)
+	LogAPI(ctx, "DescribeTargets", req, resp, time.Since(before), err)
 	if err != nil {
 		return false, err
 	}
@@ -158,8 +160,9 @@ func DeregisterTargetsForListener(ctx context.Context, region, lbId, listenerId 
 	req.ListenerId = &listenerId
 	req.Targets = clbTargets
 	client := GetClient(region)
+	before := time.Now()
 	resp, err := client.DeregisterTargetsWithContext(ctx, req)
-	LogAPI(ctx, "DeregisterTargets", req, resp, err)
+	LogAPI(ctx, "DeregisterTargets", req, resp, time.Since(before), err)
 	if err != nil {
 		return err
 	}
@@ -187,8 +190,9 @@ func RegisterTargets(ctx context.Context, region, lbId, listenerId string, targe
 	mu := getLbLock(lbId)
 	mu.Lock()
 	defer mu.Unlock()
+	before := time.Now()
 	resp, err := client.RegisterTargetsWithContext(ctx, req)
-	LogAPI(ctx, "RegisterTargets", req, resp, err)
+	LogAPI(ctx, "RegisterTargets", req, resp, time.Since(before), err)
 	if err != nil {
 		return err
 	}
@@ -234,8 +238,9 @@ func DescribeTargets(ctx context.Context, region, lbId, listenerId string) (targ
 	req.LoadBalancerId = &lbId
 	req.ListenerIds = []*string{&listenerId}
 	client := GetClient(region)
+	before := time.Now()
 	resp, err := client.DescribeTargetsWithContext(ctx, req)
-	LogAPI(ctx, "DescribeTargets", req, resp, err)
+	LogAPI(ctx, "DescribeTargets", req, resp, time.Since(before), err)
 	if err != nil {
 		return
 	}

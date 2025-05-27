@@ -121,8 +121,9 @@ func (q *quotaManager) Get(ctx context.Context, region string) (map[string]int64
 func DescribeQuota(ctx context.Context, region string) (quotaMap map[string]int64, err error) {
 	client := GetClient(region)
 	req := clb.NewDescribeQuotaRequest()
+	before := time.Now()
 	resp, err := client.DescribeQuotaWithContext(ctx, req)
-	LogAPI(ctx, "DescribeQuota", req, resp, err)
+	LogAPI(ctx, "DescribeQuota", req, resp, time.Since(before), err)
 	if err != nil {
 		return nil, errors.WithStack(err)
 	}
