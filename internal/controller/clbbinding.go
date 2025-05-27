@@ -285,12 +285,21 @@ func (r *CLBBindingReconciler[T]) ensureBackendBindings(ctx context.Context, bd 
 		}
 		return nil
 	}
+	result := make(chan error)
 	// backend 准备就绪，将 CLB 监听器绑定到 bacekend
 	for i := range status.PortBindings {
 		binding := &status.PortBindings[i]
-		if err := r.ensurePortBound(ctx, bd, backend, binding); err != nil {
-			return errors.WithStack(err)
+		go func(binding *networkingv1alpha1.PortBindingStatus) {
+			result <- r.ensurePortBound(ctx, bd, backend, binding)
+		}(binding)
+	}
+	for range status.PortBindings {
+		if e := <-result; e != nil {
+			err = multierr.Append(err, e)
 		}
+	}
+	if err != nil {
+		return errors.WithStack(err)
 	}
 	// 所有端口都已绑定，更新状态并将绑定信息写入 backend 注解
 	if status.State != networkingv1alpha1.CLBBindingStateBound {
