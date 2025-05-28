@@ -657,9 +657,9 @@ metadata:
               name: gameserver
   ```
 
-以下是操作视频演示：
+以下是操作演示：
 
-https://image-host-1251893006.cos.ap-chengdu.myqcloud.com/videos/agones-clb-hostport-mapping.png)](https://image-host-1251893006.cos.ap-chengdu.myqcloud.com/videos/agones-clb-hostport-mapping.mp4
+[![](https://image-host-1251893006.cos.ap-chengdu.myqcloud.com/videos/agones-clb-hostport-mapping.png)](https://image-host-1251893006.cos.ap-chengdu.myqcloud.com/videos/agones-clb-hostport-mapping.mp4)
 
 ## 内网 CLB 绑 EIP 映射
 
