@@ -628,7 +628,7 @@ metadata:
     autoCreate:
       enabled: true # 不指定运营商，默认创建 BGP 类型的 CLB
   ```
-3. 使用原生节点池，为节点配置以下注解：
+3. 使用原生节点池，为节点配置以下注解 (Agones 分配的 HostPort 默认区间是7000-8000，所以这里要绑定的 Node 端口是 7000，结合端口池中配置的 segmentLength 为 1001 可覆盖 7000-8000 范围的 HostPort 映射)：
   ```yaml
   networking.cloud.tencent.com/enable-clb-port-mapping: "true"
   networking.cloud.tencent.com/clb-port-mapping: "7000 TCPUDP pool-ctcc,pool-cmcc,pool-cucc,pool-bgp useSamePortAcrossPools"
