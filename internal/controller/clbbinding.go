@@ -630,6 +630,7 @@ LOOP_PORT:
 				statuses = append(statuses, port)
 			}
 		}
+		clbbinding.SortPortBindings(statuses)
 		status.PortBindings = statuses
 	}
 
