@@ -678,49 +678,24 @@ func (r *CLBBindingReconciler[T]) cleanup(ctx context.Context, bd T) (result ctr
 	if err = r.ensureState(ctx, bd, networkingv1alpha1.CLBBindingStateDeleting); err != nil {
 		return result, errors.WithStack(err)
 	}
+	ch := make(chan error)
 	for _, binding := range status.PortBindings {
-		releasePort := func() {
-			log.V(3).Info("release allocated port", "port", binding.LoadbalancerPort, "protocol", binding.Protocol, "pool", binding.Pool, "lb", binding.LoadbalancerId)
-			portpool.Allocator.Release(binding.Pool, binding.LoadbalancerId, portFromPortBindingStatus(&binding))
+		go func(binding *networkingv1alpha1.PortBindingStatus) {
+			if err := r.cleanupPortBinding(ctx, binding); err != nil {
+				ch <- err
+			} else {
+				ch <- nil
+			}
+		}(&binding)
+	}
+	for range status.PortBindings {
+		e := <-ch
+		if e != nil {
+			err = multierr.Append(err, e)
 		}
-		if lis, err := clb.GetListenerByIdOrPort(ctx, binding.Region, binding.LoadbalancerId, binding.ListenerId, int64(binding.LoadbalancerPort), binding.Protocol); err != nil {
-			if errors.Is(err, clb.ErrListenerNotFound) { // 监听器已删除，忽略
-				releasePort()
-				continue
-			}
-		} else {
-			if lis == nil { // 监听器已删除，忽略
-				releasePort()
-				continue
-			}
-		}
-		// 解绑 lb
-		if err := clb.DeleteListenerByIdOrPort(ctx, binding.Region, binding.LoadbalancerId, binding.ListenerId, int64(binding.LoadbalancerPort), binding.Protocol); err != nil {
-			e := errors.Cause(err)
-			switch e {
-			case clb.ErrListenerNotFound: // 监听器不存在，认为成功，从端口池释放
-				log.Info("delete listener while listener not found, ignore")
-				releasePort()
-				continue
-			case clb.ErrOtherListenerNotFound: // 因同一批次删除的其它监听器不存在导致删除失败，需重试
-				log.Error(err, "requeue due to delete listener failed cuz other listener not found")
-				result.RequeueAfter = 20 * time.Millisecond
-				return result, nil
-			}
-			if clb.IsLoadBalancerNotExistsError(e) { // lb 不存在，忽略
-				log.Info("lb not found, ignore when cleanup listener")
-				releasePort()
-				continue
-			}
-			if clb.IsRequestLimitExceededError(e) {
-				log.Info("requeue due to clb api request limit exceeded when cleanup listener")
-				result.RequeueAfter = time.Second
-				return result, nil
-			}
-			return result, errors.Wrapf(err, "failed to delete listener (%s/%d/%s/%s)", binding.LoadbalancerId, binding.LoadbalancerPort, binding.Protocol, binding.ListenerId)
-		} else { // 删除成功，释放端口
-			releasePort()
-		}
+	}
+	if err != nil {
+		return result, errors.WithStack(err)
 	}
 	// 清理完成，检查 obj 是否是正常状态，如果是，通常是手动删除 CLBBinding 场景，此时触发一次 obj 对账，让被删除的 CLBBinding 重新创建出来
 	backend, err := bd.GetAssociatedObject(ctx, r.Client)
@@ -736,6 +711,44 @@ func (r *CLBBindingReconciler[T]) cleanup(ctx context.Context, bd T) (result ctr
 	// 新的同名后端已经创建，通知对应 Controller 重新对账，以便让新的 CLBBinding 创建出来
 	backend.TriggerReconcile()
 	return result, nil
+}
+
+func (r *CLBBindingReconciler[T]) cleanupPortBinding(ctx context.Context, binding *networkingv1alpha1.PortBindingStatus) error {
+	lis, err := clb.GetListenerByIdOrPort(ctx, binding.Region, binding.LoadbalancerId, binding.ListenerId, int64(binding.LoadbalancerPort), binding.Protocol)
+	if err != nil {
+		return errors.WithStack(err)
+	}
+	releasePort := func() {
+		if portpool.Allocator.Release(binding.Pool, binding.LoadbalancerId, portFromPortBindingStatus(binding)) {
+			log.FromContext(ctx).V(3).Info("release allocated port", "port", binding.LoadbalancerPort, "protocol", binding.Protocol, "pool", binding.Pool, "lb", binding.LoadbalancerId)
+		}
+	}
+	if lis == nil { // 监听器已删除，忽略
+		releasePort()
+		return nil
+	}
+	// 解绑 lb
+	err = clb.DeleteListenerByIdOrPort(ctx, binding.Region, binding.LoadbalancerId, binding.ListenerId, int64(binding.LoadbalancerPort), binding.Protocol)
+	if err != nil {
+		errCause := errors.Cause(err)
+		switch errCause {
+		case clb.ErrListenerNotFound: // 监听器不存在，忽略
+			log.FromContext(ctx).Info("delete listener while listener not found, ignore")
+			releasePort()
+			return nil
+		default:
+			if clb.IsLoadBalancerNotExistsError(errCause) { // lb 不存在，忽略
+				log.FromContext(ctx).Info("lb not found, ignore when cleanup listener")
+				releasePort()
+				return nil
+			}
+		}
+		// 其它错误，不释放端口，返回错误
+		return errors.WithStack(err)
+	} else { // 没有错误，删除成功
+		releasePort()
+		return nil
+	}
 }
 
 func generatePortsFromAnnotation(anno string) (ports []networkingv1alpha1.PortEntry, err error) {
@@ -886,8 +899,8 @@ func (r *CLBBindingReconciler[T]) syncCLBBinding(ctx context.Context, obj client
 			}
 		}
 	default:
-		// 没有配置注解，如发现有 CLBBinding，则删除掉
-		if err == nil {
+		// 没有配置注解
+		if err == nil { // 没有错误，说明获取 CLBBinding 成功，删除掉这个多余的 CLBBinding
 			r.Recorder.Eventf(obj, corev1.EventTypeNormal, "DeleteCLBBinding", "delete %s %s", binding.GetType(), obj.GetName())
 			if err := r.Delete(ctx, bd); err != nil {
 				return result, errors.WithStack(err)

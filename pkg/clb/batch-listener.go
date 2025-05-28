@@ -159,18 +159,17 @@ func startDescribeListenerProccessor(concurrent int) {
 	apiName := "DescribeListeners"
 	StartBatchProccessor(concurrent, apiName, false, DescribeListenerChan, func(region, lbId string, tasks []*DescribeListenerTask) {
 		startTime := time.Now()
-		defer func() {
-			clbLog.V(10).Info(fmt.Sprintf("batch proccess %s performance", apiName), "cost", time.Since(startTime).String())
-		}()
-		req := clb.NewDescribeListenersRequest()
-		req.LoadBalancerId = &lbId
-		for _, task := range tasks {
-			req.ListenerIds = append(req.ListenerIds, &task.ListenerId)
-		}
-		client := GetClient(region)
-		before := time.Now()
-		resp, err := client.DescribeListeners(req)
-		LogAPI(nil, apiName, req, resp, time.Since(before), err)
+		res, reqCount, err := ApiCall(context.Background(), "DescribeListeners", region, func(ctx context.Context, client *clb.Client) (req *clb.DescribeListenersRequest, res *clb.DescribeListenersResponse, err error) {
+			req = clb.NewDescribeListenersRequest()
+			req.LoadBalancerId = &lbId
+			for _, task := range tasks {
+				req.ListenerIds = append(req.ListenerIds, &task.ListenerId)
+			}
+			res, err = client.DescribeListenersWithContext(ctx, req)
+			return
+		})
+		clbLog.V(10).Info("batch proccess performance", "api", apiName, "cost", time.Since(startTime).String(), "reqCount", reqCount)
+		// 查询失败，所有 task 都失败，全部返回错误
 		if err != nil {
 			for _, task := range tasks {
 				task.Result <- &DescribeListenerResult{
@@ -179,11 +178,13 @@ func startDescribeListenerProccessor(concurrent int) {
 			}
 			return
 		}
+		// 查询成功
 		taskMap := make(map[string]*DescribeListenerTask)
 		for _, task := range tasks {
 			taskMap[task.ListenerId] = task
 		}
-		for _, lis := range resp.Response.Listeners {
+		// 给查到结果的 task 返回 listener 信息
+		for _, lis := range res.Response.Listeners {
 			task := taskMap[*lis.ListenerId]
 			result := &DescribeListenerResult{
 				Listener: &Listener{
@@ -199,11 +200,9 @@ func startDescribeListenerProccessor(concurrent int) {
 			task.Result <- result
 			delete(taskMap, *lis.ListenerId)
 		}
-		for listenerId, task := range taskMap {
-			err = errors.Wrapf(ErrListenerNotFound, "listener %s not found", listenerId)
-			task.Result <- &DescribeListenerResult{
-				Err: err,
-			}
+		// 不存在的 listener 返回空结果
+		for _, task := range taskMap { // 没找到监听器，返回空结果
+			task.Result <- &DescribeListenerResult{}
 		}
 	})
 }

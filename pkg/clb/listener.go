@@ -62,19 +62,19 @@ func GetListenerByIdOrPort(ctx context.Context, region, lbId string, listenerId 
 }
 
 func GetListenerByPort(ctx context.Context, region, lbId string, port int64, protocol string) (lis *Listener, err error) {
-	req := clb.NewDescribeListenersRequest()
-	req.Port = &port
-	req.LoadBalancerId = &lbId
-	req.Protocol = &protocol
-	client := GetClient(region)
-	before := time.Now()
-	resp, err := client.DescribeListenersWithContext(ctx, req)
-	LogAPI(ctx, "DescribeListeners", req, resp, time.Since(before), err)
+	res, _, err := ApiCall(ctx, "DescribeListeners", region, func(ctx context.Context, client *clb.Client) (req *clb.DescribeListenersRequest, res *clb.DescribeListenersResponse, err error) {
+		req = clb.NewDescribeListenersRequest()
+		req.Port = &port
+		req.LoadBalancerId = &lbId
+		req.Protocol = &protocol
+		res, err = client.DescribeListenersWithContext(ctx, req)
+		return
+	})
 	if err != nil {
 		return nil, errors.WithStack(err)
 	}
-	if len(resp.Response.Listeners) > 0 { // TODO: 精细化判断数量(超过1个的不可能发生的情况)
-		lis = convertListener(resp.Response.Listeners[0])
+	if len(res.Response.Listeners) > 0 {
+		lis = convertListener(res.Response.Listeners[0])
 		return
 	}
 	return
