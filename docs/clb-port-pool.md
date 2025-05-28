@@ -289,83 +289,6 @@ annotations:
     networking.cloud.tencent.com/clb-port-mapping-status: Ready
 ```
 
-## 多线接入场景使用多端口池映射
-
-CLB 默认使用 BGP 多运营商接入，带宽成本较高，游戏场景通常要消耗巨大的带宽资源，为节约成本，可以考虑使用 CLB 的单线 IP，通过多个不同运营商 IP 的 CLB 来实现多线接入（电信玩家连上电信 CLB，联通玩家连上联通 CLB，移动玩家连上移动 CLB，其它的 fallback 到 BGP CLB），这样可以节约大量带宽成本。
-
-下面介绍配置方法，首先创建多个端口池，一个运营商一个端口池，分别为电信、联通、移动创建各自的 CLB 端口池，另外再创建一个 BGP 类型的端口池：
-
-```yaml
-apiVersion: networking.cloud.tencent.com/v1alpha1
-kind: CLBPortPool
-metadata:
-  name: pool-ctcc # 电信 CLB 端口池
-spec:
-  startPort: 30000
-  exsistedLoadBalancerIDs: [lb-04i895jh, lb-04i87jjk] # 指定已有的电信 CLB 实例 ID，可动态追加
-  autoCreate:
-    enabled: true # 电信 CLB 端口不足时自动创建电信 CLB
-    parameters: # 指定电信 CLB 创建参数
-      vipIsp: CTCC # 指定运营商为电信
-      bandwidthPackageId: bwp-40ykow69 # 指定电信带宽包 ID
----
-apiVersion: networking.cloud.tencent.com/v1alpha1
-kind: CLBPortPool
-metadata:
-  name: pool-cmcc # 移动 CLB 端口池
-spec:
-  startPort: 30000
-  exsistedLoadBalancerIDs: [lb-jjgsqldb, lb-08jk7hh] # 指定已有的移动 CLB 实例 ID，可动态追加
-  autoCreate:
-    enabled: true # 移动 CLB 端口不足时自动创建电信 CLB
-    parameters: # 指定移动 CLB 创建参数
-      vipIsp: CMCC # 指定运营商为移动
-      bandwidthPackageId: bwp-97yjlal5 # 指定移动带宽包 ID
----
-apiVersion: networking.cloud.tencent.com/v1alpha1
-kind: CLBPortPool
-metadata:
-  name: pool-cucc # 联通 CLB 端口池
-spec:
-  startPort: 30000
-  exsistedLoadBalancerIDs: [lb-cxxc6xup, lb-mq3rs6h9] # 指定已有的联通 CLB 实例 ID，可动态追加
-  autoCreate:
-    enabled: true # 联通 CLB 端口不足时自动创建电信 CLB
-    parameters: # 指定联通 CLB 创建参数
-      vipIsp: CUCC # 指定运营商为联通
-      bandwidthPackageId: bwp-97yjlal5 # 指定联通带宽包 ID
----
-apiVersion: networking.cloud.tencent.com/v1alpha1
-kind: CLBPortPool
-metadata:
-  name: pool-bgp # BGP CLB 端口池
-spec:
-  startPort: 30000
-  autoCreate:
-    enabled: true # 不指定运营商，默认创建 BGP 类型的 CLB
-```
-
-然后在 Pod 注解中配置端口映射，将这些端口池都加上去，表示从每个端口池都各自分配一个公网映射：
-
-```yaml
-metadata:
-  annotations:
-    networking.cloud.tencent.com/enable-clb-port-mapping: "true"
-    networking.cloud.tencent.com/clb-port-mapping: |-
-      8000 TCPUDP pool-ctcc,pool-cmcc,pool-cucc,pool-bgp useSamePortAcrossPools
-```
-
-映射效果如下：
-
-![](images/multi-isp.jpg)
-
-解释：
-
-1. Pod 端口同时监听 TCP 和 UDP，映射规则中的协议指定为 `TCPUDP`，CLB 映射公网地址时，会分别使用 TCP 和 UDP 两个相同端口号的不同监听器进行映射。
-2. 使用多个端口池进行映射，用逗号隔开，每个端口池分别都会为 Pod 映射各自公网地址。
-3. 追加 `useSamePortAcrossPools` 选项表示同一个 Pod 在所有端口池中分配到的端口号相同。可用于简化游戏客户端的连接游戏服务端公网地址的 fallback 逻辑（只需决定连接哪个 IP，不需要关心不同 IP 连接不同端口的情况）。
-4. 综上，最终每个 Pod 的每个端口会被映射四个公网地址，算上 TCP 和 UDP 同时监听，每个 Pod 端口使用 8 个 CLB 监听器映射公网地址。
-5. 每个游戏服既同时提供 TCP 和 UDP 协议，又同时提供多个 ISP 的公网地址，游戏客户端可根据玩家网络环境实现灵活的自动 fallback 能力：玩家的游戏客户端优先连上当前网络运营商对应的 CLB 映射地址以节约带宽成本，如果是其它运营商，再自动 fallback 到通用的 BGP CLB 地址；如果玩家的网络环境 UDP 无法正常工作，游戏客户端再自动 fallback 到 TCP 协议进行通信。
 
 ## 大规模场景下的端口映射
 
@@ -453,7 +376,10 @@ networking.cloud.tencent.com/clb-port-mapping: |-
 2. 插件为 CLB 创建端口段监听器并绑定节点，端口段区间大小通常为 HostPort 自动分配的端口范围大小。
 3. Pod 调度到节点，插件根据 Pod 所调度到的节点被 CLB 端口段监听器的绑定情况和 Pod 被分配的 HostPort，自动计算出 Pod 在 CLB 中对外映射的端口号，完成映射。
 
-相比之下，方案二是 1 个端口段监听器映射 1 个 Pod 中所有 DS 监听器端口，而方案三则是 1 个端口段监听器映射 1 个节点中所有 Pod 的 DS 监听的端口，因此在使用相同监听器数量的情况下可映射的 Pod 数量方案三远大于方案二。
+相比之下，方案二是 1 个端口段监听器映射 1 个 Pod 中所有 DS 监听器端口，而方案三则是 1 个端口段监听器映射 1 个节点中所有 Pod 的 DS 监听的端口，因此在使用相同监听器数量的情况下可映射的 Pod 数量方案三远大于方案二，不过也会带来一些限制：
+1. **必须**使用**原生节点**调度 Pod（需使用 HostPort，而超级节点是虚拟节点，没有 HostPort）。
+2. **必须**使用支持 HostPort 动态分配的工作负载类型（Agones 的 Fleet 和 OpenKruiseGame 的 GameServerSet）。
+3. 如果需要实现 Pod 的端口同时用 TCP 和 UDP 协议对外暴露且保持端口号相同，还依赖动态分配 HostPort 的工作负载类型支持分配 TCP 和 UDP 相同端口号的 HostPort，目前已知 Agones 支持（定义 port 的 protocol 时指定 `TCPUDP`，参考 [`#1532`](https://github.com/googleforgames/agones/issues/1523)）。
 
 具体如何配置呢？参考以下方法。
 
@@ -500,11 +426,7 @@ networking.cloud.tencent.com/clb-port-mapping: "7000 TCPUDP pool-test2"
         template:
           spec:
             ports:
-            - name: udp
-              protocol: UDP
-              containerPort: 7654
-            - name: tcp
-              protocol: TCP
+              protocol: TCPUDP # 指定 TCPUDP 可保证分配的 TCP 和 UDP 两个 HostPort 端口号相同
               containerPort: 7654
             template:
               metadata:
@@ -553,6 +475,191 @@ networking.cloud.tencent.com/clb-hostport-mapping-result: '[{"containerPort":765
 networking.cloud.tencent.com/clb-hostport-mapping-status: Ready
 networking.cloud.tencent.com/enable-clb-hostport-mapping: "true"
 ```
+
+## 多线接入场景使用多端口池映射
+
+### 为什么要使用多线接入
+
+CLB 默认使用 BGP 多运营商接入，带宽成本较高，游戏场景通常要消耗巨大的带宽资源，为节约成本，可以考虑使用 CLB 的单线 IP，通过多个不同运营商 IP 的 CLB 来实现多线接入（电信玩家连上电信 CLB，联通玩家连上联通 CLB，移动玩家连上移动 CLB，其它的 fallback 到 BGP CLB），这样可以节约大量带宽成本。
+
+### 多线接入场景的配置方法
+
+下面介绍配置方法，首先创建多个端口池，一个运营商一个端口池，分别为电信、联通、移动创建各自的 CLB 端口池，另外再创建一个 BGP 类型的端口池：
+
+```yaml
+apiVersion: networking.cloud.tencent.com/v1alpha1
+kind: CLBPortPool
+metadata:
+  name: pool-ctcc # 电信 CLB 端口池
+spec:
+  startPort: 30000
+  exsistedLoadBalancerIDs: [lb-04i895jh, lb-04i87jjk] # 指定已有的电信 CLB 实例 ID，可动态追加
+  autoCreate:
+    enabled: true # 电信 CLB 端口不足时自动创建电信 CLB
+    parameters: # 指定电信 CLB 创建参数
+      vipIsp: CTCC # 指定运营商为电信
+      bandwidthPackageId: bwp-40ykow69 # 指定电信带宽包 ID
+---
+apiVersion: networking.cloud.tencent.com/v1alpha1
+kind: CLBPortPool
+metadata:
+  name: pool-cmcc # 移动 CLB 端口池
+spec:
+  startPort: 30000
+  exsistedLoadBalancerIDs: [lb-jjgsqldb, lb-08jk7hh] # 指定已有的移动 CLB 实例 ID，可动态追加
+  autoCreate:
+    enabled: true # 移动 CLB 端口不足时自动创建电信 CLB
+    parameters: # 指定移动 CLB 创建参数
+      vipIsp: CMCC # 指定运营商为移动
+      bandwidthPackageId: bwp-97yjlal5 # 指定移动带宽包 ID
+---
+apiVersion: networking.cloud.tencent.com/v1alpha1
+kind: CLBPortPool
+metadata:
+  name: pool-cucc # 联通 CLB 端口池
+spec:
+  startPort: 30000
+  exsistedLoadBalancerIDs: [lb-cxxc6xup, lb-mq3rs6h9] # 指定已有的联通 CLB 实例 ID，可动态追加
+  autoCreate:
+    enabled: true # 联通 CLB 端口不足时自动创建电信 CLB
+    parameters: # 指定联通 CLB 创建参数
+      vipIsp: CUCC # 指定运营商为联通
+      bandwidthPackageId: bwp-97yjlal5 # 指定联通带宽包 ID
+---
+apiVersion: networking.cloud.tencent.com/v1alpha1
+kind: CLBPortPool
+metadata:
+  name: pool-bgp # BGP CLB 端口池
+spec:
+  startPort: 30000
+  exsistedLoadBalancerIDs: [lb-cx8c6xxa, lb-mq8rs9hk] # 指定已有的 BGP CLB 实例 ID，可动态追加
+  autoCreate:
+    enabled: true # 不指定运营商，默认创建 BGP 类型的 CLB
+```
+
+然后在 Pod 注解中配置端口映射，将这些端口池都加上去，表示从每个端口池都各自分配一个公网映射：
+
+```yaml
+metadata:
+  annotations:
+    networking.cloud.tencent.com/enable-clb-port-mapping: "true"
+    networking.cloud.tencent.com/clb-port-mapping: |-
+      8000 TCPUDP pool-ctcc,pool-cmcc,pool-cucc,pool-bgp useSamePortAcrossPools
+```
+
+### 映射效果与解释
+
+映射效果如下：
+
+![](images/multi-isp.jpg)
+
+解释：
+
+1. Pod 端口同时监听 TCP 和 UDP，映射规则中的协议指定为 `TCPUDP`，CLB 映射公网地址时，会分别使用 TCP 和 UDP 两个相同端口号的不同监听器进行映射。
+2. 使用多个端口池进行映射，用逗号隔开，每个端口池分别都会为 Pod 映射各自公网地址。
+3. 追加 `useSamePortAcrossPools` 选项表示同一个 Pod 在所有端口池中分配到的端口号相同。可用于简化游戏客户端的连接游戏服务端公网地址的 fallback 逻辑（只需决定连接哪个 IP，不需要关心不同 IP 连接不同端口的情况）。
+4. 综上，最终每个 Pod 的每个端口会被映射四个公网地址，算上 TCP 和 UDP 同时监听，每个 Pod 端口使用 8 个 CLB 监听器映射公网地址。
+5. 每个游戏服既同时提供 TCP 和 UDP 协议，又同时提供多个 ISP 的公网地址，游戏客户端可根据玩家网络环境实现灵活的自动 fallback 能力：玩家的游戏客户端优先连上当前网络运营商对应的 CLB 映射地址以节约带宽成本，如果是其它运营商，再自动 fallback 到通用的 BGP CLB 地址；如果玩家的网络环境 UDP 无法正常工作，游戏客户端再自动 fallback 到 TCP 协议进行通信。
+
+### 大规模场景下的问题
+
+这种多线接入场景如果直接用 CLB 监听器绑定 Pod，消耗的 CLB 监听器数量会非常大，比如上面的例子中，一个端口同时监听 TCP 和 UDP，每个端口池要分 2 个 CLB 监听器，4 个端口池就要分 8 个监听器才能完成映射；如果 Pod 中有 2 个这样的端口就要消耗 16 个监听器才能完成 1 个 Pod 的端口映射。
+
+### 使用 CLB 端口段 + HostPort 优化大规模场景下的多线接入
+
+如何解决多线接入场景下 CLB 监听器数量消耗过多的问题？可参考上一节中**大规模场景下的端口映射**的**方案三：HostPort + CLB 端口段**（前提是接受其中提到的限制）。
+
+如果要保证 TCP 和 UDP 对外同端口号暴露，目前只有使用 Agones 的 Fleet 来部署 GameServer （只有 Agones 支持分配同端口号的 TCP + UDP 的 HostPort）。
+
+以下是配置方法：
+
+1. 创建多个端口池，与前面 **多线接入场景的配置方法** 中的方法基本相同，唯一不同的是要指定 `segmentLength`，表示分配 CLB 监听器时使用端口段监听器，且端口段大小为 1001：
+  ```yaml
+  apiVersion: networking.cloud.tencent.com/v1alpha1
+  kind: CLBPortPool
+  metadata:
+    name: pool-ctcc # 电信 CLB 端口池
+  spec:
+    startPort: 30000
+    segmentLength: 10001
+    exsistedLoadBalancerIDs: [lb-04i895jh, lb-04i87jjk] # 指定已有的电信 CLB 实例 ID，可动态追加
+    autoCreate:
+      enabled: true # 电信 CLB 端口不足时自动创建电信 CLB
+      parameters: # 指定电信 CLB 创建参数
+        vipIsp: CTCC # 指定运营商为电信
+        bandwidthPackageId: bwp-40ykow69 # 指定电信带宽包 ID
+  ---
+  apiVersion: networking.cloud.tencent.com/v1alpha1
+  kind: CLBPortPool
+  metadata:
+    name: pool-cmcc # 移动 CLB 端口池
+  spec:
+    startPort: 30000
+    segmentLength: 10001
+    exsistedLoadBalancerIDs: [lb-jjgsqldb, lb-08jk7hh] # 指定已有的移动 CLB 实例 ID，可动态追加
+    autoCreate:
+      enabled: true # 移动 CLB 端口不足时自动创建电信 CLB
+      parameters: # 指定移动 CLB 创建参数
+        vipIsp: CMCC # 指定运营商为移动
+        bandwidthPackageId: bwp-97yjlal5 # 指定移动带宽包 ID
+  ---
+  apiVersion: networking.cloud.tencent.com/v1alpha1
+  kind: CLBPortPool
+  metadata:
+    name: pool-cucc # 联通 CLB 端口池
+  spec:
+    startPort: 30000
+    segmentLength: 10001
+    exsistedLoadBalancerIDs: [lb-cxxc6xup, lb-mq3rs6h9] # 指定已有的联通 CLB 实例 ID，可动态追加
+    autoCreate:
+      enabled: true # 联通 CLB 端口不足时自动创建电信 CLB
+      parameters: # 指定联通 CLB 创建参数
+        vipIsp: CUCC # 指定运营商为联通
+        bandwidthPackageId: bwp-97yjlal5 # 指定联通带宽包 ID
+  ---
+  apiVersion: networking.cloud.tencent.com/v1alpha1
+  kind: CLBPortPool
+  metadata:
+    name: pool-bgp # BGP CLB 端口池
+  spec:
+    startPort: 30000
+    segmentLength: 10001
+    exsistedLoadBalancerIDs: [lb-cx8c6xxa, lb-mq8rs9hk] # 指定已有的 BGP CLB 实例 ID，可动态追加
+    autoCreate:
+      enabled: true # 不指定运营商，默认创建 BGP 类型的 CLB
+  ```
+3. 使用原生节点池，为节点配置以下注解：
+  ```yaml
+  networking.cloud.tencent.com/enable-clb-port-mapping: "true"
+  networking.cloud.tencent.com/clb-port-mapping: "7000 TCPUDP pool-ctcc,pool-cmcc,pool-cucc,pool-bgp useSamePortAcrossPools"
+  ```
+3. 使用 Agones Fleet 部署 GameServer，声明端口时，协议指定 `TCPUDP` 以便让 Agones 分配同端口号的 TCP 和 UDP 两个 HostPort 端口号；并加 Pod 注解 `networking.cloud.tencent.com/enable-clb-hostport-mapping: "true"` 声明开启 CLB + HostPort 端口映射：
+  ```yaml
+  apiVersion: agones.dev/v1
+  kind: Fleet
+  metadata:
+    name: simple-game-server
+  spec:
+    replicas: 5
+    scheduling: Packed
+    template:
+      spec:
+        ports:
+        - containerPort: 7654
+          protocol: TCPUDP # 指定 TCPUDP 可保证分配的 TCP 和 UDP 两个 HostPort 端口号相同
+        template:
+          metadata:
+            annotations:
+              networking.cloud.tencent.com/enable-clb-hostport-mapping: "true" # 开启 CLB + HostPort 端口映射
+          spec:
+            containers:
+            - image: docker.io/imroc/simple-game-server:0.36
+              name: gameserver
+  ```
+
+以下是操作演示：
+
+[![](https://image-host-1251893006.cos.ap-chengdu.myqcloud.com/videos/agones-clb-hostport-mapping.png)](https://image-host-1251893006.cos.ap-chengdu.myqcloud.com/videos/agones-clb-hostport-mapping.mp4)
 
 ## 内网 CLB 绑 EIP 映射
 
