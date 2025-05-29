@@ -81,7 +81,8 @@ func (r *CLBBindingReconciler[T]) sync(ctx context.Context, bd T) (result ctrl.R
 			}
 			return result, nil
 		}
-		if e, ok := errCause.(*portpool.ErrPoolNotFound); ok {
+
+		if e, ok := errCause.(*portpool.ErrPoolNotFound); ok { // 端口池可能不存在
 			poolName := e.Pool
 			pp := &networkingv1alpha1.CLBPortPool{}
 			if err := r.Client.Get(ctx, client.ObjectKey{Name: poolName}, pp); err != nil {
@@ -136,7 +137,7 @@ func (r *CLBBindingReconciler[T]) ensureCLBBinding(ctx context.Context, bd clbbi
 	if err := r.ensurePortAllocated(ctx, bd); err != nil {
 		return errors.WithStack(err)
 	}
-	// 确保所有监听器都已绑定到 backend
+	// 确保所有监听器都已创建并绑定到 backend
 	if err := r.ensureBackendBindings(ctx, bd); err != nil {
 		return errors.WithStack(err)
 	}
@@ -309,6 +310,7 @@ func (r *CLBBindingReconciler[T]) ensureListener(ctx context.Context, bd clbbind
 	}
 }
 
+// 确保监听器创建并绑定 rs
 func (r *CLBBindingReconciler[T]) ensureBackendBindings(ctx context.Context, bd clbbinding.CLBBinding) error {
 	status := bd.GetStatus()
 	backend, err := bd.GetAssociatedObject(ctx, r.Client)
@@ -322,9 +324,10 @@ func (r *CLBBindingReconciler[T]) ensureBackendBindings(ctx context.Context, bd 
 		// 其它错误，直接返回
 		return errors.WithStack(err)
 	}
+	// 获取 rs
 	node, err := backend.GetNode(ctx)
 	if err != nil {
-		if err == clbbinding.ErrNodeNameIsEmpty { // pod 还未调度
+		if err == clbbinding.ErrNodeNameIsEmpty { // pod 还未调度，更新状态和 event
 			r.Recorder.Event(bd.GetObject(), corev1.EventTypeNormal, "WaitBackend", "wait pod to be scheduled")
 			if err = r.ensureState(ctx, bd, networkingv1alpha1.CLBBindingStateWaitBackend); err != nil {
 				return errors.WithStack(err)
@@ -333,11 +336,15 @@ func (r *CLBBindingReconciler[T]) ensureBackendBindings(ctx context.Context, bd 
 		}
 		return errors.WithStack(err)
 	}
+
+	// rs 后端节点类型校验: 只支持原生节点和超级节点
 	if !util.IsNodeTypeSupported(node) {
-		if status.State != networkingv1alpha1.CLBBindingStateNodeTypeNotSupported {
+		if status.State != networkingv1alpha1.CLBBindingStateNodeTypeNotSupported { // 节点类型不支持
 			msg := "current node type is not supported, please use super node or native node"
+			// 给自定义资源（CLBNodeBinding/CLBPodBinding) 和关联的 K8S 对象（Node/Pod）都发送 event 告知原因
 			r.Recorder.Event(bd.GetObject(), corev1.EventTypeWarning, "NodeNotSupported", msg)
 			r.Recorder.Event(backend.GetObject(), corev1.EventTypeWarning, "NodeNotSupported", msg)
+			// 更新 clbbinding 状态
 			status.State = networkingv1alpha1.CLBBindingStateNodeTypeNotSupported
 			status.Message = msg
 			if err := r.Status().Update(ctx, bd.GetObject()); err != nil {
@@ -346,32 +353,39 @@ func (r *CLBBindingReconciler[T]) ensureBackendBindings(ctx context.Context, bd 
 		}
 		return nil
 	}
-	if backend.GetIP() == "" { // 等待 backend 分配 IP
+
+	// 如果 rs 还没有分配到 IP，更新状态和 event
+	if backend.GetIP() == "" { // 等待 backend (Node/Pod) 分配 IP
 		r.Recorder.Event(bd.GetObject(), corev1.EventTypeNormal, "WaitBackend", "wait backend network to be ready")
 		if err = r.ensureState(ctx, bd, networkingv1alpha1.CLBBindingStateWaitBackend); err != nil {
 			return errors.WithStack(err)
 		}
 	}
+
+	// rs 准备就绪，确保 CLB 监听器创建并绑定到 rs
 	type Result struct {
 		Binding *networkingv1alpha1.PortBindingStatus
 		Err     error
 	}
 	result := make(chan Result)
-	// backend 准备就绪，将 CLB 监听器绑定到 bacekend
-	for i := range status.PortBindings {
+	for i := range status.PortBindings { // 遍历所有 binding
 		binding := &status.PortBindings[i]
 		go func(binding *networkingv1alpha1.PortBindingStatus) {
+			// 确保 listener 创建并符合预期
 			binding, err := r.ensureListener(ctx, bd, binding)
-			if err != nil {
+			if err != nil { // 有 error，直接返回 result，不尝试绑定 rs
 				result <- Result{Binding: binding, Err: err}
 				return
 			}
+			// 如果 rs 有 IP， 确保 listener 绑定到 rs
 			if backend.GetIP() != "" {
 				err = r.ensurePortBound(ctx, bd, backend, binding)
 			}
 			result <- Result{Binding: binding, Err: err}
 		}(binding)
 	}
+
+	// 构造对账后的 bindings，如有变化，更新到 status
 	bindings := []networkingv1alpha1.PortBindingStatus{}
 	for range status.PortBindings {
 		r := <-result
@@ -381,10 +395,9 @@ func (r *CLBBindingReconciler[T]) ensureBackendBindings(ctx context.Context, bd 
 		bindings = append(bindings, *r.Binding)
 	}
 	clbbinding.SortPortBindings(bindings)
-	// 如果 bindings 有变化就 update 到 status，确保更新成功，避免过多失败重复调谐
-	if !reflect.DeepEqual(bindings, status.PortBindings) {
+	if !reflect.DeepEqual(bindings, status.PortBindings) { // 有变化，更新到 status
 		log.FromContext(ctx).V(3).Info("update port bindings", "old", status.PortBindings, "new", bindings)
-		err := util.RetryIfPossible(func() error {
+		err := util.RetryIfPossible(func() error { // 确保更新成功，避免丢失已创建的 listenerId，导致需要更多的查询判断，拖慢速度
 			_, err := bd.FetchObject(ctx, r.Client)
 			if err != nil {
 				return err
@@ -396,11 +409,12 @@ func (r *CLBBindingReconciler[T]) ensureBackendBindings(ctx context.Context, bd 
 			return errors.WithStack(err)
 		}
 	}
+	// 对账 bindings 有一个或多个 error 返回， 直接返回 error
 	if err != nil {
 		return errors.WithStack(err)
 	}
 
-	// 所有端口都已绑定，更新状态并将绑定信息写入 backend 注解
+	// 所有端口都已绑定成功，更新状态并将绑定信息写入 backend 注解
 	if status.State != networkingv1alpha1.CLBBindingStateBound {
 		cost := time.Since(bd.GetCreationTimestamp().Time)
 		log.FromContext(ctx).V(3).Info("binding performance", "cost", cost.String())
@@ -419,7 +433,7 @@ func (r *CLBBindingReconciler[T]) ensureBackendBindings(ctx context.Context, bd 
 		}
 	}
 
-	// 确保 status 注解正确
+	// 确保映射的结果写到 backend 资源的注解上
 	if err := r.ensureBackendStatusAnnotation(ctx, bd, backend); err != nil {
 		return errors.WithStack(err)
 	}
@@ -437,6 +451,7 @@ func lbStatusKey(poolName, lbId string) string {
 	return fmt.Sprintf("%s/%s", poolName, lbId)
 }
 
+// 确保映射的结果写到 backend 资源的注解上
 func (r *CLBBindingReconciler[T]) ensureBackendStatusAnnotation(ctx context.Context, bd clbbinding.CLBBinding, backend clbbinding.Backend) error {
 	lbStatuses := make(map[string]*networkingv1alpha1.LoadBalancerStatus)
 	getLbStatus := func(poolName, lbId string) (*networkingv1alpha1.LoadBalancerStatus, error) {
