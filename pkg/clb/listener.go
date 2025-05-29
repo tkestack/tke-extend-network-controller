@@ -33,16 +33,7 @@ func convertListener(lbLis *clb.Listener) *Listener {
 	return lis
 }
 
-// 如果有监听器 ID，尝试通过合并请求方式批量查询；如果没有监听器 ID，再尝试直接用端口查询
-func GetListenerByIdOrPort(ctx context.Context, region, lbId string, listenerId string, port int64, protocol string) (lis *Listener, err error) {
-	// 没有监听器 ID，尝试用端口+协议查询
-	if listenerId == "" {
-		lis, err = GetListenerByPort(ctx, region, lbId, port, protocol)
-		if err != nil {
-			err = errors.WithStack(err)
-		}
-		return
-	}
+func GetListenerById(ctx context.Context, region, lbId string, listenerId string) (lis *Listener, err error) {
 	// 有监听器 ID，尝试合并请求查询
 	task := &DescribeListenerTask{
 		Ctx:        ctx,
@@ -58,6 +49,23 @@ func GetListenerByIdOrPort(ctx context.Context, region, lbId string, listenerId 
 		return
 	}
 	lis = result.Listener
+	return
+}
+
+// 如果有监听器 ID，尝试通过合并请求方式批量查询；如果没有监听器 ID，再尝试直接用端口查询
+func GetListenerByIdOrPort(ctx context.Context, region, lbId string, listenerId string, port int64, protocol string) (lis *Listener, err error) {
+	// 没有监听器 ID，尝试用端口+协议查询
+	if listenerId == "" {
+		lis, err = GetListenerByPort(ctx, region, lbId, port, protocol)
+		if err != nil {
+			err = errors.WithStack(err)
+		}
+		return
+	}
+	lis, err = GetListenerById(ctx, region, lbId, listenerId)
+	if err != nil {
+		err = errors.WithStack(err)
+	}
 	return
 }
 

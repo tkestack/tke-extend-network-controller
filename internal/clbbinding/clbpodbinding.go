@@ -43,13 +43,15 @@ func (b *CLBPodBinding) GetType() string {
 	return "CLBPodBinding"
 }
 
-func (b *CLBPodBinding) GetNewest(ctx context.Context, c client.Client) (CLBBinding, error) {
-	pb := &networkingv1alpha1.CLBPodBinding{}
-	err := c.Get(ctx, client.ObjectKeyFromObject(b), pb)
+func (b *CLBPodBinding) FetchObject(ctx context.Context, c client.Client) (client.Object, error) {
+	cpb := &networkingv1alpha1.CLBPodBinding{}
+	err := c.Get(ctx, client.ObjectKeyFromObject(b.CLBPodBinding), cpb)
 	if err == nil {
-		b.CLBPodBinding = pb
+		b.CLBPodBinding = cpb
+		return cpb, nil
+	} else {
+		return nil, errors.WithStack(err)
 	}
-	return WrapCLBPodBinding(pb), err
 }
 
 type podBackend struct {

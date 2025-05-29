@@ -9,9 +9,13 @@ func IsLbIdNotFoundError(err error) bool {
 }
 
 func IsLoadBalancerNotExistsError(err error) bool {
-	return strings.Contains(err.Error(), "LoadBalancer not exists")
+	return strings.Contains(err.Error(), "LoadBalancer not exist")
 }
 
 func IsRequestLimitExceededError(err error) bool {
 	return strings.Contains(err.Error(), "RequestLimitExceeded")
+}
+
+func IsPortCheckFailedError(err error) bool {
+	return strings.Contains(err.Error(), "InvalidParameter.PortCheckFailed")
 }
