@@ -405,12 +405,20 @@ func (r *CLBBindingReconciler[T]) ensureBackendBindings(ctx context.Context, bd 
 		cost := time.Since(bd.GetCreationTimestamp().Time)
 		log.FromContext(ctx).V(3).Info("binding performance", "cost", cost.String())
 		r.Recorder.Event(bd.GetObject(), corev1.EventTypeNormal, "AllBound", "all targets bound to listener")
-		status.State = networkingv1alpha1.CLBBindingStateBound
-		status.Message = ""
-		if err := r.Status().Update(ctx, bd.GetObject()); err != nil {
+		if err := util.RetryIfPossible(func() error {
+			_, err := bd.FetchObject(ctx, r.Client)
+			if err != nil {
+				return err
+			}
+			status := bd.GetStatus()
+			status.State = networkingv1alpha1.CLBBindingStateBound
+			status.Message = ""
+			return r.Status().Update(ctx, bd.GetObject())
+		}); err != nil {
 			return errors.WithStack(err)
 		}
 	}
+
 	// 确保 status 注解正确
 	if err := r.ensureBackendStatusAnnotation(ctx, bd, backend); err != nil {
 		return errors.WithStack(err)
