@@ -28,7 +28,8 @@
                     "clb:DescribeTargets",
                     "clb:DescribeQuota",
                     "clb:DescribeTaskStatus",
-                    "vpc:DescribeAddresses"
+                    "vpc:DescribeAddresses",
+                    "cvm:DescribeAddresses"
                 ],
                 "resource": [
                     "*"
