@@ -198,6 +198,7 @@ func (r *CLBBindingReconciler[T]) createListener(ctx context.Context, bd clbbind
 			return binding, errors.WithStack(err)
 		}
 		if lis == nil { // 不存在，再次尝试创建
+			log.FromContext(ctx).V(3).Info("port check failed but no port exists, retry", "listenerId", lisId, "port", binding.LoadbalancerPort, "protocol", binding.Protocol, "lbId", binding.LoadbalancerId)
 			if lisId, err := createListener(); err != nil {
 				return binding, errors.WithStack(err)
 			} else { // 重试创建成功，记录最新的监听器 ID
