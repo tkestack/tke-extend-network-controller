@@ -103,7 +103,7 @@ func (r *CLBBindingReconciler[T]) sync(ctx context.Context, bd T) (result ctrl.R
 		// 如果是被云 API 限流（默认每秒 20 qps 限制），1s 后重新入队
 		if clb.IsRequestLimitExceededError(errCause) {
 			result.RequeueAfter = time.Second
-			log.FromContext(ctx).Info("requeue due to clb api request limit exceeded when reconciling")
+			log.FromContext(ctx).Info("requeue due to clb api request limit exceeded when reconciling", "err", err)
 			return result, nil
 		}
 
