@@ -64,6 +64,23 @@ func (r *CLBBindingReconciler[T]) sync(ctx context.Context, bd T) (result ctrl.R
 	// 确保所有端口都已分配且绑定 obj
 	if err := r.ensureCLBBinding(ctx, bd); err != nil {
 		errCause := errors.Cause(err)
+		if e, ok := errCause.(*portpool.ErrPoolNotFound); ok { // 分配端口时发现端口池不在分配器缓存中
+			// 看是否有这个端口池对象
+			poolName := e.Pool
+			pp := &networkingv1alpha1.CLBPortPool{}
+			if err := r.Client.Get(ctx, client.ObjectKey{Name: poolName}, pp); err != nil {
+				if apierrors.IsNotFound(err) { // 端口池确实不存在，更新状态和 event
+					r.Recorder.Event(bd.GetObject(), corev1.EventTypeWarning, "PoolNotFound", "port pool not found, please check the port pool name")
+					if err := r.ensureState(ctx, bd, networkingv1alpha1.CLBBindingStatePortPoolNotFound); err != nil {
+						return result, errors.WithStack(err)
+					}
+					return result, nil
+				}
+				return result, errors.WithStack(err)
+			} else { // 端口池存在，但还没更新到分配器缓存，忽略，等待端口池就绪后会自动触发重新对账
+				return result, nil
+			}
+		}
 		// 1. 扩容了 lb、或者正在扩容，忽略，因为会自动触发对账。
 		// 2. 端口不足无法分配、端口池不存在，忽略，因为如果端口池不改正或扩容 lb，无法重试成功。
 		// 3. lb 被删除或监听器被删除，自动移除了 status 中的记录，需重新入队对账。
@@ -80,25 +97,6 @@ func (r *CLBBindingReconciler[T]) sync(ctx context.Context, bd T) (result ctrl.R
 				return result, errors.WithStack(err)
 			}
 			return result, nil
-		}
-
-		if e, ok := errCause.(*portpool.ErrPoolNotFound); ok { // 端口池可能不存在
-			poolName := e.Pool
-			pp := &networkingv1alpha1.CLBPortPool{}
-			if err := r.Client.Get(ctx, client.ObjectKey{Name: poolName}, pp); err != nil {
-				if apierrors.IsNotFound(err) { // 端口池确实不存在，更新状态和 event
-					r.Recorder.Event(bd.GetObject(), corev1.EventTypeWarning, "PoolNotFound", "port pool not found, please check the port pool name")
-					if err := r.ensureState(ctx, bd, networkingv1alpha1.CLBBindingStatePortPoolNotFound); err != nil {
-						return result, errors.WithStack(err)
-					}
-					return result, nil
-				}
-				return result, errors.WithStack(err)
-			} else { // 端口池存在，但还没更新到分配器缓存，重新入队
-				result.RequeueAfter = 20 * time.Millisecond
-				log.FromContext(ctx).Info("requeue due to port pool not ready yet")
-				return result, nil
-			}
 		}
 		// 如果是被云 API 限流（默认每秒 20 qps 限制），1s 后重新入队
 		if clb.IsRequestLimitExceededError(errCause) {
@@ -879,7 +877,7 @@ func (r *CLBBindingReconciler[T]) syncCLBBinding(ctx context.Context, obj client
 				}
 				log.FromContext(ctx).V(10).Info("create clbbinding", "binding", bd)
 				if err := r.Create(ctx, bd); err != nil {
-					if !apierrors.IsAlreadyExists(err) { // 已存在，通常是刚刚创建了但 cache 还没更新导致，忽略错误
+					if apierrors.IsAlreadyExists(err) { // 已存在，通常是刚刚创建了但 cache 还没更新导致，忽略错误
 						return result, nil
 					} else {
 						r.Recorder.Eventf(obj, corev1.EventTypeWarning, "CreateCLBBinding", "create %s %s failed: %s", binding.GetType(), obj.GetName(), err.Error())

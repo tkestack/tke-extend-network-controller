@@ -46,9 +46,10 @@ func ReconcileWithFinalizer[T client.Object](ctx context.Context, req ctrl.Reque
 		if obj.GetDeletionTimestamp().IsZero() { // 没有删除
 			// 确保 finalizer 存在，阻塞资源删除
 			if !controllerutil.ContainsFinalizer(obj, constant.Finalizer) {
-				controllerutil.AddFinalizer(obj, constant.Finalizer)
-				if err := apiClient.Update(ctx, obj); err != nil {
-					return ctrl.Result{}, errors.WithStack(err)
+				if controllerutil.AddFinalizer(obj, constant.Finalizer) {
+					if err := apiClient.Update(ctx, obj); err != nil {
+						return ctrl.Result{}, errors.WithStack(err)
+					}
 				}
 			}
 			// 执行同步函数
@@ -71,9 +72,10 @@ func ReconcileWithFinalizer[T client.Object](ctx context.Context, req ctrl.Reque
 				return result, nil
 			}
 			// 移除 finalizer，让资源最终被删除
-			controllerutil.RemoveFinalizer(obj, constant.Finalizer)
-			if err = apiClient.Update(ctx, obj); err != nil {
-				return result, errors.WithStack(err)
+			if controllerutil.RemoveFinalizer(obj, constant.Finalizer) {
+				if err = apiClient.Update(ctx, obj); err != nil {
+					return result, errors.WithStack(err)
+				}
 			}
 			return result, nil
 		}
