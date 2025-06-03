@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
-	"time"
 
 	"github.com/imroc/tke-extend-network-controller/pkg/util"
 	"github.com/pkg/errors"
@@ -222,19 +221,15 @@ var (
 func startDeleteListenerProccessor(concurrent int) {
 	apiName := "DeleteLoadBalancerListeners"
 	StartBatchProccessor(concurrent, apiName, true, DeleteListenerChan, func(region, lbId string, tasks []*DeleteListenerTask) {
-		startTime := time.Now()
-		defer func() {
-			clbLog.V(10).Info(fmt.Sprintf("batch proccess %s performance", apiName), "cost", time.Since(startTime).String())
-		}()
-		req := clb.NewDeleteLoadBalancerListenersRequest()
-		req.LoadBalancerId = &lbId
-		for _, task := range tasks {
-			req.ListenerIds = append(req.ListenerIds, &task.ListenerId)
-		}
-		client := GetClient(region)
-		before := time.Now()
-		resp, err := client.DeleteLoadBalancerListeners(req)
-		LogAPI(nil, apiName, req, resp, time.Since(before), err)
+		res, err := ApiCall(context.Background(), apiName, region, func(ctx context.Context, client *clb.Client) (req *clb.DeleteLoadBalancerListenersRequest, res *clb.DeleteLoadBalancerListenersResponse, err error) {
+			req = clb.NewDeleteLoadBalancerListenersRequest()
+			req.LoadBalancerId = &lbId
+			for _, task := range tasks {
+				req.ListenerIds = append(req.ListenerIds, &task.ListenerId)
+			}
+			res, err = client.DeleteLoadBalancerListeners(req)
+			return
+		})
 		if err != nil {
 			// 部分要删除的监听器不存在
 			if strings.Contains(err.Error(), "Code=InvalidParameter") && strings.Contains(err.Error(), "some ListenerId") && strings.Contains(err.Error(), "not found") {
@@ -254,7 +249,7 @@ func startDeleteListenerProccessor(concurrent int) {
 			}
 			return
 		}
-		_, err = Wait(context.Background(), region, *resp.Response.RequestId, apiName)
+		_, err = Wait(context.Background(), region, *res.Response.RequestId, apiName)
 		if err != nil {
 			for _, task := range tasks {
 				task.Result <- err
