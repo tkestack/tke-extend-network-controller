@@ -17,6 +17,7 @@ var envMap = map[string]string{
 	"API_RATELIMIT_BATCH_REGISTER_TARGETS":         "BatchRegisterTargets",
 	"API_RATELIMIT_DESCRIBE_TARGETS":               "DescribeTargets",
 	"API_RATELIMIT_BATCH_DEREGISTER_TARGETS":       "BatchDeregisterTargets",
+	"API_RATELIMIT_DESCRIBE_TASK_STATUS":           "DescribeTaskStatus",
 }
 
 func init() {

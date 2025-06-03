@@ -90,6 +90,10 @@ spec:
         - name: API_RATELIMIT_BATCH_DEREGISTER_TARGETS
           value: "{{ . }}"
         {{- end }}
+        {{- with .Values.apiRateLimit.DescribeTaskStatus }}
+        - name: API_RATELIMIT_DESCRIBE_TASK_STATUS
+          value: "{{ . }}"
+        {{- end }}
         envFrom:
         - secretRef:
             name: {{ include "tke-extend-network-controller.fullname" . }}-env
