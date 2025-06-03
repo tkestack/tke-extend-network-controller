@@ -30,26 +30,26 @@ var RegisterTargetChan = make(chan *RegisterTargetTask, 100)
 func startRegisterTargetsProccessor(concurrent int) {
 	apiName := "BatchRegisterTargets"
 	StartBatchProccessor(concurrent, apiName, true, RegisterTargetChan, func(region, lbId string, tasks []*RegisterTargetTask) {
-		req := clb.NewBatchRegisterTargetsRequest()
-		req.LoadBalancerId = &lbId
-		for _, task := range tasks {
-			req.Targets = append(req.Targets, &clb.BatchTarget{
-				ListenerId: &task.ListenerId,
-				Port:       &task.Target.TargetPort,
-				EniIp:      &task.Target.TargetIP,
-			})
-		}
-		client := GetClient(region)
-		before := time.Now()
-		resp, err := client.BatchRegisterTargets(req)
-		LogAPI(nil, apiName, req, resp, time.Since(before), err)
+		res, err := ApiCall(context.Background(), apiName, region, func(ctx context.Context, client *clb.Client) (req *clb.BatchRegisterTargetsRequest, res *clb.BatchRegisterTargetsResponse, err error) {
+			req = clb.NewBatchRegisterTargetsRequest()
+			req.LoadBalancerId = &lbId
+			for _, task := range tasks {
+				req.Targets = append(req.Targets, &clb.BatchTarget{
+					ListenerId: &task.ListenerId,
+					Port:       &task.Target.TargetPort,
+					EniIp:      &task.Target.TargetIP,
+				})
+			}
+			res, err = client.BatchRegisterTargets(req)
+			return
+		})
 		if err != nil {
 			for _, task := range tasks {
 				task.Result <- err
 			}
 			return
 		}
-		_, err = Wait(context.Background(), region, *resp.Response.RequestId, apiName)
+		_, err = Wait(context.Background(), region, *res.Response.RequestId, apiName)
 		for _, task := range tasks {
 			task.Result <- err
 		}
