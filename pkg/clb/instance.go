@@ -3,9 +3,10 @@ package clb
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"time"
+
+	"github.com/pkg/errors"
 
 	"github.com/imroc/tke-extend-network-controller/pkg/clusterinfo"
 	"github.com/imroc/tke-extend-network-controller/pkg/util"
@@ -171,22 +172,21 @@ type CLBInfo struct {
 }
 
 func BatchGetClbInfo(ctx context.Context, lbIds []string, region string) (info map[string]*CLBInfo, err error) {
-	log.FromContext(ctx).V(10).Info("BatchGetClbInfo", "lbIds", lbIds)
-	client := GetClient(region)
-	req := clb.NewDescribeLoadBalancersRequest()
-	req.LoadBalancerIds = common.StringPtrs(lbIds)
-	before := time.Now()
-	resp, err := client.DescribeLoadBalancersWithContext(ctx, req)
-	LogAPI(ctx, "DescribeLoadBalancers", req, resp, time.Since(before), err)
-	if err != nil {
+	res, err := ApiCall(context.Background(), "DescribeLoadBalancers", region, func(ctx context.Context, client *clb.Client) (req *clb.DescribeLoadBalancersRequest, res *clb.DescribeLoadBalancersResponse, err error) {
+		req = clb.NewDescribeLoadBalancersRequest()
+		req.LoadBalancerIds = common.StringPtrs(lbIds)
+		res, err = client.DescribeLoadBalancersWithContext(ctx, req)
 		return
+	})
+	if err != nil {
+		return nil, errors.WithStack(err)
 	}
-	if *resp.Response.TotalCount == 0 || len(resp.Response.LoadBalancerSet) == 0 {
+	if *res.Response.TotalCount == 0 || len(res.Response.LoadBalancerSet) == 0 {
 		return
 	}
 	info = make(map[string]*CLBInfo)
 	insIds := []*string{}
-	for _, ins := range resp.Response.LoadBalancerSet {
+	for _, ins := range res.Response.LoadBalancerSet {
 		lbInfo := &CLBInfo{
 			LoadbalancerID:   *ins.LoadBalancerId,
 			LoadbalancerName: *ins.LoadBalancerName,
@@ -203,23 +203,25 @@ func BatchGetClbInfo(ctx context.Context, lbIds []string, region string) (info m
 		insIds = append(insIds, ins.LoadBalancerId)
 	}
 	vpcClient := vpcpkg.GetClient(region)
-	addrReq := vpc.NewDescribeAddressesRequest()
-	addrReq.Filters = []*vpc.Filter{
-		{
-			Name:   common.StringPtr("instance-id"),
-			Values: insIds,
-		},
-	}
-	addrResp, err := vpcClient.DescribeAddressesWithContext(ctx, addrReq)
-	if err != nil {
+	addrResp, err := ApiCall(context.Background(), "DescribeAddresses", region, func(ctx context.Context, client *clb.Client) (req *vpc.DescribeAddressesRequest, res *vpc.DescribeAddressesResponse, err error) {
+		req = vpc.NewDescribeAddressesRequest()
+		req.Filters = []*vpc.Filter{
+			{
+				Name:   common.StringPtr("instance-id"),
+				Values: insIds,
+			},
+		}
+		res, err = vpcClient.DescribeAddressesWithContext(ctx, req)
 		return
+	})
+	if err != nil {
+		return nil, errors.WithStack(err)
 	}
-	vpcpkg.LogAPI(ctx, "DescribeAddresses", addrReq, addrResp, err)
 	for _, addr := range addrResp.Response.AddressSet {
-		log.FromContext(ctx).Info("got clb eip addr", "instanceId", addr.InstanceId)
+		log.FromContext(ctx).V(3).Info("got clb eip addr", "instanceId", addr.InstanceId)
 		if addr.InstanceId != nil {
 			if lbInfo, ok := info[*addr.InstanceId]; ok {
-				log.FromContext(ctx).Info("set clb eip addr", "instanceId", addr.InstanceId, "eip", *addr.AddressIp)
+				log.FromContext(ctx).V(3).Info("set clb eip addr", "instanceId", addr.InstanceId, "eip", *addr.AddressIp)
 				lbInfo.Ips = []string{*addr.AddressIp}
 			}
 		}
