@@ -12,6 +12,11 @@ import (
 func ApiCall[Req, Res any](ctx context.Context, apiName, region string, doReq func(ctx context.Context, client *clb.Client) (req Req, res Res, err error)) (res Res, reqCount int, err error) {
 	client := GetClient(region)
 	for {
+		if l, ok := limiter[apiName]; ok {
+			if err = l.Wait(ctx); err != nil {
+				return
+			}
+		}
 		before := time.Now()
 		req, res, err := doReq(ctx, client)
 		LogAPI(ctx, apiName, req, res, time.Since(before), err)
