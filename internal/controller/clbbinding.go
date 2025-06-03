@@ -879,8 +879,12 @@ func (r *CLBBindingReconciler[T]) syncCLBBinding(ctx context.Context, obj client
 				}
 				log.FromContext(ctx).V(10).Info("create clbbinding", "binding", bd)
 				if err := r.Create(ctx, bd); err != nil {
-					r.Recorder.Eventf(obj, corev1.EventTypeWarning, "CreateCLBBinding", "create %s %s failed: %s", binding.GetType(), obj.GetName(), err.Error())
-					return result, errors.WithStack(err)
+					if !apierrors.IsAlreadyExists(err) { // 已存在，通常是刚刚创建了但 cache 还没更新导致，忽略错误
+						return result, nil
+					} else {
+						r.Recorder.Eventf(obj, corev1.EventTypeWarning, "CreateCLBBinding", "create %s %s failed: %s", binding.GetType(), obj.GetName(), err.Error())
+						return result, errors.WithStack(err)
+					}
 				}
 				r.Recorder.Eventf(obj, corev1.EventTypeNormal, "CreateCLBBinding", "create %s %s successfully", binding.GetType(), obj.GetName())
 			} else { // 其它错误，直接返回错误
