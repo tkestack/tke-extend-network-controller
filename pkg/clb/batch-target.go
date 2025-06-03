@@ -3,7 +3,6 @@ package clb
 import (
 	"context"
 	"fmt"
-	"time"
 
 	clb "github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/clb/v20180317"
 )
@@ -142,21 +141,21 @@ var DeregisterTargetsChan = make(chan *DeregisterTargetsTask, 100)
 func startDeregisterTargetsProccessor(concurrent int) {
 	apiName := "BatchDeregisterTargets"
 	StartBatchProccessor(concurrent, apiName, true, DeregisterTargetsChan, func(region, lbId string, tasks []*DeregisterTargetsTask) {
-		req := clb.NewBatchDeregisterTargetsRequest()
-		req.LoadBalancerId = &lbId
-		for _, task := range tasks {
-			for _, target := range task.Targets {
-				req.Targets = append(req.Targets, &clb.BatchTarget{
-					ListenerId: &task.ListenerId,
-					Port:       &target.TargetPort,
-					EniIp:      &target.TargetIP,
-				})
+		res, err := ApiCall(context.Background(), apiName, region, func(ctx context.Context, client *clb.Client) (req *clb.BatchDeregisterTargetsRequest, res *clb.BatchDeregisterTargetsResponse, err error) {
+			req = clb.NewBatchDeregisterTargetsRequest()
+			req.LoadBalancerId = &lbId
+			for _, task := range tasks {
+				for _, target := range task.Targets {
+					req.Targets = append(req.Targets, &clb.BatchTarget{
+						ListenerId: &task.ListenerId,
+						Port:       &target.TargetPort,
+						EniIp:      &target.TargetIP,
+					})
+				}
 			}
-		}
-		client := GetClient(region)
-		before := time.Now()
-		resp, err := client.BatchDeregisterTargets(req)
-		LogAPI(nil, apiName, req, resp, time.Since(before), err)
+			res, err = client.BatchDeregisterTargets(req)
+			return
+		})
 		// 调用失败
 		if err != nil {
 			for _, task := range tasks {
@@ -165,7 +164,7 @@ func startDeregisterTargetsProccessor(concurrent int) {
 			return
 		}
 		// 解绑失败
-		_, err = Wait(context.Background(), region, *resp.Response.RequestId, apiName)
+		_, err = Wait(context.Background(), region, *res.Response.RequestId, apiName)
 		if err != nil {
 			for _, task := range tasks {
 				task.Result <- err
@@ -173,7 +172,7 @@ func startDeregisterTargetsProccessor(concurrent int) {
 			return
 		}
 		// 全部解绑成功
-		if len(resp.Response.FailListenerIdSet) == 0 {
+		if len(res.Response.FailListenerIdSet) == 0 {
 			for _, task := range tasks {
 				task.Result <- nil
 			}
@@ -181,7 +180,7 @@ func startDeregisterTargetsProccessor(concurrent int) {
 		}
 		// 部分解绑成功
 		failMap := make(map[string]bool)
-		for _, listenerId := range resp.Response.FailListenerIdSet {
+		for _, listenerId := range res.Response.FailListenerIdSet {
 			failMap[*listenerId] = true
 		}
 		for _, task := range tasks {
