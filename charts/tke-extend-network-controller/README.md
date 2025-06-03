@@ -80,7 +80,7 @@ Kubernetes: `>= 1.26.0-0`
 |-----|------|---------|-------------|
 | affinity | object | `{}` |  |
 | clusterID | string | `""` | Cluster ID of the current TKE Cluster. |
-| concurrency | object | `{"clbNodeBindingController":30,"clbPodBindingController":30,"clbPortPoolController":1,"dedicatedClbListenerController":30,"dedicatedClbServiceController":1,"nodeController":30,"podController":30}` | Concurrency options of the controller, in large-scale rapid expansion scenarios, the concurrency of the first 3 controllers can be appropriately increased (mainly by batch creating clb listeners and binding rs to speed up the process). |
+| concurrency | object | `{"clbNodeBindingController":20,"clbPodBindingController":20,"clbPortPoolController":10,"dedicatedClbListenerController":20,"dedicatedClbServiceController":1,"nodeController":20,"podController":20}` | Concurrency options of the controller, in large-scale rapid expansion scenarios, the concurrency of the first 3 controllers can be appropriately increased (mainly by batch creating clb listeners and binding rs to speed up the process). |
 | fullnameOverride | string | `""` |  |
 | image | object | `{"pullPolicy":"IfNotPresent","repository":"imroc/tke-extend-network-controller","tag":""}` | Image of the controller |
 | image.pullPolicy | string | `"IfNotPresent"` | ImagePullPolicy of the controller |
