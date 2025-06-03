@@ -70,7 +70,7 @@ func GetListenerByIdOrPort(ctx context.Context, region, lbId string, listenerId 
 }
 
 func GetListenerByPort(ctx context.Context, region, lbId string, port int64, protocol string) (lis *Listener, err error) {
-	res, _, err := ApiCall(ctx, "DescribeListeners", region, func(ctx context.Context, client *clb.Client) (req *clb.DescribeListenersRequest, res *clb.DescribeListenersResponse, err error) {
+	res, err := ApiCall(ctx, "DescribeListeners", region, func(ctx context.Context, client *clb.Client) (req *clb.DescribeListenersRequest, res *clb.DescribeListenersResponse, err error) {
 		req = clb.NewDescribeListenersRequest()
 		req.Port = &port
 		req.LoadBalancerId = &lbId
