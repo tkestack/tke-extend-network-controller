@@ -113,15 +113,8 @@ func startDescribeTargetsProccessor(concurrent int) {
 			targetsMap[*backend.ListenerId] = targets
 		}
 		for _, task := range tasks {
-			targets := targetsMap[task.ListenerId]
-			if targets == nil {
-				task.Result <- &DescribeTargetsResult{
-					Err: fmt.Errorf("no targets result for %s/%s", task.LbId, task.ListenerId),
-				}
-			} else {
-				task.Result <- &DescribeTargetsResult{
-					Targets: targetsMap[task.ListenerId],
-				}
+			task.Result <- &DescribeTargetsResult{
+				Targets: targetsMap[task.ListenerId],
 			}
 		}
 	})
