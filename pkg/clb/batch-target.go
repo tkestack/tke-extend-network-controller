@@ -82,15 +82,15 @@ var DescribeTargetsChan = make(chan *DescribeTargetsTask, 100)
 func startDescribeTargetsProccessor(concurrent int) {
 	apiName := "DescribeTargets"
 	StartBatchProccessor(concurrent, apiName, false, DescribeTargetsChan, func(region, lbId string, tasks []*DescribeTargetsTask) {
-		req := clb.NewDescribeTargetsRequest()
-		req.LoadBalancerId = &lbId
-		for _, task := range tasks {
-			req.ListenerIds = append(req.ListenerIds, &task.ListenerId)
-		}
-		client := GetClient(region)
-		before := time.Now()
-		resp, err := client.DescribeTargets(req)
-		LogAPI(nil, apiName, req, resp, time.Since(before), err)
+		res, err := ApiCall(context.Background(), apiName, region, func(ctx context.Context, client *clb.Client) (req *clb.DescribeTargetsRequest, res *clb.DescribeTargetsResponse, err error) {
+			req = clb.NewDescribeTargetsRequest()
+			req.LoadBalancerId = &lbId
+			for _, task := range tasks {
+				req.ListenerIds = append(req.ListenerIds, &task.ListenerId)
+			}
+			res, err = client.DescribeTargets(req)
+			return
+		})
 		if err != nil {
 			for _, task := range tasks {
 				task.Result <- &DescribeTargetsResult{
@@ -100,7 +100,7 @@ func startDescribeTargetsProccessor(concurrent int) {
 			return
 		}
 		targetsMap := make(map[string][]*Target)
-		for _, backend := range resp.Response.Listeners {
+		for _, backend := range res.Response.Listeners {
 			targets := []*Target{}
 			for _, target := range backend.Targets {
 				for _, ip := range target.PrivateIpAddresses {
