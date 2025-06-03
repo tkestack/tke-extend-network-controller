@@ -163,31 +163,6 @@ func CreateCLB(ctx context.Context, region string, req *clb.CreateLoadBalancerRe
 	return
 }
 
-func CreateCLBAsync(ctx context.Context, region string, req *clb.CreateLoadBalancerRequest) (lbId string, result <-chan error, err error) {
-	client := GetClient(region)
-	resp, err := client.CreateLoadBalancerWithContext(ctx, req)
-	if err != nil {
-		return
-	}
-	ids := resp.Response.LoadBalancerIds
-	if len(ids) == 0 || *ids[0] == "" {
-		err = fmt.Errorf("no loadbalancer created")
-		return
-	}
-	lbId = *ids[0]
-	ret := make(chan error)
-	result = ret
-	go func() {
-		if _, err := Wait(ctx, region, *resp.Response.RequestId, "CreateLoadBalancer"); err != nil {
-			log.FromContext(ctx).Error(err, "clb create task failed", "lbId", lbId)
-			ret <- err
-			return
-		}
-		ret <- nil
-	}()
-	return
-}
-
 type CLBInfo struct {
 	LoadbalancerID   string
 	LoadbalancerName string
