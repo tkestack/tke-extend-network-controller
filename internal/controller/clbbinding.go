@@ -221,6 +221,7 @@ func (r *CLBBindingReconciler[T]) createListener(ctx context.Context, bd clbbind
 
 // 对账单个监听器
 func (r *CLBBindingReconciler[T]) ensureListener(ctx context.Context, bd clbbinding.CLBBinding, binding *networkingv1alpha1.PortBindingStatus) (*networkingv1alpha1.PortBindingStatus, error) {
+	log.FromContext(ctx).V(10).Info("ensureListener", "binding", binding)
 	// 确保关联的 pool 无误
 	pool := portpool.Allocator.GetPool(binding.Pool)
 	if pool == nil { // 端口池不存在，移除 binding 并并记录事件
@@ -235,10 +236,12 @@ func (r *CLBBindingReconciler[T]) ensureListener(ctx context.Context, bd clbbind
 
 	// 没有监听器 ID，尝试直接新建（不调查接口，加速大规模场景扩容速度）
 	if binding.ListenerId == "" {
+		log.FromContext(ctx).V(10).Info("no listener id found, try to create listener", "binding", binding)
 		binding, err := r.createListener(ctx, bd, binding)
 		if err != nil {
 			return binding, errors.WithStack(err)
 		}
+		log.FromContext(ctx).V(10).Info("listener first time created", "binding", binding)
 		return binding, nil
 	}
 
@@ -348,8 +351,10 @@ func (r *CLBBindingReconciler[T]) ensureBackendBindings(ctx context.Context, bd 
 		Err     error
 	}
 	result := make(chan Result)
+	oldBindings := []networkingv1alpha1.PortBindingStatus{}
 	for i := range status.PortBindings { // 遍历所有 binding
 		binding := &status.PortBindings[i]
+		oldBindings = append(oldBindings, *binding) // 记录 ensureListener 前的 bindings，方便后面对比是否有变化
 		go func(binding *networkingv1alpha1.PortBindingStatus) {
 			// 确保 listener 创建并符合预期
 			binding, err := r.ensureListener(ctx, bd, binding)
@@ -368,11 +373,12 @@ func (r *CLBBindingReconciler[T]) ensureBackendBindings(ctx context.Context, bd 
 		if r.Err != nil {
 			err = multierr.Append(err, r.Err)
 		}
-		bindings = append(bindings, *r.Binding)
+		if r.Binding != nil {
+			bindings = append(bindings, *r.Binding)
+		}
 	}
 	clbbinding.SortPortBindings(bindings)
-	if !reflect.DeepEqual(bindings, status.PortBindings) { // 有变化，更新到 status
-		log.FromContext(ctx).V(3).Info("update port bindings", "old", status.PortBindings, "new", bindings)
+	if !reflect.DeepEqual(bindings, oldBindings) { // 有变化，更新到 status
 		err := util.RetryIfPossible(func() error { // 确保更新成功，避免丢失已创建的 listenerId，导致需要更多的查询判断，拖慢速度
 			_, err := bd.FetchObject(ctx, r.Client)
 			if err != nil {
@@ -603,7 +609,7 @@ LOOP_PORT:
 		before := time.Now()
 		allocated, err := portpool.Allocator.Allocate(ctx, port.Pools, port.Protocol, util.GetValue(port.UseSamePortAcrossPools))
 		cost := time.Since(before)
-		log.FromContext(ctx).V(3).Info("allocate port performance", "cost", cost.String(), "protocol", port.Protocol, "pools", port.Pools, "useSamePortAcrossPools", util.GetValue(port.UseSamePortAcrossPools), "err", err)
+		log.FromContext(ctx).V(3).Info("allocate port", "cost", cost.String(), "allocated", allocated, "protocol", port.Protocol, "pools", port.Pools, "useSamePortAcrossPools", util.GetValue(port.UseSamePortAcrossPools), "err", err)
 		if err != nil {
 			return errors.WithStack(err)
 		}

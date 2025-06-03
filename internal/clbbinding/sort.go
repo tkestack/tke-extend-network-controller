@@ -22,14 +22,14 @@ func SortPortBindings(bindings []networkingv1alpha1.PortBindingStatus) {
 			return -1
 		}
 
-		// 端口
+		// lb 端口
 		if a.LoadbalancerPort > b.LoadbalancerPort {
 			return 1
 		} else if a.LoadbalancerPort < b.LoadbalancerPort {
 			return -1
 		}
 
-		// 端口
+		// 容器端口
 		if a.Port > b.Port {
 			return 1
 		} else if a.Port < b.Port {
