@@ -9,7 +9,7 @@ func IsLbIdNotFoundError(err error) bool {
 }
 
 func IsLoadBalancerNotExistsError(err error) bool {
-	return strings.Contains(err.Error(), "LoadBalancer not exist")
+	return strings.Contains(err.Error(), "LoadBalancer not exist") || strings.Contains(err.Error(), "LB not exist")
 }
 
 func IsRequestLimitExceededError(err error) bool {

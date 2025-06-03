@@ -25,7 +25,7 @@ concurrency:
   dedicatedClbListenerController: 30
   podController: 30
   nodeController: 30
-  clbPortPoolController: 1
+  clbPortPoolController: 10
   dedicatedClbServiceController: 1
 
 # -- Logging otpions of the controller
