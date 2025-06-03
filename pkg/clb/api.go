@@ -29,7 +29,7 @@ func ApiCall[Req, Res any](ctx context.Context, apiName, region string, doReq fu
 		reqCount++
 		if err != nil {
 			if IsRequestLimitExceededError(err) { // 云 API 限频，重试
-				log.FromContext(ctx).V(3).Info("clb api request limit exceeded")
+				log.FromContext(ctx).V(3).Info("clb api request limit exceeded", "api", apiName, "err", err)
 				select { // context 撤销，不继续重试
 				case <-ctx.Done():
 					return res, err
