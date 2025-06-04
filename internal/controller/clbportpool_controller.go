@@ -213,7 +213,9 @@ func (r *CLBPortPoolReconciler) ensureLbStatus(ctx context.Context, pool *networ
 	}
 
 	// 确保所有可分配的 lb 在分配器缓存中
-	portpool.Allocator.EnsureLbIds(pool.Name, allocatableLBs)
+	if err := portpool.Allocator.EnsureLbIds(pool.Name, allocatableLBs); err != nil {
+		return errors.WithStack(err)
+	}
 
 	if insufficientPorts { // 可分配端口不足，尝试扩容 clb
 		if pool.Spec.AutoCreate != nil && pool.Spec.AutoCreate.Enabled { // 必须启用了 clb 自动创建
