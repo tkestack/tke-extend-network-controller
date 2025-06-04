@@ -106,7 +106,12 @@ func startCreateListenerProccessor(concurrent int) {
 		for lis, tasks := range groupTask {
 			listenerIds, err := doBatchCreateListener(apiName, region, lbId, lis.Protocol, lis.CertId, lis.ExtensiveParameters, tasks)
 			if err != nil {
-				clbLog.Error(err, "batch create listener failed", "lbId", lbId, "protocol", lis.Protocol, "tasks", tasks)
+				clbLog.Error(
+					err, "batch create listener failed",
+					"lbId", lbId,
+					"protocol", lis.Protocol,
+					"tasks", tasks,
+				)
 				for _, task := range tasks {
 					task.Result <- &ListenerResult{
 						Err: err,

@@ -13,8 +13,13 @@ func ApiCall[Req, Res any](ctx context.Context, apiName, region string, doReq fu
 	reqCount := 0
 	start := time.Now()
 	defer func() {
-		totalCost := time.Since(start)
-		clbLog.V(3).Info("ApiCall performance", "api", apiName, "totalCost", totalCost, "reqCount", reqCount)
+		totalCost := time.Since(start).String()
+		clbLog.V(3).Info(
+			"ApiCall performance",
+			"api", apiName,
+			"totalCost", totalCost,
+			"reqCount", reqCount,
+		)
 	}()
 	client := GetClient(region)
 	for {
@@ -29,7 +34,11 @@ func ApiCall[Req, Res any](ctx context.Context, apiName, region string, doReq fu
 		reqCount++
 		if err != nil {
 			if IsRequestLimitExceededError(err) { // 云 API 限频，重试
-				log.FromContext(ctx).V(3).Info("clb api request limit exceeded", "api", apiName, "err", err)
+				log.FromContext(ctx).V(3).Info(
+					"clb api request limit exceeded",
+					"api", apiName,
+					"err", err,
+				)
 				select { // context 撤销，不继续重试
 				case <-ctx.Done():
 					return res, err

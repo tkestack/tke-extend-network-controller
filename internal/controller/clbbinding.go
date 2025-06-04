@@ -294,6 +294,7 @@ func (r *CLBBindingReconciler[T]) ensureListener(ctx context.Context, bd clbbind
 
 // 确保监听器创建并绑定 rs
 func (r *CLBBindingReconciler[T]) ensureBackendBindings(ctx context.Context, bd clbbinding.CLBBinding) error {
+	needBind := true
 	status := bd.GetStatus()
 	backend, err := bd.GetAssociatedObject(ctx, r.Client)
 	if err != nil {
@@ -301,7 +302,7 @@ func (r *CLBBindingReconciler[T]) ensureBackendBindings(ctx context.Context, bd 
 			if err = r.ensureState(ctx, bd, networkingv1alpha1.CLBBindingStateNoBackend); err != nil {
 				return errors.WithStack(err)
 			}
-			return nil
+			needBind = false
 		}
 		// 其它错误，直接返回
 		return errors.WithStack(err)
@@ -314,7 +315,7 @@ func (r *CLBBindingReconciler[T]) ensureBackendBindings(ctx context.Context, bd 
 			if err = r.ensureState(ctx, bd, networkingv1alpha1.CLBBindingStateWaitBackend); err != nil {
 				return errors.WithStack(err)
 			}
-			return nil
+			needBind = false
 		}
 		return errors.WithStack(err)
 	}
@@ -333,7 +334,7 @@ func (r *CLBBindingReconciler[T]) ensureBackendBindings(ctx context.Context, bd 
 				return errors.WithStack(err)
 			}
 		}
-		return nil
+		needBind = false
 	}
 
 	// 如果 rs 还没有分配到 IP，更新状态和 event
@@ -342,6 +343,7 @@ func (r *CLBBindingReconciler[T]) ensureBackendBindings(ctx context.Context, bd 
 		if err = r.ensureState(ctx, bd, networkingv1alpha1.CLBBindingStateWaitBackend); err != nil {
 			return errors.WithStack(err)
 		}
+		needBind = false
 	}
 
 	// rs 准备就绪，确保 CLB 监听器创建并绑定到 rs
@@ -358,7 +360,7 @@ func (r *CLBBindingReconciler[T]) ensureBackendBindings(ctx context.Context, bd 
 			// 确保 listener 创建并符合预期
 			binding, err := r.ensureListener(ctx, bd, binding)
 			// 如果 listener 无误、当前 binding 不需要被清理、且 rs 有 IP，那么确保 listener 要绑定到 rs
-			if err == nil && binding != nil && backend.GetIP() != "" {
+			if needBind && err == nil && binding != nil {
 				err = r.ensurePortBound(ctx, bd, backend, binding)
 			}
 			result <- Result{Binding: binding, Err: err}
