@@ -18,7 +18,6 @@ package controller
 
 import (
 	"context"
-	"slices"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -121,14 +120,12 @@ func (r *CLBNodeBindingReconciler) findObjectsForCLBPortPool(ctx context.Context
 	}
 	ret := []reconcile.Request{}
 	for _, cnb := range list.Items {
-		for _, port := range cnb.Spec.Ports {
-			if slices.Contains(port.Pools, portpool.GetName()) {
-				ret = append(ret, reconcile.Request{
-					NamespacedName: types.NamespacedName{
-						Name: cnb.GetName(),
-					},
-				})
-			}
+		if shouldNotify(portpool, cnb.Spec, cnb.Status) {
+			ret = append(ret, reconcile.Request{
+				NamespacedName: types.NamespacedName{
+					Name: cnb.GetName(),
+				},
+			})
 		}
 	}
 	return ret

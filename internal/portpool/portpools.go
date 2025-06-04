@@ -5,6 +5,9 @@ import (
 	"fmt"
 	"strings"
 
+	networkingv1alpha1 "github.com/imroc/tke-extend-network-controller/api/v1alpha1"
+	"github.com/imroc/tke-extend-network-controller/pkg/kube"
+
 	"github.com/imroc/tke-extend-network-controller/internal/constant"
 	"github.com/pkg/errors"
 	"sigs.k8s.io/controller-runtime/pkg/log"
@@ -58,41 +61,24 @@ LOOP_POOL:
 			}
 			portsToAllocate := getPortsToAllocate(port, endPort)
 			// 尝试分配端口
-			result, err := pool.AllocatePort(ctx, int64(quota), portsToAllocate...)
-			if err != nil { // 有分配错误，释放已分配的端口
-				if err == ErrNoLbReady || err == ErrListenerQuotaExceeded { // 端口池中没有 CLB，或者都超配额了，直接尝试新建 lb
-					goto TRY_CREATE_LB
-				}
+			result, quotaExceeded := pool.AllocatePort(ctx, int64(quota), portsToAllocate...)
+			if quotaExceeded { // 超配额，不可能分配成功，不再继续尝试
 				allocatedPorts.Release()
-				return nil, errors.WithStack(err)
+				return nil, nil
 			}
 			if len(result) > 0 { // 该端口池分配到了端口，追加到结果中
 				allocatedPorts = append(allocatedPorts, result...)
-				log.FromContext(ctx).V(10).Info("allocated port", "pool", pool.GetName(), "port", port)
+				log.FromContext(ctx).V(10).Info("allocated port", "pool", pool.Name, "port", port)
 				continue LOOP_POOL
 			} else {
 				// 该端口池中无法分配此端口，尝试下一个端口
-				log.FromContext(ctx).V(10).Info("no available port can be allocated, try next port", "pool", pool.GetName(), "port", port)
+				log.FromContext(ctx).V(10).Info("no available port can be allocated, try next port", "pool", pool.Name, "port", port)
+				continue
 			}
 		}
-	TRY_CREATE_LB:
-		// 该端口池所有端口都无法分配，为保证事务性，释放已分配的端口，并尝试通知端口池扩容 CLB 来补充端口池
+		// 该端口池所有端口都无法分配，不再尝试
 		allocatedPorts.Release()
-		// 检查端口池是否可以创建 CLB
-		result, err := pool.TryCreateLB(ctx)
-		if err != nil {
-			return nil, errors.WithStack(err)
-		}
-		switch result {
-		case CreateLbResultForbidden: // 不能自动创建，返回端口不足的错误
-			return nil, ErrNoPortAvailable
-		case CreateLbResultCreating: // 正在创建 CLB，创建完后会自动触发对账
-			return nil, ErrNewLBCreating
-		case CreateLbResultSuccess: // 已经通知过或通知成功，重新入队
-			return nil, ErrNewLBCreated
-		default: // 不可能的状态
-			return nil, ErrUnknown
-		}
+		return nil, nil
 	}
 	// 所有端口池都分配成功，返回结果
 	return allocatedPorts, nil
@@ -124,27 +110,10 @@ LOOP_PORT:
 			default:
 			}
 
-			results, err := pool.AllocatePort(ctx, int64(quota), portsToAllocate...)
-			if err != nil {
+			results, quotaExceeded := pool.AllocatePort(ctx, int64(quota), portsToAllocate...)
+			if quotaExceeded {
 				allocatedPorts.Release()
-				if err == ErrNoLbReady || err == ErrListenerQuotaExceeded {
-					// 检查端口池是否可以创建 CLB
-					result, err := pool.TryCreateLB(ctx)
-					if err != nil {
-						return nil, errors.WithStack(err)
-					}
-					switch result {
-					case CreateLbResultForbidden: // 不能自动创建，返回端口不足的错误
-						return nil, ErrNoPortAvailable
-					case CreateLbResultCreating: // 正在创建 CLB，创建完后会自动触发对账
-						return nil, ErrNewLBCreating
-					case CreateLbResultSuccess: // 已经通知过或通知成功，重新入队
-						return nil, ErrNewLBCreated
-					default: // 不可能的状态
-						return nil, ErrUnknown
-					}
-				}
-				return nil, errors.Wrapf(err, "allocate same port across pools failed")
+				return nil, nil
 			}
 			if len(results) > 0 {
 				// 此端口池分配到了此端口，追加到结果中
@@ -154,55 +123,68 @@ LOOP_PORT:
 				continue LOOP_PORT
 			}
 		}
-		// 分配结束，返回结果（可能为空）
+		// 分配结束，返回结果可能为空）
 		return allocatedPorts, nil
 	}
-	// 所有端口池都无法分配，返回端口不足的错误
-	return nil, ErrNoPortAvailable
+	// 所有端口池都无法分配，返回空结果
+	return nil, nil
 }
 
-var ErrQuotaNotEqual = errors.New("quota not equal")
+var (
+	ErrQuotaNotEqual          = errors.New("quota not equal")
+	ErrQuotaNotFound          = errors.New("quota not found")
+	ErrPortPoolNotAllocatable = errors.New("port pool not allocatable")
+)
 
 // 从一个或多个端口池中分配一个指定协议的端口，分配成功返回端口号，失败返回错误
 func (pp PortPools) AllocatePort(ctx context.Context, protocol string, useSamePortAcrossPools bool) (ports PortAllocations, err error) {
 	startPort := uint16(0)
 	endPort := uint16(65535)
 	segmentLength := uint16(0)
-	for _, portPool := range pp {
-		if portPool.GetStartPort() > startPort {
-			startPort = portPool.GetStartPort()
-		}
-		if portPool.GetEndPort() < endPort {
-			endPort = portPool.GetEndPort()
-		}
-		if segmentLength == 0 {
-			segmentLength = portPool.GetSegmentLength()
-		} else if segmentLength != portPool.GetSegmentLength() {
-			err = ErrSegmentLengthNotEqual
-			return
-		}
-	}
-	if startPort > endPort {
-		err = fmt.Errorf("there is no intersection between port ranges of port pools: %s", pp.Names())
-		return
-	}
-	// 检查 quota，保证使用的所有端口池的 quota 都相同（要么都没设置，要么都设置了且相同）
-	n := 0
 	quota := uint16(0)
 	for _, portPool := range pp {
-		if q := portPool.GetListenerQuota(); q > 0 {
-			n++
-			if quota == 0 {
-				quota = q
-			} else {
-				if quota != q { // 端口池 quota 设置的不相同，返回错误
-					return nil, ErrQuotaNotEqual
-				}
+		cpp, err := kube.GetCLBPortPool(ctx, portPool.Name)
+		if cpp.Status.State != networkingv1alpha1.CLBPortPoolStateActive && cpp.Status.State != networkingv1alpha1.CLBPortPoolStateScaling {
+			return nil, ErrPortPoolNotAllocatable
+		}
+		if err != nil {
+			return nil, errors.WithStack(err)
+		}
+		if cpp.Spec.StartPort > startPort {
+			startPort = cpp.Spec.StartPort
+		}
+		if cpp.Spec.EndPort != nil && *cpp.Spec.EndPort < endPort {
+			endPort = *cpp.Spec.EndPort
+		}
+
+		if segmentLength == 0 {
+			if cpp.Spec.SegmentLength != nil {
+				segmentLength = *cpp.Spec.SegmentLength
+			}
+		} else {
+			if cpp.Spec.SegmentLength != nil && *cpp.Spec.SegmentLength != segmentLength {
+				return nil, ErrSegmentLengthNotEqual
+			}
+		}
+		if quota == 0 {
+			if cpp.Status.Quota != quota {
+				quota = cpp.Status.Quota
+			}
+		} else {
+			if cpp.Status.Quota != quota {
+				return nil, ErrQuotaNotEqual
 			}
 		}
 	}
-	if quota > 0 && n != len(pp) { // 只有部分端口池设置了 quota，也返回错误
-		return nil, ErrQuotaNotEqual
+
+	if startPort > endPort {
+		return nil, fmt.Errorf("there is no intersection between port ranges of port pools: %s", pp.Names())
+	}
+	if quota == 0 {
+		return nil, ErrQuotaNotFound
+	}
+	if segmentLength == 0 {
+		segmentLength = 1
 	}
 
 	getPortsToAllocate := func(port, endPort uint16) (ports []ProtocolPort) {
@@ -238,33 +220,33 @@ func (pp PortPools) AllocatePort(ctx context.Context, protocol string, useSamePo
 	return ports, nil
 }
 
-func (pp PortPools) ReleasePort(lbId string, port uint16, protocol string) {
-	if protocol == "TCPUDP" {
-		tcpPort := ProtocolPort{
-			Port:     port,
-			Protocol: "TCP",
-		}
-		udpPort := ProtocolPort{
-			Port:     port,
-			Protocol: "UDP",
-		}
-		for _, portPool := range pp {
-			if portCache := portPool.cache[lbId]; portCache != nil {
-				delete(portCache, tcpPort)
-				delete(portCache, udpPort)
-				break
-			}
-		}
-	} else {
-		port := ProtocolPort{
-			Port:     port,
-			Protocol: protocol,
-		}
-		for _, portPool := range pp {
-			if portCache := portPool.cache[lbId]; portCache != nil {
-				delete(portCache, port)
-				break
-			}
-		}
-	}
-}
+// func (pp PortPools) ReleasePort(lbId string, port uint16, protocol string) {
+// 	if protocol == "TCPUDP" {
+// 		tcpPort := ProtocolPort{
+// 			Port:     port,
+// 			Protocol: "TCP",
+// 		}
+// 		udpPort := ProtocolPort{
+// 			Port:     port,
+// 			Protocol: "UDP",
+// 		}
+// 		for _, portPool := range pp {
+// 			if portCache := portPool.cache[lbId]; portCache != nil {
+// 				delete(portCache, tcpPort)
+// 				delete(portCache, udpPort)
+// 				break
+// 			}
+// 		}
+// 	} else {
+// 		port := ProtocolPort{
+// 			Port:     port,
+// 			Protocol: protocol,
+// 		}
+// 		for _, portPool := range pp {
+// 			if portCache := portPool.cache[lbId]; portCache != nil {
+// 				delete(portCache, port)
+// 				break
+// 			}
+// 		}
+// 	}
+// }

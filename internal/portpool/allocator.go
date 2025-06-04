@@ -30,19 +30,6 @@ func (pa *PortAllocator) GetPool(name string) *PortPool {
 	return nil
 }
 
-func (pa *PortAllocator) ReleaseLb(poolName, lbId string) {
-	if pool := pa.GetPool(poolName); pool != nil {
-		pool.ReleaseLb(lbId)
-	}
-}
-
-func (pa *PortAllocator) IsLbExists(poolName, lbId string) bool {
-	if pool := pa.GetPool(poolName); pool != nil {
-		return pool.IsLbExists(lbId)
-	}
-	return false
-}
-
 func (pa *PortAllocator) IsPoolExists(name string) bool {
 	pa.mu.RLock()
 	_, exists := pa.pools[name]
@@ -50,21 +37,31 @@ func (pa *PortAllocator) IsPoolExists(name string) bool {
 	return exists
 }
 
-func (pa *PortAllocator) AddLbId(name string, lbId string) error {
+func (pa *PortAllocator) AddLbId(name string, lbKey LBKey) error {
 	pa.mu.Lock()
 	pool, exists := pa.pools[name]
 	pa.mu.Unlock()
 	if exists {
-		pool.AddLbId(lbId)
+		pool.AddLbId(lbKey)
 	} else {
 		return fmt.Errorf("port pool %q is not exists", name)
 	}
 	return nil
 }
 
+func (pa *PortAllocator) AllocatedPorts(name string, lbKey LBKey) uint16 {
+	pa.mu.Lock()
+	pool, exists := pa.pools[name]
+	pa.mu.Unlock()
+	if exists {
+		return pool.AllocatedPorts(lbKey)
+	}
+	return 0
+}
+
 // 确保指定端口池的LbIds符合预期
-func (pa *PortAllocator) EnsureLbIds(name string, lbIds []string) error {
-	if len(lbIds) == 0 {
+func (pa *PortAllocator) EnsureLbIds(name string, lbKeys []LBKey) error {
+	if len(lbKeys) == 0 {
 		return nil
 	}
 	pa.mu.Lock()
@@ -72,28 +69,28 @@ func (pa *PortAllocator) EnsureLbIds(name string, lbIds []string) error {
 	pa.mu.Unlock()
 
 	if exists {
-		pool.EnsureLbIds(lbIds)
+		pool.EnsureLbIds(lbKeys)
 	} else {
 		return fmt.Errorf("port pool %q is not exists", name)
 	}
 	return nil
 }
 
-// EnsurePool 添加新的端口池
-func (pa *PortAllocator) EnsurePool(pp CLBPortPool) {
+// AddPoolIfNotExists 添加新的端口池
+func (pa *PortAllocator) AddPoolIfNotExists(name string) bool {
 	pa.mu.Lock()
 	defer pa.mu.Unlock()
 
-	if _, exists := pa.pools[pp.GetName()]; exists {
-		return
+	if _, exists := pa.pools[name]; exists {
+		return false
 	}
 
 	pool := &PortPool{
-		CLBPortPool: pp,
-		cache:       make(map[string]map[ProtocolPort]struct{}),
+		Name:  name,
+		cache: make(map[LBKey]map[ProtocolPort]struct{}),
 	}
-
-	pa.pools[pp.GetName()] = pool
+	pa.pools[name] = pool
+	return true
 }
 
 // RemovePool 移除端口池
@@ -127,23 +124,16 @@ func (pa *PortAllocator) Allocate(ctx context.Context, pools []string, protocol 
 }
 
 // Release 释放一个端口
-func (pa *PortAllocator) Release(pool, lbId string, port ProtocolPort) bool {
+func (pa *PortAllocator) Release(pool string, lbKey LBKey, port ProtocolPort) bool {
 	if pp := pa.GetPool(pool); pp != nil {
-		return pp.ReleasePort(lbId, port)
-	}
-	return false
-}
-
-func (pa *PortAllocator) IsAllocated(pool, lbId string, port ProtocolPort) bool {
-	if pp := pa.GetPool(pool); pp != nil {
-		return pp.IsAllocated(lbId, port)
+		return pp.ReleasePort(lbKey, port)
 	}
 	return false
 }
 
 var Allocator = NewPortAllocator()
 
-func (pa *PortAllocator) MarkAllocated(poolName string, lbId string, port uint16, endPort *uint16, protocol string) {
+func (pa *PortAllocator) MarkAllocated(poolName string, lbKey LBKey, port uint16, endPort *uint16, protocol string) {
 	pa.mu.Lock()
 	defer pa.mu.Unlock()
 
@@ -155,7 +145,7 @@ func (pa *PortAllocator) MarkAllocated(poolName string, lbId string, port uint16
 	if endPort != nil {
 		finalEndPort = *endPort
 	}
-	if lb := pool.cache[lbId]; lb != nil {
+	if lb := pool.cache[lbKey]; lb != nil {
 		lb[ProtocolPort{Port: port, EndPort: finalEndPort, Protocol: protocol}] = struct{}{}
 	}
 }

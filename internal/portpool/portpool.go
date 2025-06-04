@@ -4,8 +4,8 @@ import (
 	"context"
 	"sync"
 
-	"github.com/imroc/tke-extend-network-controller/pkg/clb"
-	"github.com/pkg/errors"
+	networkingv1alpha1 "github.com/imroc/tke-extend-network-controller/api/v1alpha1"
+
 	ctrl "sigs.k8s.io/controller-runtime"
 )
 
@@ -41,11 +41,11 @@ func (p ProtocolPort) Key() ProtocolPort {
 type PortAllocation struct {
 	ProtocolPort
 	*PortPool
-	LbId string
+	LBKey
 }
 
 func (pa PortAllocation) Release() {
-	pa.ReleasePort(pa.LbId, pa.ProtocolPort)
+	pa.ReleasePort(pa.LBKey, pa.ProtocolPort)
 }
 
 type PortAllocations []PortAllocation
@@ -62,7 +62,6 @@ const (
 	CreateLbResultError CreateLbResult = iota
 	CreateLbResultSuccess
 	CreateLbResultForbidden
-	CreateLbResultCreating
 )
 
 type CLBPortPool interface {
@@ -75,37 +74,45 @@ type CLBPortPool interface {
 	TryCreateLB(ctx context.Context) (CreateLbResult, error)
 }
 
-// PortPool 管理单个端口池的状态
-type PortPool struct {
-	CLBPortPool
-	mu    sync.Mutex
-	cache map[string]map[ProtocolPort]struct{}
+type LBKey struct {
+	LbId   string
+	Region string
 }
 
-func (pp *PortPool) IsLbExists(lbId string) bool {
+func NewLBKey(lbId, region string) LBKey {
+	return LBKey{
+		LbId:   lbId,
+		Region: region,
+	}
+}
+
+func NewLBKeyFromBinding(binding *networkingv1alpha1.PortBindingStatus) LBKey {
+	return NewLBKey(binding.LoadbalancerId, binding.Region)
+}
+
+// PortPool 管理单个端口池的状态
+type PortPool struct {
+	Name  string
+	mu    sync.Mutex
+	cache map[LBKey]map[ProtocolPort]struct{}
+}
+
+func (pp *PortPool) IsLbExists(key LBKey) bool {
 	pp.mu.Lock()
 	defer pp.mu.Unlock()
-	_, exists := pp.cache[lbId]
+	_, exists := pp.cache[key]
 	return exists
 }
 
 // 分配指定端口
-func (pp *PortPool) AllocatePort(ctx context.Context, quota int64, ports ...ProtocolPort) ([]PortAllocation, error) {
+func (pp *PortPool) AllocatePort(ctx context.Context, quota int64, ports ...ProtocolPort) ([]PortAllocation, bool) {
 	pp.mu.Lock()
 	defer pp.mu.Unlock()
 	if len(pp.cache) == 0 {
-		return nil, ErrNoLbReady
-	}
-	// 获取监听器数量配额
-	if quota == 0 {
-		q, err := clb.Quota.GetQuota(ctx, pp.GetRegion(), clb.TOTAL_LISTENER_QUOTA)
-		if err != nil {
-			return nil, errors.WithStack(err)
-		}
-		quota = q
+		return nil, true
 	}
 	quotaExceeded := true
-	for lbId, allocated := range pp.cache { // 遍历所有 lb，尝试分配端口
+	for lbKey, allocated := range pp.cache { // 遍历所有 lb，尝试分配端口
 		if int64(len(allocated)+len(ports)) > quota { // 监听器数量已满，换下个 lb
 			continue
 		}
@@ -124,25 +131,21 @@ func (pp *PortPool) AllocatePort(ctx context.Context, quota int64, ports ...Prot
 				pa := PortAllocation{
 					PortPool:     pp,
 					ProtocolPort: port,
-					LbId:         lbId,
+					LBKey:        lbKey,
 				}
 				result = append(result, pa)
 			}
-			return result, nil
+			return result, false
 		}
 	}
-
-	if quotaExceeded { // 所有 lb  都超配额了，返回错误告诉调用方不要尝试其它端口
-		return nil, ErrListenerQuotaExceeded
-	}
 	// 所有 lb 都无法分配此端口，返回空结果
-	return nil, nil
+	return nil, quotaExceeded
 }
 
-func (pp *PortPool) IsAllocated(lbId string, port ProtocolPort) bool {
+func (pp *PortPool) IsAllocated(lbKey LBKey, port ProtocolPort) bool {
 	pp.mu.Lock()
 	defer pp.mu.Unlock()
-	cache := pp.cache[lbId]
+	cache := pp.cache[lbKey]
 	if cache == nil {
 		return false
 	}
@@ -151,10 +154,10 @@ func (pp *PortPool) IsAllocated(lbId string, port ProtocolPort) bool {
 }
 
 // 释放已分配的端口
-func (pp *PortPool) ReleasePort(lbId string, port ProtocolPort) bool {
+func (pp *PortPool) ReleasePort(lbKey LBKey, port ProtocolPort) bool {
 	pp.mu.Lock()
 	defer pp.mu.Unlock()
-	cache := pp.cache[lbId]
+	cache := pp.cache[lbKey]
 	if cache == nil {
 		return false
 	}
@@ -162,43 +165,52 @@ func (pp *PortPool) ReleasePort(lbId string, port ProtocolPort) bool {
 	return true
 }
 
-func (pp *PortPool) ReleaseLb(lbId string) {
+func (pp *PortPool) ReleaseLb(lbKey LBKey) {
 	pp.mu.Lock()
 	defer pp.mu.Unlock()
-	delete(pp.cache, lbId)
+	delete(pp.cache, lbKey)
 }
 
-func (pp *PortPool) AddLbId(lbId string) {
+func (pp *PortPool) AddLbId(lbKey LBKey) {
 	pp.mu.Lock()
 	defer pp.mu.Unlock()
-	if _, exists := pp.cache[lbId]; exists {
+	if _, exists := pp.cache[lbKey]; exists {
 		return
 	}
-	pp.cache[lbId] = make(map[ProtocolPort]struct{})
+	pp.cache[lbKey] = make(map[ProtocolPort]struct{})
 }
 
-func (pp *PortPool) EnsureLbIds(lbIds []string) {
+func (pp *PortPool) AllocatedPorts(lbKey LBKey) uint16 {
 	pp.mu.Lock()
 	defer pp.mu.Unlock()
-	lbMap := make(map[string]struct{})
-	for lbId := range pp.cache {
-		lbMap[lbId] = struct{}{}
+	if allocated, exists := pp.cache[lbKey]; exists {
+		return uint16(len(allocated))
 	}
-	lbToAdd := []string{}
-	for _, lbId := range lbIds {
-		if _, exists := lbMap[lbId]; exists {
-			delete(lbMap, lbId)
+	return 0
+}
+
+func (pp *PortPool) EnsureLbIds(lbKeys []LBKey) {
+	pp.mu.Lock()
+	defer pp.mu.Unlock()
+	lbToDelete := make(map[LBKey]struct{})
+	for lbKey := range pp.cache {
+		lbToDelete[lbKey] = struct{}{}
+	}
+	lbToAdd := []LBKey{}
+	for _, lbKey := range lbKeys {
+		if _, exists := lbToDelete[lbKey]; exists {
+			delete(lbToDelete, lbKey)
 		} else {
-			lbToAdd = append(lbToAdd, lbId)
+			lbToAdd = append(lbToAdd, lbKey)
 		}
 	}
-	for lbId := range lbMap { // 删除多余的 lb
-		ppLog.Info("remove unused lbId", "lbId", lbId)
-		delete(pp.cache, lbId)
+	for lbKey := range lbToDelete { // 删除多余的 lb
+		ppLog.Info("remove lb", "lb", lbKey, "pool", pp.Name)
+		delete(pp.cache, lbKey)
 	}
 	// 添加缺失的lb
-	for _, lbId := range lbToAdd {
-		ppLog.Info("add lbId to PortPool", "lbId", lbId, "pool", pp.GetName())
-		pp.cache[lbId] = make(map[ProtocolPort]struct{})
+	for _, lbKey := range lbToAdd {
+		ppLog.Info("add lb", "lb", lbKey, "pool", pp.Name)
+		pp.cache[lbKey] = make(map[ProtocolPort]struct{})
 	}
 }

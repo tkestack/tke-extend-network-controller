@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"reflect"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -19,14 +20,12 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
-	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	networkingv1alpha1 "github.com/imroc/tke-extend-network-controller/api/v1alpha1"
 	"github.com/imroc/tke-extend-network-controller/internal/clbbinding"
 	"github.com/imroc/tke-extend-network-controller/internal/portpool"
 	"github.com/imroc/tke-extend-network-controller/pkg/clb"
-	"github.com/imroc/tke-extend-network-controller/pkg/eventsource"
 	"github.com/imroc/tke-extend-network-controller/pkg/kube"
 	"github.com/imroc/tke-extend-network-controller/pkg/util"
 	"github.com/pkg/errors"
@@ -64,17 +63,13 @@ func (r *CLBBindingReconciler[T]) sync(ctx context.Context, bd T) (result ctrl.R
 	// 确保所有端口都已分配且绑定 obj
 	if err := r.ensureCLBBinding(ctx, bd); err != nil {
 		errCause := errors.Cause(err)
-		// 1. 扩容了 lb、或者正在扩容，忽略，因为会自动触发对账。
-		// 2. 端口不足无法分配、端口池不存在，忽略，因为如果端口池不改正或扩容 lb，无法重试成功。
-		// 3. lb 被删除或监听器被删除，自动移除了 status 中的记录，需重新入队对账。
 		switch errCause {
-		case portpool.ErrNewLBCreated, portpool.ErrNewLBCreating:
+		case portpool.ErrPortPoolNotAllocatable: // 端口池不可用
+			if err := r.ensureState(ctx, bd, networkingv1alpha1.CLBBindingStatePortPoolNotAllocatable); err != nil {
+				return result, errors.WithStack(err)
+			}
 			return result, nil
-		case portpool.ErrNoLbReady:
-			result.RequeueAfter = time.Second
-			log.FromContext(ctx).Info("requeue due to lb not ready yet")
-			return result, nil
-		case portpool.ErrNoPortAvailable:
+		case portpool.ErrNoPortAvailable: // 端口不足
 			r.Recorder.Event(bd.GetObject(), corev1.EventTypeWarning, "NoPortAvailable", "no port available in port pool, please add clb to port pool")
 			if err := r.ensureState(ctx, bd, networkingv1alpha1.CLBBindingStateNoPortAvailable); err != nil {
 				return result, errors.WithStack(err)
@@ -92,6 +87,7 @@ func (r *CLBBindingReconciler[T]) sync(ctx context.Context, bd T) (result ctrl.R
 					if err := r.ensureState(ctx, bd, networkingv1alpha1.CLBBindingStatePortPoolNotFound); err != nil {
 						return result, errors.WithStack(err)
 					}
+					return result, nil
 				}
 				return result, errors.WithStack(err)
 			} else { // 端口池存在，但还没更新到分配器缓存，忽略，等待端口池就绪后会自动触发重新对账
@@ -133,8 +129,10 @@ func (r *CLBBindingReconciler[T]) ensureCLBBinding(ctx context.Context, bd clbbi
 		return errors.WithStack(err)
 	}
 	// 确保所有监听器都已创建并绑定到 backend
-	if err := r.ensureBackendBindings(ctx, bd); err != nil {
-		return errors.WithStack(err)
+	if len(bd.GetStatus().PortBindings) > 0 { // 确保要分配到了端口
+		if err := r.ensureBackendBindings(ctx, bd); err != nil {
+			return errors.WithStack(err)
+		}
 	}
 	return nil
 }
@@ -184,11 +182,7 @@ func (r *CLBBindingReconciler[T]) createListener(ctx context.Context, bd clbbind
 			"clb %s has been deleted when create listener",
 			binding.LoadbalancerId,
 		)
-		pp := &networkingv1alpha1.CLBPortPool{}
-		pp.Name = binding.Pool
-		eventsource.PortPool <- event.TypedGenericEvent[client.Object]{
-			Object: pp,
-		}
+		notifyPortPoolReconcile(binding.Pool)
 		return nil, errors.Wrapf(err, "lb %q not exists when create listener %d/%s", binding.LoadbalancerId, binding.LoadbalancerPort, binding.Protocol)
 	}
 	if clb.IsPortCheckFailedError(err) { // 有端口冲突，通常是 listenerId 为空直接尝试创建可能遇到，查询一次重试
@@ -227,7 +221,7 @@ func (r *CLBBindingReconciler[T]) ensureListener(ctx context.Context, bd clbbind
 		r.Recorder.Event(bd.GetObject(), corev1.EventTypeWarning, "PortPoolDeleted", fmt.Sprintf("port pool has been deleted (%s/%s/%d)", binding.Pool, binding.LoadbalancerId, binding.LoadbalancerPort))
 		return nil, nil
 	} else {
-		if !pool.IsLbExists(binding.LoadbalancerId) { // lb 被删除，移除 binding 并记录到事件
+		if !pool.IsLbExists(portpool.NewLBKeyFromBinding(binding)) { // lb 被删除，移除 binding 并记录到事件
 			r.Recorder.Event(bd.GetObject(), corev1.EventTypeWarning, "CLBDeleted", fmt.Sprintf("clb has been deleted (%s/%s/%d)", binding.Pool, binding.LoadbalancerId, binding.LoadbalancerPort))
 			return nil, nil
 		}
@@ -253,11 +247,7 @@ func (r *CLBBindingReconciler[T]) ensureListener(ctx context.Context, bd clbbind
 				"clb %s has been deleted when get listener %s",
 				binding.LoadbalancerId, binding.ListenerId,
 			)
-			pp := &networkingv1alpha1.CLBPortPool{}
-			pp.Name = binding.Pool
-			eventsource.PortPool <- event.TypedGenericEvent[client.Object]{
-				Object: pp,
-			}
+			notifyPortPoolReconcile(binding.Pool)
 			// lb 已删除，将此 binding 从 status 中移除
 			return nil, errors.WithStack(err)
 		}
@@ -556,6 +546,7 @@ func (r *CLBBindingReconciler[T]) ensurePortAllocated(ctx context.Context, bd cl
 
 	var allocatedPorts portpool.PortAllocations
 	spec := bd.GetSpec()
+	allocatedPools := make(map[string]struct{})
 LOOP_PORT:
 	for _, port := range spec.Ports { // 检查 spec 中的端口是否都已分配
 		keys := []portKey{}
@@ -614,16 +605,18 @@ LOOP_PORT:
 		if err != nil {
 			return errors.WithStack(err)
 		}
-		if len(allocated) > 0 { // 预期应该是每次 allocated 长度大于 0，否则应该有 error 返回，不会走到这后面的 else 语句
+		// 要么全部分配成功，要么无法分配
+		if len(allocated) > 0 { // 分配成功
 			for _, allocatedPort := range allocated {
+				allocatedPools[allocatedPort.Name] = struct{}{}
 				binding := networkingv1alpha1.PortBindingStatus{
 					Port:             port.Port,
 					Protocol:         allocatedPort.Protocol,
 					CertId:           certId,
-					Pool:             allocatedPort.GetName(),
+					Pool:             allocatedPort.Name,
 					LoadbalancerId:   allocatedPort.LbId,
 					LoadbalancerPort: allocatedPort.Port,
-					Region:           allocatedPort.GetRegion(),
+					Region:           allocatedPort.Region,
 				}
 				if allocatedPort.EndPort > 0 {
 					binding.LoadbalancerEndPort = &allocatedPort.EndPort
@@ -631,8 +624,8 @@ LOOP_PORT:
 				status.PortBindings = append(status.PortBindings, binding)
 			}
 			allocatedPorts = append(allocatedPorts, allocated...)
-		} else { // 兜底：为简化逻辑，保证事务性，只要有一个端口分配失败就认为失败
-			allocatedPorts.Release()
+		} else { // 只要有一个端口分配失败就认为失败
+			allocatedPorts.Release() // 为保证事务性，释放已分配的端口
 			return portpool.ErrNoPortAvailable
 		}
 	}
@@ -667,6 +660,9 @@ LOOP_PORT:
 		// 更新状态失败，释放已分配端口
 		allocatedPorts.Release()
 		return errors.WithStack(err)
+	}
+	for poolName := range allocatedPools {
+		notifyPortPoolReconcile(poolName)
 	}
 	return nil
 }
@@ -748,7 +744,8 @@ func (r *CLBBindingReconciler[T]) cleanupPortBinding(ctx context.Context, bindin
 		return errors.WithStack(err)
 	}
 	releasePort := func() {
-		if portpool.Allocator.Release(binding.Pool, binding.LoadbalancerId, portFromPortBindingStatus(binding)) {
+		lbKey := portpool.NewLBKey(binding.LoadbalancerId, binding.Region)
+		if portpool.Allocator.Release(binding.Pool, lbKey, portFromPortBindingStatus(binding)) {
 			log.FromContext(ctx).V(3).Info("release allocated port", "port", binding.LoadbalancerPort, "protocol", binding.Protocol, "pool", binding.Pool, "lb", binding.LoadbalancerId)
 		}
 	}
@@ -944,4 +941,19 @@ func (r *CLBBindingReconciler[T]) syncCLBBinding(ctx context.Context, obj client
 		return result, nil
 	}
 	return
+}
+
+func shouldNotify(portpool client.Object, spec networkingv1alpha1.CLBBindingSpec, status networkingv1alpha1.CLBBindingStatus) bool {
+	switch status.State {
+	case "", networkingv1alpha1.CLBBindingStatePending, // 还未分配端口的状态，触发对账分配端口
+		networkingv1alpha1.CLBBindingStateNoPortAvailable,        // 分配过端口但当时端口不足，触发一次对账重新分配
+		networkingv1alpha1.CLBBindingStatePortPoolNotFound,       // 之前端口池不存在，但现在有了，触发一次对账以便分配端口。通常是 apply yaml 场景，端口池和工作负载同时创建，先后顺序不固定导致
+		networkingv1alpha1.CLBBindingStatePortPoolNotAllocatable: // 之前端口池不可分配，但现在可以分配了，触发一次对账以便分配端口。通常是端口池还未就绪，等待就绪后自动触发对账重新分配端口
+		for _, port := range spec.Ports {
+			if slices.Contains(port.Pools, portpool.GetName()) {
+				return true
+			}
+		}
+	}
+	return false
 }

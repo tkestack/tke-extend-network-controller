@@ -20,16 +20,17 @@ type PortEntry struct {
 type CLBBindingState string
 
 const (
-	CLBBindingStatePending              CLBBindingState = "Pending"
-	CLBBindingStateBound                CLBBindingState = "Bound"
-	CLBBindingStateNoBackend            CLBBindingState = "NoBackend"
-	CLBBindingStateWaitBackend          CLBBindingState = "WaitBackend"
-	CLBBindingStateNodeTypeNotSupported CLBBindingState = "NodeTypeNotSupported"
-	CLBBindingStateDisabled             CLBBindingState = "Disabled"
-	CLBBindingStateFailed               CLBBindingState = "Failed"
-	CLBBindingStatePortPoolNotFound     CLBBindingState = "PortPoolNotFound"
-	CLBBindingStateNoPortAvailable      CLBBindingState = "NoPortAvailable"
-	CLBBindingStateDeleting             CLBBindingState = "Deleting"
+	CLBBindingStatePending                CLBBindingState = "Pending"
+	CLBBindingStateBound                  CLBBindingState = "Bound"
+	CLBBindingStateNoBackend              CLBBindingState = "NoBackend"
+	CLBBindingStateWaitBackend            CLBBindingState = "WaitBackend"
+	CLBBindingStateNodeTypeNotSupported   CLBBindingState = "NodeTypeNotSupported"
+	CLBBindingStateDisabled               CLBBindingState = "Disabled"
+	CLBBindingStateFailed                 CLBBindingState = "Failed"
+	CLBBindingStatePortPoolNotFound       CLBBindingState = "PortPoolNotFound"
+	CLBBindingStateNoPortAvailable        CLBBindingState = "NoPortAvailable"
+	CLBBindingStateDeleting               CLBBindingState = "Deleting"
+	CLBBindingStatePortPoolNotAllocatable CLBBindingState = "PortPoolNotAllocatable"
 )
 
 // CLBBindingStatus defines the observed state of CLBPodBinding.

@@ -6,7 +6,6 @@ import (
 
 	networkingv1alpha1 "github.com/imroc/tke-extend-network-controller/api/v1alpha1"
 	"github.com/imroc/tke-extend-network-controller/internal/portpool"
-	portpoolutil "github.com/imroc/tke-extend-network-controller/internal/portpool/util"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
@@ -62,15 +61,15 @@ func (i *initCache) Start(ctx context.Context) error {
 	}
 	for index := range ppl.Items {
 		pp := &ppl.Items[index]
-		portpool.Allocator.EnsurePool(portpoolutil.NewPortPool(pp, i.Client, i.EventRecorder))
+		portpool.Allocator.AddPoolIfNotExists(pp.Name)
 
-		lbIds := []string{}
+		lbKeys := []portpool.LBKey{}
 		for _, lbStatus := range pp.Status.LoadbalancerStatuses {
 			if lbStatus.State != networkingv1alpha1.LoadBalancerStateNotFound {
-				lbIds = append(lbIds, lbStatus.LoadbalancerID)
+				lbKeys = append(lbKeys, portpool.NewLBKey(lbStatus.LoadbalancerID, pp.GetRegion()))
 			}
 		}
-		if err := portpool.Allocator.EnsureLbIds(pp.Name, lbIds); err != nil {
+		if err := portpool.Allocator.EnsureLbIds(pp.Name, lbKeys); err != nil {
 			return err
 		}
 	}
@@ -82,7 +81,7 @@ func (i *initCache) Start(ctx context.Context) error {
 	}
 	for _, pb := range pbl.Items {
 		for _, bd := range pb.Status.PortBindings {
-			portpool.Allocator.MarkAllocated(bd.Pool, bd.LoadbalancerId, bd.LoadbalancerPort, bd.LoadbalancerEndPort, bd.Protocol)
+			portpool.Allocator.MarkAllocated(bd.Pool, portpool.NewLBKey(bd.LoadbalancerId, bd.Region), bd.LoadbalancerPort, bd.LoadbalancerEndPort, bd.Protocol)
 		}
 	}
 	npbl := &networkingv1alpha1.CLBNodeBindingList{}
@@ -91,7 +90,7 @@ func (i *initCache) Start(ctx context.Context) error {
 	}
 	for _, pb := range npbl.Items {
 		for _, bd := range pb.Status.PortBindings {
-			portpool.Allocator.MarkAllocated(bd.Pool, bd.LoadbalancerId, bd.LoadbalancerPort, bd.LoadbalancerEndPort, bd.Protocol)
+			portpool.Allocator.MarkAllocated(bd.Pool, portpool.NewLBKey(bd.LoadbalancerId, bd.Region), bd.LoadbalancerPort, bd.LoadbalancerEndPort, bd.Protocol)
 		}
 	}
 	return nil

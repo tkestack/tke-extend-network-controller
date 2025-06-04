@@ -150,6 +150,8 @@ type CLBPortPoolStatus struct {
 	State CLBPortPoolState `json:"state"`
 	// 状态信息
 	Message *string `json:"message,omitempty"`
+	// 监听器数量的 Quota
+	Quota uint16 `json:"quota"`
 	// 负载均衡器状态列表
 	LoadbalancerStatuses []LoadBalancerStatus `json:"loadbalancerStatuses,omitempty"`
 }
@@ -172,12 +174,20 @@ const (
 
 // LoadBalancerStatus 定义负载均衡器状态
 type LoadBalancerStatus struct {
-	AutoCreated      *bool             `json:"autoCreated,omitempty"`
-	State            LoadBalancerState `json:"state"`
-	LoadbalancerID   string            `json:"loadbalancerID"`
-	LoadbalancerName string            `json:"loadbalancerName"`
-	Ips              []string          `json:"ips,omitempty"`
-	Hostname         *string           `json:"hostname,omitempty"`
+	// 是否自动创建
+	AutoCreated *bool `json:"autoCreated,omitempty"`
+	// CLB 状态（Running/NotFound）
+	State LoadBalancerState `json:"state"`
+	// CLB 实例 ID
+	LoadbalancerID string `json:"loadbalancerID"`
+	// CLB 实例名称
+	LoadbalancerName string `json:"loadbalancerName"`
+	// CLB 实例的 IP 地址
+	Ips []string `json:"ips,omitempty"`
+	// CLB 实例的域名 (域名化 CLB)
+	Hostname *string `json:"hostname,omitempty"`
+	// 已分配的监听器数量
+	Allocated uint16 `json:"allocated"`
 }
 
 // +kubebuilder:object:root=true
