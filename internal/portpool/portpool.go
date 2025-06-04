@@ -142,17 +142,6 @@ func (pp *PortPool) AllocatePort(ctx context.Context, quota int64, ports ...Prot
 	return nil, quotaExceeded
 }
 
-func (pp *PortPool) IsAllocated(lbKey LBKey, port ProtocolPort) bool {
-	pp.mu.Lock()
-	defer pp.mu.Unlock()
-	cache := pp.cache[lbKey]
-	if cache == nil {
-		return false
-	}
-	_, ok := cache[port.Key()]
-	return ok
-}
-
 // 释放已分配的端口
 func (pp *PortPool) ReleasePort(lbKey LBKey, port ProtocolPort) bool {
 	pp.mu.Lock()
@@ -163,12 +152,6 @@ func (pp *PortPool) ReleasePort(lbKey LBKey, port ProtocolPort) bool {
 	}
 	delete(cache, port.Key())
 	return true
-}
-
-func (pp *PortPool) ReleaseLb(lbKey LBKey) {
-	pp.mu.Lock()
-	defer pp.mu.Unlock()
-	delete(pp.cache, lbKey)
 }
 
 func (pp *PortPool) AddLbId(lbKey LBKey) {
