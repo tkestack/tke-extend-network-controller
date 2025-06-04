@@ -20,15 +20,15 @@ type PortPool struct {
 	*networkingv1alpha1.CLBPortPool
 	client.Client
 	record.EventRecorder
-	mu       sync.Mutex
-	creating bool
+	mu sync.Mutex
 }
 
 func (p *PortPool) TryCreateLB(ctx context.Context) (portpool.CreateLbResult, error) {
-	if p.creating {
-		return portpool.CreateLbResultCreating, nil
-	}
-	log.FromContext(ctx).V(10).Info("TryCreateLB")
+	lbCount := len(p.CLBPortPool.Status.LoadbalancerStatuses)
+	p.mu.Lock()
+	defer p.mu.Unlock()
+
+	// 获取端口池对象
 	pp := &networkingv1alpha1.CLBPortPool{}
 	if err := p.Get(ctx, client.ObjectKeyFromObject(p.CLBPortPool), pp); err != nil {
 		return portpool.CreateLbResultError, errors.WithStack(err)
@@ -42,10 +42,11 @@ func (p *PortPool) TryCreateLB(ctx context.Context) (portpool.CreateLbResult, er
 		log.FromContext(ctx).V(10).Info("not able to create lb cuz auto create is not enabled")
 		return portpool.CreateLbResultForbidden, nil
 	}
-	p.mu.Lock()
-	defer p.mu.Unlock()
 	if len(pp.Status.LoadbalancerStatuses) > len(p.CLBPortPool.Status.LoadbalancerStatuses) {
 		p.CLBPortPool = pp
+	}
+	if len(p.CLBPortPool.Status.LoadbalancerStatuses) != lbCount {
+		return portpool.CreateLbResultSuccess, nil
 	}
 	// 自动创建的 CLB 数量达到配置上限的端口池，不能创建负载均衡器
 	if !util.IsZero(pp.Spec.AutoCreate.MaxLoadBalancers) { // 要读结构体中的，cache 获取到不一定是实时最新的
@@ -62,10 +63,6 @@ func (p *PortPool) TryCreateLB(ctx context.Context) (portpool.CreateLbResult, er
 			return portpool.CreateLbResultForbidden, nil
 		}
 	}
-	p.creating = true
-	defer func() {
-		p.creating = false
-	}()
 	p.EventRecorder.Event(pp, corev1.EventTypeNormal, "CreateLoadBalancer", "try to create clb")
 	lbId, err := clb.CreateCLB(ctx, pp.GetRegion(), clb.ConvertCreateLoadBalancerRequest(pp.Spec.AutoCreate.Parameters))
 	if err != nil {
