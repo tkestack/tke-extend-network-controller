@@ -736,18 +736,19 @@ func (r *CLBBindingReconciler[T]) cleanup(ctx context.Context, bd T) (result ctr
 }
 
 func (r *CLBBindingReconciler[T]) cleanupPortBinding(ctx context.Context, binding *networkingv1alpha1.PortBindingStatus) error {
-	lis, err := clb.GetListenerByIdOrPort(ctx, binding.Region, binding.LoadbalancerId, binding.ListenerId, int64(binding.LoadbalancerPort), binding.Protocol)
-	if err != nil {
-		if clb.IsLoadBalancerNotExistsError(err) { // 忽略 lbid 不存在的错误，就当清理成功
-			return nil
-		}
-		return errors.WithStack(err)
-	}
 	releasePort := func() {
 		lbKey := portpool.NewLBKey(binding.LoadbalancerId, binding.Region)
 		if portpool.Allocator.Release(binding.Pool, lbKey, portFromPortBindingStatus(binding)) {
 			log.FromContext(ctx).V(3).Info("release allocated port", "port", binding.LoadbalancerPort, "protocol", binding.Protocol, "pool", binding.Pool, "lb", binding.LoadbalancerId)
 		}
+	}
+	lis, err := clb.GetListenerByIdOrPort(ctx, binding.Region, binding.LoadbalancerId, binding.ListenerId, int64(binding.LoadbalancerPort), binding.Protocol)
+	if err != nil {
+		if clb.IsLoadBalancerNotExistsError(err) { // 忽略 lbid 不存在的错误，就当清理成功
+			releasePort()
+			return nil
+		}
+		return errors.WithStack(err)
 	}
 	if lis == nil { // 监听器已删除，忽略
 		releasePort()
