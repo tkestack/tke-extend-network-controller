@@ -30,18 +30,6 @@ func (pa *PortAllocator) GetPool(name string) *PortPool {
 	return nil
 }
 
-func (pa *PortAllocator) AddLbId(name string, lbKey LBKey) error {
-	pa.mu.Lock()
-	pool, exists := pa.pools[name]
-	pa.mu.Unlock()
-	if exists {
-		pool.AddLbId(lbKey)
-	} else {
-		return fmt.Errorf("port pool %q is not exists", name)
-	}
-	return nil
-}
-
 func (pa *PortAllocator) AllocatedPorts(name string, lbKey LBKey) uint16 {
 	pa.mu.Lock()
 	pool, exists := pa.pools[name]

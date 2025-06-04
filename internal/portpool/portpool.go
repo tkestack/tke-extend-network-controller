@@ -154,15 +154,6 @@ func (pp *PortPool) ReleasePort(lbKey LBKey, port ProtocolPort) bool {
 	return true
 }
 
-func (pp *PortPool) AddLbId(lbKey LBKey) {
-	pp.mu.Lock()
-	defer pp.mu.Unlock()
-	if _, exists := pp.cache[lbKey]; exists {
-		return
-	}
-	pp.cache[lbKey] = make(map[ProtocolPort]struct{})
-}
-
 func (pp *PortPool) AllocatedPorts(lbKey LBKey) uint16 {
 	pp.mu.Lock()
 	defer pp.mu.Unlock()
