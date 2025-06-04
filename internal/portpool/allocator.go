@@ -30,13 +30,6 @@ func (pa *PortAllocator) GetPool(name string) *PortPool {
 	return nil
 }
 
-func (pa *PortAllocator) IsPoolExists(name string) bool {
-	pa.mu.RLock()
-	_, exists := pa.pools[name]
-	pa.mu.RUnlock()
-	return exists
-}
-
 func (pa *PortAllocator) AddLbId(name string, lbKey LBKey) error {
 	pa.mu.Lock()
 	pool, exists := pa.pools[name]
