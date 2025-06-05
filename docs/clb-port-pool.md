@@ -682,43 +682,112 @@ networking.cloud.tencent.com/clb-port-mapping: |-
 
 ## 通过 Downward API 获取 Pod 映射公网地址
 
-当配置好 Pod 注解后，会为 Pod 自动分配 CLB 公网地址的映射，并将映射的结果写到 Pod 注解中：
+当配置好 Pod 注解后，会为 Pod 自动分配 CLB 公网地址的映射，并将映射的结果写到 Pod 的 `networking.cloud.tencent.com/clb-port-mapping-result` 注解中：
 
 ```yaml
 metadata:
   annotations:
-    networking.cloud.tencent.com/clb-port-mapping-result: '[{"port":8000,"protocol":"TCP","pool":"pool-test","region":"ap-chengdu","loadbalancerId":"lb-04iq85jh","loadbalancerPort":30210,"listenerId":"lbl-dt94u61x","hostname":"lb-04iq85jh-w49ru3xpmdynoigk.clb.cd-tencentclb.work"},{"port":8000,"protocol":"UDP","pool":"pool-test","region":"ap-chengdu","loadbalancerId":"lb-04iq85jh","loadbalancerPort":30210,"listenerId":"lbl-467wodtz","hostname":"lb-04iq85jh-w49ru3xpmdynoigk.clb.cd-tencentclb.work"}]'
+    networking.cloud.tencent.com/enable-clb-port-mapping: "true"
+    networking.cloud.tencent.com/clb-port-mapping: 80 TCPUDP pool-test
     networking.cloud.tencent.com/clb-port-mapping-status: Ready
+    networking.cloud.tencent.com/clb-port-mapping-result: '[{"port":80,"protocol":"TCP","pool":"pool-test","region":"ap-chengdu","loadbalancerId":"lb-6phn6qgb","loadbalancerPort":30000,"listenerId":"lbl-qvjvdt9n","ips":["111.231.210.160"],"address":"111.231.210.160:30000"},{"port":80,"protocol":"UDP","pool":"pool-test","region":"ap-chengdu","loadbalancerId":"lb-6phn6qgb","loadbalancerPort":30000,"listenerId":"lbl-bbxvltnv","ips":["111.231.210.160"],"address":"111.231.210.160:30000"}]'
 ```
 
-如果用**大规模场景下的端口映射方案三：HostPort + CLB 端口段**的方式，映射结果的 Pod 注解效果如下：
+如果用**大规模场景下的端口映射方案三：HostPort + CLB 端口段**的方式映射，映射结果会写到 Pod 的 `networking.cloud.tencent.com/clb-hostport-mapping-result` 注解中：
 
 ```yaml
 metadata:
   annotations:
-    networking.cloud.tencent.com/clb-hostport-mapping-result: '[{"containerPort":80,"hostPort":8344,"protocol":"TCP","pool":"pool-bgp","region":"ap-chengdu","loadbalancerId":"lb-cb92uxex","loadbalancerPort":30344,"listenerId":"lbl-knmgdwb1","address":"111.231.211.104:30344","ips":["111.231.211.104"]},{"containerPort":80,"hostPort":8713,"protocol":"UDP","pool":"pool-bgp","region":"ap-chengdu","loadbalancerId":"lb-cb92uxex","loadbalancerPort":30713,"listenerId":"lbl-i4n8f78h","address":"111.231.211.104:30713","ips":["111.231.211.104"]}]'
+    networking.cloud.tencent.com/enable-clb-hostport-mapping: "true"
+    networking.cloud.tencent.com/clb-hostport-mapping-result: '[{"containerPort":80,"hostPort":8344,"protocol":"TCP","pool":"pool-test","region":"ap-chengdu","loadbalancerId":"lb-cb92uxex","loadbalancerPort":30344,"listenerId":"lbl-knmgdwb1","address":"111.231.211.104:30344","ips":["111.231.211.104"]},{"containerPort":80,"hostPort":8713,"protocol":"UDP","pool":"pool-test","region":"ap-chengdu","loadbalancerId":"lb-cb92uxex","loadbalancerPort":30713,"listenerId":"lbl-i4n8f78h","address":"111.231.211.104:30713","ips":["111.231.211.104"]}]'
     networking.cloud.tencent.com/clb-hostport-mapping-status: Ready
+```
+
+映射结果为 JSON 数组，每个元素代表一个端口，具体字段参考上面给出的示例。
+
+如果 CLB 是用的域名化的 CLB（只有 CLB 域名，没有 VIP），会有 `hostname` 字段替代 `ips` 字段，表示的 CLB 域名，示例：
+
+```yaml
+networking.cloud.tencent.com/clb-port-mapping-result: '[{"port":80,"protocol":"TCP","pool":"pool-test","region":"ap-chengdu","loadbalancerId":"lb-6phn6qgb","loadbalancerPort":30000,"listenerId":"lbl-qvjvdt9n","hostname":"lb-6phn6qgb-8gcf1q6kd092nxsl.clb.cd-tencentclb.work","address":"lb-6phn6qgb-8gcf1q6kd092nxsl.clb.cd-tencentclb.work:30000"},{"port":80,"protocol":"UDP","pool":"pool-test","region":"ap-chengdu","loadbalancerId":"lb-6phn6qgb","loadbalancerPort":30000,"listenerId":"lbl-bbxvltnv","hostname":"lb-6phn6qgb-8gcf1q6kd092nxsl.clb.cd-tencentclb.work","address":"lb-6phn6qgb-8gcf1q6kd092nxsl.clb.cd-tencentclb.work:30000"}]'
+networking.cloud.tencent.com/clb-hostport-mapping-result: '[{"containerPort":80,"hostPort":8344,"protocol":"TCP","pool":"pool-test","region":"ap-chengdu","loadbalancerId":"lb-cb92uxex","loadbalancerPort":30344,"listenerId":"lbl-knmgdwb1","address":"lb-cb92uxex-8gcf1q6kd092nxsl.clb.cd-tencentclb.work:30344","hostname":"lb-cb92uxex-8gcf1q6kd092nxsl.clb.cd-tencentclb.work"},{"containerPort":80,"hostPort":8713,"protocol":"UDP","pool":"pool-test","region":"ap-chengdu","loadbalancerId":"lb-cb92uxex","loadbalancerPort":30713,"listenerId":"lbl-i4n8f78h","address":"lb-cb92uxex-8gcf1q6kd092nxsl.clb.cd-tencentclb.work:30713","hostname":"lb-cb92uxex-8gcf1q6kd092nxsl.clb.cd-tencentclb.work"}]'
 ```
 
 可以将注解的内容通过 Downward API 挂载到容器中，然后在容器中读取注解内容，获取 Pod 映射的公网地址：
 
 ```yaml
-    spec:
-      containers:
-        - ...
-          volumeMounts:
-            - name: podinfo
-              mountPath: /etc/podinfo
-      volumes:
+spec:
+  containers:
+    - name: gameserver
+      image: your-gameserver-image
+      volumeMounts:
         - name: podinfo
-          downwardAPI:
-            items:
-              - path: "clb-port-mapping"
-                fieldRef:
-                  fieldPath: metadata.annotations['networking.cloud.tencent.com/clb-port-mapping-result']
+          mountPath: /etc/podinfo
+  volumes:
+    - name: podinfo
+      downwardAPI:
+        items:
+          - path: "clb-mapping"
+            fieldRef:
+              fieldPath: metadata.annotations['networking.cloud.tencent.com/clb-port-mapping-result']
 ```
 
-进程启动时可轮询指定文件（本例中文件路径为 `/etc/podinfo/clb-port-mapping`），当文件内容为空说明此时 Pod 还未绑定到 CLB，当读取到内容时说明已经绑定成功，其内容格式为 JSON 数组，每个元素代表一个端口映射，可参考上面给出的注解示例。
+同理，如果用**大规模场景下的端口映射方案三：HostPort + CLB 端口段**的方式映射，由于注解名称不同，需微调下 downwardAPI：
+
+```yaml
+spec:
+  containers:
+    - name: gameserver
+      image: your-gameserver-image
+      volumeMounts:
+        - name: podinfo
+          mountPath: /etc/podinfo
+  volumes:
+    - name: podinfo
+      downwardAPI:
+        items:
+          - path: "clb-mapping"
+            fieldRef:
+              fieldPath: metadata.annotations['networking.cloud.tencent.com/clb-hostport-mapping-result']
+```
+
+进程启动时可轮询指定文件（本例中文件路径为 `/etc/podinfo/clb-mapping`），当文件内容为空说明此时 Pod 还未绑定到 CLB，当读取到内容时说明已经绑定成功，其内容格式为 JSON 数组，每个元素代表一个端口映射，内容格式可参考前面给出的注解示例。
+
+如果希望保证在业务容器在启动前完成 CLB 的端口映射，可利用 `initContainers` 来轮询检测该文件中的内容，直到有文件内容后退出，然后才会拉起业务容器。`initContainers` 示例：
+
+```yaml
+spec:
+  initContainers:
+  - name: get-clb-mapping
+    image: busybox
+    imagePullPolicy: IfNotPresent
+    command: ["sh", "-c"]
+    args:
+    - |
+      while true; do
+        if [[ -e /etc/podinfo/clb-mapping ]]; then
+            mapping=$(cat /etc/podinfo/clb-mapping);
+            if [ $mapping ];then
+                echo "found clb mapping: ${mapping}";
+                break;
+            else
+                echo "wait clb mapping";
+            fi;
+        else
+            echo "clb mapping file not found";
+        fi;
+        sleep 1;
+      done;
+    volumeMounts:
+    - mountPath: /etc/podinfo
+      name: podinfo
+  volumes:
+    - name: podinfo
+      downwardAPI:
+        items:
+          - path: "clb-mapping"
+            fieldRef:
+              fieldPath: metadata.annotations['networking.cloud.tencent.com/clb-port-mapping-result']
+```
 
 ## TODO
 
