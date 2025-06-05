@@ -147,6 +147,7 @@ type InternetAccessible struct {
 // CLBPortPoolStatus defines the observed state of CLBPortPool.
 type CLBPortPoolStatus struct {
 	// 状态: Pending/Active/Scaling
+	// +kubebuilder:default=Pending
 	State CLBPortPoolState `json:"state"`
 	// 状态信息
 	Message *string `json:"message,omitempty"`

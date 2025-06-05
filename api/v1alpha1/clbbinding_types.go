@@ -37,6 +37,7 @@ const (
 // CLBBindingStatus defines the observed state of CLBPodBinding.
 type CLBBindingStatus struct {
 	// 绑定状态
+	// +kubebuilder:default=Pending
 	State CLBBindingState `json:"state"`
 	// 状态信息
 	Message string `json:"message,omitempty"`

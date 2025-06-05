@@ -286,6 +286,7 @@ spec:
                 description: 监听器数量的 Quota
                 type: integer
               state:
+                default: Pending
                 description: '状态: Pending/Active/Scaling'
                 type: string
             required:
