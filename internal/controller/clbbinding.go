@@ -655,6 +655,7 @@ LOOP_PORT:
 		return nil
 	}
 	// 将已分配的端口写入 status
+	status.State = networkingv1alpha1.CLBBindingStateAllocated
 	clbbinding.SortPortBindings(status.PortBindings)
 	if err := r.Status().Update(ctx, bd.GetObject()); err != nil {
 		// 更新状态失败，释放已分配端口

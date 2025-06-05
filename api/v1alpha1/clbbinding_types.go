@@ -31,6 +31,7 @@ const (
 	CLBBindingStateNoPortAvailable        CLBBindingState = "NoPortAvailable"
 	CLBBindingStateDeleting               CLBBindingState = "Deleting"
 	CLBBindingStatePortPoolNotAllocatable CLBBindingState = "PortPoolNotAllocatable"
+	CLBBindingStateAllocated              CLBBindingState = "Allocated"
 )
 
 // CLBBindingStatus defines the observed state of CLBPodBinding.
