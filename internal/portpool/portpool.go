@@ -146,8 +146,8 @@ func (pp *PortPool) AllocatePort(ctx context.Context, quota int64, ports ...Prot
 func (pp *PortPool) ReleasePort(lbKey LBKey, port ProtocolPort) bool {
 	pp.mu.Lock()
 	defer pp.mu.Unlock()
-	cache := pp.cache[lbKey]
-	if cache == nil {
+	cache, exists := pp.cache[lbKey]
+	if !exists {
 		return false
 	}
 	delete(cache, port.Key())

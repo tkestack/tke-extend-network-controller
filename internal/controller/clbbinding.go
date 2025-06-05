@@ -534,6 +534,7 @@ var (
 func (r *CLBBindingReconciler[T]) ensurePortAllocated(ctx context.Context, bd clbbinding.CLBBinding) error {
 	status := bd.GetStatus()
 	bindings := make(map[portKey]*networkingv1alpha1.PortBindingStatus)
+	newBindings := []networkingv1alpha1.PortBindingStatus{}
 	for i := range status.PortBindings {
 		binding := &status.PortBindings[i]
 		key := portKey{
@@ -545,6 +546,12 @@ func (r *CLBBindingReconciler[T]) ensurePortAllocated(ctx context.Context, bd cl
 	}
 
 	var allocatedPorts portpool.PortAllocations
+	releasePorts := func() {
+		if len(allocatedPorts) > 0 {
+			allocatedPorts.Release()
+		}
+		allocatedPorts = nil
+	}
 	spec := bd.GetSpec()
 	allocatedPools := make(map[string]struct{})
 LOOP_PORT:
@@ -572,9 +579,9 @@ LOOP_PORT:
 		}
 		alreadyAllocated := false
 		for _, key := range keys {
-			if _, exists := bindings[key]; exists { // 已分配端口，跳过
-				delete(bindings, key)
+			if binding, exists := bindings[key]; exists { // 已分配端口，跳过
 				alreadyAllocated = true
+				newBindings = append(newBindings, *binding)
 			}
 		}
 		if alreadyAllocated {
@@ -588,7 +595,7 @@ LOOP_PORT:
 				Name:      *secretName,
 			})
 			if err != nil {
-				allocatedPorts.Release()
+				releasePorts()
 				if apierrors.IsNotFound(errors.Cause(err)) {
 					r.Recorder.Eventf(bd.GetObject(), corev1.EventTypeWarning, "CertNotFound", "cert secret %q not found", *secretName)
 					return errors.Wrapf(ErrCertIdNotFound, "cert secret %q not found", *secretName)
@@ -605,6 +612,7 @@ LOOP_PORT:
 		if err != nil {
 			return errors.WithStack(err)
 		}
+
 		// 要么全部分配成功，要么无法分配
 		if len(allocated) > 0 { // 分配成功
 			for _, allocatedPort := range allocated {
@@ -621,49 +629,31 @@ LOOP_PORT:
 				if allocatedPort.EndPort > 0 {
 					binding.LoadbalancerEndPort = &allocatedPort.EndPort
 				}
-				status.PortBindings = append(status.PortBindings, binding)
+				newBindings = append(newBindings, binding)
 			}
 			allocatedPorts = append(allocatedPorts, allocated...)
 		} else { // 只要有一个端口分配失败就认为失败
-			allocatedPorts.Release() // 为保证事务性，释放已分配的端口
+			releasePorts() // 为保证事务性，释放已分配的端口
 			return portpool.ErrNoPortAvailable
 		}
 	}
 
-	if len(bindings) > 0 { // 删除多余的端口绑定
-		for _, binding := range bindings {
-			_, err := clb.DeleteListenerByPort(ctx, binding.Region, binding.LoadbalancerId, int64(binding.LoadbalancerPort), binding.Protocol)
-			if err != nil {
-				return errors.WithStack(err)
-			}
-		}
-		statuses := []networkingv1alpha1.PortBindingStatus{}
-		for _, port := range status.PortBindings {
-			key := portKey{
-				Port:     port.Port,
-				Protocol: port.Protocol,
-				Pool:     port.Pool,
-			}
-			if _, exists := bindings[key]; !exists {
-				statuses = append(statuses, port)
-			}
-		}
-		status.PortBindings = statuses
-	}
-
-	if len(allocatedPorts) == 0 && len(bindings) == 0 { // 没有新端口分配，也没有多余端口需要删除，直接返回
-		return nil
-	}
 	// 将已分配的端口写入 status
-	status.State = networkingv1alpha1.CLBBindingStateAllocated
-	clbbinding.SortPortBindings(status.PortBindings)
-	if err := r.Status().Update(ctx, bd.GetObject()); err != nil {
-		// 更新状态失败，释放已分配端口
-		allocatedPorts.Release()
-		return errors.WithStack(err)
-	}
-	for poolName := range allocatedPools {
-		notifyPortPoolReconcile(poolName)
+	clbbinding.SortPortBindings(newBindings)
+	if !reflect.DeepEqual(newBindings, status.PortBindings) {
+		status.PortBindings = newBindings
+		if len(allocatedPorts) > 0 { // 有分配到端口，更新 state 为 Allocated
+			status.State = networkingv1alpha1.CLBBindingStateAllocated
+		}
+		if err := r.Status().Update(ctx, bd.GetObject()); err != nil {
+			// 更新状态失败，释放已分配端口
+			releasePorts()
+			return errors.WithStack(err)
+		} else {
+			for poolName := range allocatedPools {
+				notifyPortPoolReconcile(poolName)
+			}
+		}
 	}
 	return nil
 }
