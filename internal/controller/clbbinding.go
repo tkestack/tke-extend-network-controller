@@ -64,6 +64,9 @@ func (r *CLBBindingReconciler[T]) sync(ctx context.Context, bd T) (result ctrl.R
 	if err := r.ensureCLBBinding(ctx, bd); err != nil {
 		errCause := errors.Cause(err)
 		switch errCause {
+		case ErrLBNotFoundInPool: // lb 不存在于端口池中，通常是 lb 扩容了但还未将 lb 信息写入端口池的 status 中，重新入队重试
+			result.RequeueAfter = 20 * time.Microsecond
+			return result, nil
 		case portpool.ErrPortPoolNotAllocatable: // 端口池不可用
 			if err := r.ensureState(ctx, bd, networkingv1alpha1.CLBBindingStatePortPoolNotAllocatable); err != nil {
 				return result, errors.WithStack(err)
@@ -437,6 +440,8 @@ func NewLBStatusGetter(client client.Client) *LBStatusGetter {
 	}
 }
 
+var ErrLBNotFoundInPool = errors.New("loadbalancer not found in port pool")
+
 func (g *LBStatusGetter) Get(ctx context.Context, poolName, lbId string) (*networkingv1alpha1.LoadBalancerStatus, error) {
 	key := lbStatusKey(poolName, lbId)
 	status, exists := g.cache[key]
@@ -455,7 +460,7 @@ func (g *LBStatusGetter) Get(ctx context.Context, poolName, lbId string) (*netwo
 	if exists {
 		return status, nil
 	}
-	return nil, errors.Errorf("loadbalancer %s not found in pool %s", lbId, poolName)
+	return nil, errors.Wrapf(ErrLBNotFoundInPool, "loadbalancer %s not found in port pool %s", lbId, poolName)
 }
 
 // 确保映射的结果写到 backend 资源的注解上

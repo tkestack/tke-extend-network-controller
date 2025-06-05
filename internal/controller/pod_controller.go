@@ -20,6 +20,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"time"
 
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/log"
@@ -87,6 +88,10 @@ func (r *PodReconciler) sync(ctx context.Context, pod *corev1.Pod) (result ctrl.
 		}
 		result, err = r.syncCLBHostPortMapping(ctx, pod)
 		if err != nil {
+			if errors.Is(err, ErrLBNotFoundInPool) { // lb 不存在于端口池中，通常是 lb 扩容了但还未将 lb 信息写入端口池的 status 中，重新入队重试
+				result.RequeueAfter = 20 * time.Microsecond
+				return result, nil
+			}
 			return result, errors.WithStack(err)
 		}
 	}

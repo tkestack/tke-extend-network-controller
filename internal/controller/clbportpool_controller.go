@@ -203,6 +203,11 @@ func (r *CLBPortPoolReconciler) ensureLbStatus(ctx context.Context, pool *networ
 		lbStatuses = append(lbStatuses, lbStatus)
 	}
 
+	// 确保所有可分配的 lb 在分配器缓存中
+	if err := portpool.Allocator.EnsureLbIds(pool.Name, allocatableLBs); err != nil {
+		return errors.WithStack(err)
+	}
+
 	// 如果 status 有变更就更新下
 	if quota != pool.Status.Quota || !reflect.DeepEqual(lbStatuses, pool.Status.LoadbalancerStatuses) {
 		pool.Status.LoadbalancerStatuses = lbStatuses
@@ -210,11 +215,6 @@ func (r *CLBPortPoolReconciler) ensureLbStatus(ctx context.Context, pool *networ
 		if err := r.Status().Update(ctx, pool); err != nil {
 			return errors.WithStack(err)
 		}
-	}
-
-	// 确保所有可分配的 lb 在分配器缓存中
-	if err := portpool.Allocator.EnsureLbIds(pool.Name, allocatableLBs); err != nil {
-		return errors.WithStack(err)
 	}
 
 	if insufficientPorts { // 可分配端口不足，尝试扩容 clb
