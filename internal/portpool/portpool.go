@@ -38,6 +38,17 @@ func (p ProtocolPort) Key() ProtocolPort {
 	}
 }
 
+func NewProtocolPortFromBinding(status *networkingv1alpha1.PortBindingStatus) ProtocolPort {
+	port := ProtocolPort{
+		Port:     status.LoadbalancerPort,
+		Protocol: status.Protocol,
+	}
+	if status.LoadbalancerEndPort != nil {
+		port.EndPort = *status.LoadbalancerEndPort
+	}
+	return port
+}
+
 type PortAllocation struct {
 	ProtocolPort
 	*PortPool

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"sync"
 
+	networkingv1alpha1 "github.com/imroc/tke-extend-network-controller/api/v1alpha1"
 	"github.com/pkg/errors"
 )
 
@@ -102,6 +103,10 @@ func (pa *PortAllocator) Allocate(ctx context.Context, pools []string, protocol 
 	} else {
 		return ports, nil
 	}
+}
+
+func (pa *PortAllocator) ReleaseBinding(binding *networkingv1alpha1.PortBindingStatus) bool {
+	return pa.Release(binding.Pool, NewLBKeyFromBinding(binding), NewProtocolPortFromBinding(binding))
 }
 
 // Release 释放一个端口
