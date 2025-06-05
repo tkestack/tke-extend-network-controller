@@ -19,6 +19,7 @@ package controller
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/log"
@@ -109,6 +110,12 @@ type HostPortMapping struct {
 	LoadbalancerPort uint16 `json:"loadbalancerPort"`
 	// 监听器ID
 	ListenerId string `json:"listenerId"`
+	// 映射地址（CLB 的 IP/域名:端口）
+	Address string `json:"address"`
+	// CLB 域名
+	Hostname *string `json:"hostname,omitempty"`
+	// CLB VIP
+	Ips []string `json:"ips,omitempty"`
 }
 
 func matchHostPort(hostPort, port, lbPort, lbEndPort uint16) (uint16, bool) {
@@ -135,6 +142,7 @@ func (r *PodReconciler) syncCLBHostPortMapping(ctx context.Context, pod *corev1.
 		}
 		return result, errors.WithStack(err)
 	}
+	lbStatuses := NewLBStatusGetter(r.Client)
 	mappings := []HostPortMapping{}
 	for _, container := range pod.Spec.Containers {
 		for _, port := range container.Ports {
@@ -145,6 +153,17 @@ func (r *PodReconciler) syncCLBHostPortMapping(ctx context.Context, pod *corev1.
 				if bd.Protocol == string(port.Protocol) {
 					lbEndPort := util.GetValue(bd.LoadbalancerEndPort)
 					if lbPort, ok := matchHostPort(uint16(port.HostPort), bd.Port, bd.LoadbalancerPort, lbEndPort); ok {
+						lbStatus, err := lbStatuses.Get(ctx, bd.Pool, bd.LoadbalancerId)
+						if err != nil {
+							return result, errors.WithStack(err)
+						}
+						address := util.GetValue(lbStatus.Hostname)
+						if address == "" && len(lbStatus.Ips) > 0 {
+							address = lbStatus.Ips[0]
+						}
+						if address != "" {
+							address = fmt.Sprintf("%s:%d", address, lbPort)
+						}
 						mappings = append(mappings, HostPortMapping{
 							ContainerPort:    uint16(port.ContainerPort),
 							HostPort:         uint16(port.HostPort),
@@ -154,6 +173,9 @@ func (r *PodReconciler) syncCLBHostPortMapping(ctx context.Context, pod *corev1.
 							LoadbalancerId:   bd.LoadbalancerId,
 							LoadbalancerPort: lbPort,
 							ListenerId:       bd.ListenerId,
+							Hostname:         lbStatus.Hostname,
+							Ips:              lbStatus.Ips,
+							Address:          address,
 						})
 					}
 				}

@@ -418,38 +418,53 @@ type PortBindingStatus struct {
 	EndPort                              *uint16  `json:"endPort,omitempty"`
 	Hostname                             *string  `json:"hostname,omitempty"`
 	Ips                                  []string `json:"ips,omitempty"`
+	Address                              string   `json:"address"`
 }
 
 func lbStatusKey(poolName, lbId string) string {
 	return fmt.Sprintf("%s/%s", poolName, lbId)
 }
 
+type LBStatusGetter struct {
+	cache  map[string]*networkingv1alpha1.LoadBalancerStatus
+	client client.Client
+}
+
+func NewLBStatusGetter(client client.Client) *LBStatusGetter {
+	return &LBStatusGetter{
+		cache:  make(map[string]*networkingv1alpha1.LoadBalancerStatus),
+		client: client,
+	}
+}
+
+func (g *LBStatusGetter) Get(ctx context.Context, poolName, lbId string) (*networkingv1alpha1.LoadBalancerStatus, error) {
+	key := lbStatusKey(poolName, lbId)
+	status, exists := g.cache[key]
+	if exists {
+		return status, nil
+	}
+	pp := &networkingv1alpha1.CLBPortPool{}
+	if err := g.client.Get(ctx, client.ObjectKey{Name: poolName}, pp); err != nil {
+		return nil, errors.WithStack(err)
+	}
+	for i := range pp.Status.LoadbalancerStatuses {
+		status := &pp.Status.LoadbalancerStatuses[i]
+		g.cache[lbStatusKey(poolName, status.LoadbalancerID)] = status
+	}
+	status, exists = g.cache[key]
+	if exists {
+		return status, nil
+	}
+	return nil, errors.Errorf("loadbalancer %s not found in pool %s", lbId, poolName)
+}
+
 // 确保映射的结果写到 backend 资源的注解上
 func (r *CLBBindingReconciler[T]) ensureBackendStatusAnnotation(ctx context.Context, bd clbbinding.CLBBinding, backend clbbinding.Backend) error {
-	lbStatuses := make(map[string]*networkingv1alpha1.LoadBalancerStatus)
-	getLbStatus := func(poolName, lbId string) (*networkingv1alpha1.LoadBalancerStatus, error) {
-		status, exists := lbStatuses[lbStatusKey(poolName, lbId)]
-		if exists {
-			return status, nil
-		}
-		pp := &networkingv1alpha1.CLBPortPool{}
-		if err := r.Get(ctx, client.ObjectKey{Name: poolName}, pp); err != nil {
-			return nil, errors.WithStack(err)
-		}
-		for i := range pp.Status.LoadbalancerStatuses {
-			status := &pp.Status.LoadbalancerStatuses[i]
-			lbStatuses[lbStatusKey(poolName, status.LoadbalancerID)] = status
-		}
-		status, exists = lbStatuses[lbStatusKey(poolName, lbId)]
-		if exists {
-			return status, nil
-		}
-		return nil, errors.Errorf("loadbalancer %s not found in pool %s", lbId, poolName)
-	}
+	lbStatuses := NewLBStatusGetter(r.Client)
 	statuses := []PortBindingStatus{}
 	bdStatus := bd.GetStatus()
 	for _, binding := range bdStatus.PortBindings {
-		status, err := getLbStatus(binding.Pool, binding.LoadbalancerId)
+		status, err := lbStatuses.Get(ctx, binding.Pool, binding.LoadbalancerId)
 		if err != nil {
 			return errors.WithStack(err)
 		}
@@ -458,11 +473,19 @@ func (r *CLBBindingReconciler[T]) ensureBackendStatusAnnotation(ctx context.Cont
 			val := binding.Port + (*binding.LoadbalancerEndPort - binding.LoadbalancerPort)
 			endPort = &val
 		}
+		address := util.GetValue(status.Hostname)
+		if address == "" && len(status.Ips) > 0 {
+			address = status.Ips[0]
+		}
+		if address != "" {
+			address = fmt.Sprintf("%s:%d", address, binding.LoadbalancerPort)
+		}
 		statuses = append(statuses, PortBindingStatus{
 			PortBindingStatus: binding,
 			EndPort:           endPort,
 			Hostname:          status.Hostname,
 			Ips:               status.Ips,
+			Address:           address,
 		})
 	}
 	val, err := json.Marshal(statuses)
