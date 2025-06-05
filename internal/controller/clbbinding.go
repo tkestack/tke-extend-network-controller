@@ -633,7 +633,10 @@ LOOP_PORT:
 			}
 			allocatedPorts = append(allocatedPorts, allocated...)
 		} else { // 只要有一个端口分配失败就认为失败
-			releasePorts() // 为保证事务性，释放已分配的端口
+			releasePorts()                         // 为保证事务性，释放已分配的端口
+			for poolName := range allocatedPools { // 通知关联的端口池对账，如果启用自动创建 clb，可触发 lb 扩容
+				notifyPortPoolReconcile(poolName)
+			}
 			return portpool.ErrNoPortAvailable
 		}
 	}
