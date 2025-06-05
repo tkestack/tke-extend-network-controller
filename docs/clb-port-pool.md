@@ -230,37 +230,6 @@ spec:
             image: your-gameserver-image
 ```
 
-## 通过 Downward API 获取 Pod 映射公网地址
-
-当配置好 Pod 注解后，会为 Pod 自动分配 CLB 公网地址的映射，并将映射的结果写到 Pod 注解中：
-
-```yaml
-metadata:
-  annotations:
-    networking.cloud.tencent.com/clb-port-mapping-result: '[{"port":8000,"protocol":"TCP","pool":"pool-test","region":"ap-chengdu","loadbalancerId":"lb-04iq85jh","loadbalancerPort":30210,"listenerId":"lbl-dt94u61x","hostname":"lb-04iq85jh-w49ru3xpmdynoigk.clb.cd-tencentclb.work"},{"port":8000,"protocol":"UDP","pool":"pool-test","region":"ap-chengdu","loadbalancerId":"lb-04iq85jh","loadbalancerPort":30210,"listenerId":"lbl-467wodtz","hostname":"lb-04iq85jh-w49ru3xpmdynoigk.clb.cd-tencentclb.work"}]'
-    networking.cloud.tencent.com/clb-port-mapping-status: Ready
-```
-
-可以将注解的内容通过 Downward API 挂载到容器中，然后在容器中读取注解内容，获取 Pod 映射的公网地址：
-
-```yaml
-    spec:
-      containers:
-        - ...
-          volumeMounts:
-            - name: podinfo
-              mountPath: /etc/podinfo
-      volumes:
-        - name: podinfo
-          downwardAPI:
-            items:
-              - path: "clb-port-mapping"
-                fieldRef:
-                  fieldPath: metadata.annotations['networking.cloud.tencent.com/clb-port-mapping-result']
-```
-
-进程启动时可轮询指定文件（本例中文件路径为 `/etc/podinfo/clb-port-mapping`），当文件内容为空说明此时 Pod 还未绑定到 CLB，当读取到内容时说明已经绑定成功，其内容格式为 JSON 数组，每个元素代表一个端口映射，可参考上面给出的注解示例。
-
 ## TCP 和 UDP 同端口号接入
 
 有些情况下，玩家的网络环境 UDP 可能无法正常工作，游戏客户端自动 fallback 到 TCP 协议进行通信。
@@ -710,6 +679,46 @@ networking.cloud.tencent.com/clb-port-mapping: |-
 ```
 
 > `certSecret` 选项表示要挂载的证书 Secret 名称，Secret 中必须包含 `qcloud_cert_id` 字段，值为证书 ID。
+
+## 通过 Downward API 获取 Pod 映射公网地址
+
+当配置好 Pod 注解后，会为 Pod 自动分配 CLB 公网地址的映射，并将映射的结果写到 Pod 注解中：
+
+```yaml
+metadata:
+  annotations:
+    networking.cloud.tencent.com/clb-port-mapping-result: '[{"port":8000,"protocol":"TCP","pool":"pool-test","region":"ap-chengdu","loadbalancerId":"lb-04iq85jh","loadbalancerPort":30210,"listenerId":"lbl-dt94u61x","hostname":"lb-04iq85jh-w49ru3xpmdynoigk.clb.cd-tencentclb.work"},{"port":8000,"protocol":"UDP","pool":"pool-test","region":"ap-chengdu","loadbalancerId":"lb-04iq85jh","loadbalancerPort":30210,"listenerId":"lbl-467wodtz","hostname":"lb-04iq85jh-w49ru3xpmdynoigk.clb.cd-tencentclb.work"}]'
+    networking.cloud.tencent.com/clb-port-mapping-status: Ready
+```
+
+如果用**大规模场景下的端口映射方案三：HostPort + CLB 端口段**的方式，映射结果的 Pod 注解效果如下：
+
+```yaml
+metadata:
+  annotations:
+    networking.cloud.tencent.com/clb-hostport-mapping-result: '[{"containerPort":80,"hostPort":8344,"protocol":"TCP","pool":"pool-bgp","region":"ap-chengdu","loadbalancerId":"lb-cb92uxex","loadbalancerPort":30344,"listenerId":"lbl-knmgdwb1","address":"111.231.211.104:30344","ips":["111.231.211.104"]},{"containerPort":80,"hostPort":8713,"protocol":"UDP","pool":"pool-bgp","region":"ap-chengdu","loadbalancerId":"lb-cb92uxex","loadbalancerPort":30713,"listenerId":"lbl-i4n8f78h","address":"111.231.211.104:30713","ips":["111.231.211.104"]}]'
+    networking.cloud.tencent.com/clb-hostport-mapping-status: Ready
+```
+
+可以将注解的内容通过 Downward API 挂载到容器中，然后在容器中读取注解内容，获取 Pod 映射的公网地址：
+
+```yaml
+    spec:
+      containers:
+        - ...
+          volumeMounts:
+            - name: podinfo
+              mountPath: /etc/podinfo
+      volumes:
+        - name: podinfo
+          downwardAPI:
+            items:
+              - path: "clb-port-mapping"
+                fieldRef:
+                  fieldPath: metadata.annotations['networking.cloud.tencent.com/clb-port-mapping-result']
+```
+
+进程启动时可轮询指定文件（本例中文件路径为 `/etc/podinfo/clb-port-mapping`），当文件内容为空说明此时 Pod 还未绑定到 CLB，当读取到内容时说明已经绑定成功，其内容格式为 JSON 数组，每个元素代表一个端口映射，可参考上面给出的注解示例。
 
 ## TODO
 
