@@ -734,6 +734,7 @@ func (r *CLBBindingReconciler[T]) cleanupPortBinding(ctx context.Context, bindin
 		lbKey := portpool.NewLBKey(binding.LoadbalancerId, binding.Region)
 		if portpool.Allocator.Release(binding.Pool, lbKey, portFromPortBindingStatus(binding)) {
 			log.FromContext(ctx).V(3).Info("release allocated port", "port", binding.LoadbalancerPort, "protocol", binding.Protocol, "pool", binding.Pool, "lb", binding.LoadbalancerId)
+			notifyPortPoolReconcile(binding.Pool)
 		}
 	}
 	lis, err := clb.GetListenerByIdOrPort(ctx, binding.Region, binding.LoadbalancerId, binding.ListenerId, int64(binding.LoadbalancerPort), binding.Protocol)
