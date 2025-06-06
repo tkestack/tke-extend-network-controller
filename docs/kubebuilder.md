@@ -23,4 +23,5 @@ kubebuilder create api --group core --kind Pod --version v1 --controller=true --
 kubebuilder create webhook --group core --version v1 --kind Pod --defaulting --programmatic-validation
 
 kubebuilder create api --group core --kind Node --version v1 --controller=true --resource=false
+kubebuilder create api --external-api-domain game.kruise.io --external-api-path github.com/openkruise/kruise-game/apis/v1alpha1 --kind GameServerSet --version v1alpha1 --controller=true --resource=false 
 ```
