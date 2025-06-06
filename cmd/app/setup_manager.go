@@ -6,6 +6,7 @@ import (
 
 	networkingv1alpha1 "github.com/imroc/tke-extend-network-controller/api/v1alpha1"
 	"github.com/imroc/tke-extend-network-controller/internal/portpool"
+	kruisegamev1alpha1 "github.com/openkruise/kruise-game/apis/v1alpha1"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
@@ -21,6 +22,7 @@ func init() {
 	// Add API to schema
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))     // k8s native resources
 	utilruntime.Must(networkingv1alpha1.AddToScheme(scheme)) // tke-extend-network-controller CRDs
+	utilruntime.Must(kruisegamev1alpha1.AddToScheme(scheme)) // OKG CRDs
 }
 
 func SetupManager(mgr ctrl.Manager) {
