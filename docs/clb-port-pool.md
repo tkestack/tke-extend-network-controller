@@ -77,6 +77,10 @@ spec:
       masterZoneId: ap-guangzhou-1
       # 仅适用于公网且IP版本为IPv4的负载均衡。可用区ID，指定可用区以创建负载均衡实例。
       zoneId: ap-guangzhou-1
+      # Target是否放通来自CLB的流量。开启放通（true）：只验证CLB上的安全组；不开启放通（false）：需同时验证CLB和后端实例上的安全组。默认值为 true。
+      loadBalancerPassToTarget: true
+      # 是否创建域名化负载均衡（CLB 地址是域名，没有固定的 VIP）。
+      dynamicVip: false
 ```
 
 > 更详细的 API 说明请参考 [API 参考](api.md#clbportpool)
