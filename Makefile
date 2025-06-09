@@ -1,5 +1,5 @@
 # Image URL to use all building/pushing image targets
-IMG ?= imroc/tke-extend-network-controller:2.0.9
+IMG ?= imroc/tke-extend-network-controller:2.1.0
 # ENVTEST_K8S_VERSION refers to the version of kubebuilder assets to be downloaded by envtest binary.
 ENVTEST_K8S_VERSION = 1.30.0
 

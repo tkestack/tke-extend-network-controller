@@ -1,5 +1,10 @@
 # 版本说明
 
+## v2.1.0 (2025-06-09)
+
+- 支持为 OKG 的 GameServerSet 的 TencentCloud-CLB 模式的 GameServer 自动创建对应的端口池。
+- 自动创建 CLB 默认使用固定 VIP，通过可选的 `dynamicVip` 选项可以改为域名化的 CLB。
+
 ## v2.0.9 (2025-06-05)
 
 - 映射结果信息更详细。
