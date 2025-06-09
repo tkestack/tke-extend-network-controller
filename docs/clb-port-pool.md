@@ -536,7 +536,7 @@ metadata:
 
 ### 使用 CLB 端口段 + HostPort 优化大规模场景下的多线接入
 
-如何解决多线接入场景下 CLB 监听器数量消耗过多的问题？可参考上一节中**大规模场景下的端口映射**的**方案三：HostPort + CLB 端口段**（前提是接受其中提到的限制）。
+如何解决多线接入场景下 CLB 监听器数量消耗过多的问题？可参考 [大规模场景下的端口映射方案三：HostPort + CLB 端口段](#使用-clb-端口段--hostport-优化大规模场景下的多线接入) （前提是接受其中提到的限制）。
 
 如果要保证 TCP 和 UDP 对外同端口号暴露，目前只有使用 Agones 的 Fleet 来部署 GameServer （只有 Agones 支持分配同端口号的 TCP + UDP 的 HostPort）。
 
@@ -693,7 +693,7 @@ metadata:
     networking.cloud.tencent.com/clb-port-mapping-result: '[{"port":80,"protocol":"TCP","pool":"pool-test","region":"ap-chengdu","loadbalancerId":"lb-6phn6qgb","loadbalancerPort":30000,"listenerId":"lbl-qvjvdt9n","ips":["111.231.210.160"],"address":"111.231.210.160:30000"},{"port":80,"protocol":"UDP","pool":"pool-test","region":"ap-chengdu","loadbalancerId":"lb-6phn6qgb","loadbalancerPort":30000,"listenerId":"lbl-bbxvltnv","ips":["111.231.210.160"],"address":"111.231.210.160:30000"}]'
 ```
 
-如果用**大规模场景下的端口映射方案三：HostPort + CLB 端口段**的方式映射，映射结果会写到 Pod 的 `networking.cloud.tencent.com/clb-hostport-mapping-result` 注解中：
+如果用 [大规模场景下的端口映射方案三：HostPort + CLB 端口段](#使用-clb-端口段--hostport-优化大规模场景下的多线接入) 的方式映射，映射结果会写到 Pod 的 `networking.cloud.tencent.com/clb-hostport-mapping-result` 注解中：
 
 ```yaml
 metadata:
@@ -731,7 +731,7 @@ spec:
               fieldPath: metadata.annotations['networking.cloud.tencent.com/clb-port-mapping-result']
 ```
 
-同理，如果用**大规模场景下的端口映射方案三：HostPort + CLB 端口段**的方式映射，由于注解名称不同，需微调下 downwardAPI：
+同理，如果用 [大规模场景下的端口映射方案三：HostPort + CLB 端口段](#使用-clb-端口段--hostport-优化大规模场景下的多线接入) 的方式映射，由于注解名称不同，需微调下 downwardAPI：
 
 ```yaml
 spec:
