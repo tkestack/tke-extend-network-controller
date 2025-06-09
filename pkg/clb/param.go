@@ -5,6 +5,7 @@ import (
 	"github.com/imroc/tke-extend-network-controller/pkg/clusterinfo"
 	"github.com/imroc/tke-extend-network-controller/pkg/util"
 	clb "github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/clb/v20180317"
+	"github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common"
 )
 
 func ConvertCreateLoadBalancerRequest(p *networkingv1alpha1.CreateLBParameters) *clb.CreateLoadBalancerRequest {
@@ -78,6 +79,9 @@ func ConvertCreateLoadBalancerRequest(p *networkingv1alpha1.CreateLBParameters) 
 			req.InternetAccessible = &clb.InternetAccessible{}
 		}
 		req.InternetAccessible.InternetChargeType = util.GetPtr("BANDWIDTH_PACKAGE")
+	}
+	if req.DynamicVip == nil { // 默认不用域名化的 CLB
+		req.DynamicVip = common.BoolPtr(false)
 	}
 
 	// 转换Tags
