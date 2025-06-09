@@ -50,6 +50,9 @@ func (r *CLBBindingReconciler[T]) sync(ctx context.Context, bd T) (result ctrl.R
 		if err := r.ensureState(ctx, bd, networkingv1alpha1.CLBBindingStateDisabled); err != nil {
 			return result, errors.WithStack(err)
 		}
+		if err := r.ensureUnbound(ctx, bd); err != nil {
+			return result, errors.WithStack(err)
+		}
 		return
 	}
 	status := bd.GetStatus()
@@ -124,6 +127,19 @@ func (r *CLBBindingReconciler[T]) sync(ctx context.Context, bd T) (result ctrl.R
 		return result, errors.WithStack(err)
 	}
 	return result, nil
+}
+
+func (r *CLBBindingReconciler[T]) ensureUnbound(ctx context.Context, bd clbbinding.CLBBinding) error {
+	for _, binding := range bd.GetStatus().PortBindings {
+		lisId := binding.ListenerId
+		if lisId == "" {
+			continue
+		}
+		if err := clb.DeregisterAllTargetsTryBatch(ctx, binding.Region, binding.LoadbalancerId, lisId); err != nil {
+			return errors.WithStack(err)
+		}
+	}
+	return nil
 }
 
 func (r *CLBBindingReconciler[T]) ensureCLBBinding(ctx context.Context, bd clbbinding.CLBBinding) error {

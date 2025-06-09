@@ -107,6 +107,20 @@ func (t Target) String() string {
 	return fmt.Sprintf("%s:%d", t.TargetIP, t.TargetPort)
 }
 
+func DeregisterAllTargetsTryBatch(ctx context.Context, region, lbId, listenerId string) error {
+	targets, err := DescribeTargetsTryBatch(ctx, region, lbId, listenerId)
+	if err != nil {
+		return errors.WithStack(err)
+	}
+	if len(targets) > 0 {
+		err = DeregisterTargetsForListenerTryBatch(ctx, region, lbId, listenerId, targets...)
+		if err != nil {
+			return errors.WithStack(err)
+		}
+	}
+	return nil
+}
+
 func DeregisterAllTargets(ctx context.Context, region, lbId, listenerId string) error {
 	queryReq := clb.NewDescribeTargetsRequest()
 	queryReq.LoadBalancerId = &lbId
