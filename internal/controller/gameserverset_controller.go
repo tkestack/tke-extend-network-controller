@@ -18,8 +18,17 @@ package controller
 
 import (
 	"context"
+	"fmt"
+	"reflect"
+	"strconv"
+	"strings"
 
+	networkingv1alpha1 "github.com/imroc/tke-extend-network-controller/api/v1alpha1"
+	"github.com/imroc/tke-extend-network-controller/internal/constant"
+	"github.com/imroc/tke-extend-network-controller/pkg/util"
 	gamekruiseiov1alpha1 "github.com/openkruise/kruise-game/apis/v1alpha1"
+	"github.com/pkg/errors"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -41,6 +50,64 @@ func (r *GameServerSetReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 }
 
 func (r *GameServerSetReconciler) sync(ctx context.Context, gss *gamekruiseiov1alpha1.GameServerSet) (ctrl.Result, error) {
+	network := gss.Spec.Network
+	if network == nil {
+		return ctrl.Result{}, nil
+	}
+	if network.NetworkType != constant.OKGNetworkType {
+		return ctrl.Result{}, nil
+	}
+	var clbIds []string
+	var startPort uint16 = 30000
+	var listenerQuota *uint16
+	for _, param := range network.NetworkConf {
+		switch param.Name {
+		case "ClbIds":
+			clbIds = strings.Split(param.Value, ",")
+		case "MinPort":
+			if minPort, err := strconv.Atoi(param.Value); err != nil {
+				return ctrl.Result{}, errors.WithStack(err)
+			} else {
+				startPort = uint16(minPort)
+			}
+		case "ListenerQuota":
+			if quota, err := strconv.Atoi(param.Value); err != nil {
+				return ctrl.Result{}, errors.WithStack(err)
+			} else {
+				listenerQuota = util.GetPtr(uint16(quota))
+			}
+		}
+	}
+
+	// 构造期望的 CLBPortPool Spec
+	ppSpec := networkingv1alpha1.CLBPortPoolSpec{
+		StartPort:               startPort,
+		ListenerQuota:           listenerQuota,
+		ExsistedLoadBalancerIDs: clbIds,
+	}
+
+	// 确保 CLBPortPool 存在并符合预期
+	ppName := fmt.Sprintf("%s-%s", gss.Namespace, gss.Name)
+	pp := &networkingv1alpha1.CLBPortPool{}
+	if err := r.Get(ctx, client.ObjectKey{Name: ppName}, pp); err != nil {
+		if apierrors.IsNotFound(err) { // 不存在，创建一个
+			pp.Name = ppName
+			pp.Spec = ppSpec
+			if err := r.Create(ctx, pp); err != nil {
+				return ctrl.Result{}, errors.WithStack(err)
+			}
+			return ctrl.Result{}, nil
+		}
+		return ctrl.Result{}, errors.WithStack(err)
+	}
+	// 存在，检查是否符合预期
+	if !reflect.DeepEqual(pp.Spec, ppSpec) { // 不符合预期，更新
+		pp.Spec = ppSpec
+		if err := r.Update(ctx, pp); err != nil {
+			return ctrl.Result{}, errors.WithStack(err)
+		}
+	}
+	// 全部符合预期，忽略
 	return ctrl.Result{}, nil
 }
 

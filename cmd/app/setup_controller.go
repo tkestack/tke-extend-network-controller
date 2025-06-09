@@ -94,4 +94,13 @@ func SetupControllers(mgr ctrl.Manager) {
 		setupLog.Error(err, "unable to create controller", "controller", "Node")
 		os.Exit(1)
 	}
+
+	// GameServerSet controller
+	if err := (&controller.GameServerSetReconciler{
+		Client: mgr.GetClient(),
+		Scheme: mgr.GetScheme(),
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "GameServerSet")
+		os.Exit(1)
+	}
 }

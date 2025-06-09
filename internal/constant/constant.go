@@ -14,4 +14,5 @@ const (
 	ProtocolTCP                  = "TCP"
 	ProtocolUDP                  = "UDP"
 	ProtocolTCPUDP               = "TCPUDP"
+	OKGNetworkType               = "TencentCloud-CLB"
 )
