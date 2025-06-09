@@ -273,7 +273,7 @@ annotations:
 
 ### 方案一：提升 CLB 监听器的配额
 
-根据需求 [提工单](https://console.cloud.tencent.com/workorder/category?level1_id=6&level2_id=163&source=14&data_title=%E8%B4%9F%E8%BD%BD%E5%9D%87%E8%A1%A1&step=1) 申请提升 CLB `一个实例可添加的监听器数量` 的配额限制。
+根据需求 [提工单](https://console.cloud.tencent.com/workorder/category?level1_id=6&level2_id=163&source=14&data_title=%E8%B4%9F%E8%BD%BD%E5%9D%87%E8%A1%A1&step=1) 申请提升 CLB `一个实例可添加的监听器数量` 的配额限制（调整方法参考 FAQ 中的 [如何提升 CLB 的监听器数量配额](#如何提升 CLB 的监听器数量配额)。
 
 配额调整分为账号维度和实例维度，如果希望调整到很大（比如 2000），通常只能在实例维度调整。如果在实例维度调整，在定义端口池时只能添加已有 CLB 实例的方式（不能启用自动创建），且需要手动指定下 `listenerQuota` 的值，与申请到的配额需一致：
 
@@ -788,6 +788,22 @@ spec:
             fieldRef:
               fieldPath: metadata.annotations['networking.cloud.tencent.com/clb-port-mapping-result']
 ```
+
+## FAQ
+
+### 如何提升 CLB 的监听器数量配额
+
+1. [提工单](https://console.cloud.tencent.com/workorder/category?level1_id=6&level2_id=163&source=14&data_title=%E8%B4%9F%E8%BD%BD%E5%9D%87%E8%A1%A1&step=1) 到负载均衡。
+2. **问题类型** 选 **配额/白名单**。
+3. 点击 **创建工单**。
+4. **问题描述** 中填写：
+  4.1. 如果是调整账号维度的配额，内容填写：`申请调整负载均衡"一个实例可添加的监听器数量"的配额到 XX`（XX 为期望的监听器数量，可预估一个期望值，然后 CLB 侧会评估是否可以调整）。
+  4.2. 如果是调整实例维度的配额，内容填写：`申请调整以下 CLB 实例的"一个实例可添加的监听器数量"的配额到 XX：lb-xxx lb-yyy`（同理，XX 为期望的监听器数量，可预估一个期望值，实例维度的配额更容易调整，相比账号维度的配额能够调到更高；最后附上需要调整配额的实例 ID 列表）。
+5. 提交工单。
+
+如果本身有腾讯云工作人员对接您，也可以直接联系他们进行调整。
+
+需要注意的是，如果调整的是实例维度的监听器数量配额，务必确保对应的端口池中所有的 CLB 实例都做了相同的配额调整，且需要显式指定 `listenerQuota` 字段，值为调整后的监听器数量配额。
 
 ## TODO
 
