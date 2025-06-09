@@ -273,7 +273,7 @@ annotations:
 
 ### 方案一：提升 CLB 监听器的配额
 
-根据需求 [提工单](https://console.cloud.tencent.com/workorder/category?level1_id=6&level2_id=163&source=14&data_title=%E8%B4%9F%E8%BD%BD%E5%9D%87%E8%A1%A1&step=1) 申请提升 CLB `一个实例可添加的监听器数量` 的配额限制（调整方法参考 FAQ 中的 [如何提升 CLB 的监听器数量配额](#如何提升-clb-的监听器数量配额))。
+根据需求 [提工单](https://console.cloud.tencent.com/workorder/category?level1_id=6&level2_id=163&source=14&data_title=%E8%B4%9F%E8%BD%BD%E5%9D%87%E8%A1%A1&step=1) 申请提升 CLB `一个实例可添加的监听器数量` 的配额限制（调整方法参考 FAQ 中的 [如何提升 CLB 的监听器数量配额？](#如何提升-clb-的监听器数量配额))。
 
 配额调整分为账号维度和实例维度，如果希望调整到很大（比如 2000），通常只能在实例维度调整。如果在实例维度调整，在定义端口池时只能添加已有 CLB 实例的方式（不能启用自动创建），且需要手动指定下 `listenerQuota` 的值，与申请到的配额需一致：
 
@@ -791,7 +791,7 @@ spec:
 
 ## FAQ
 
-### 如何提升 CLB 的监听器数量配额
+### 如何提升 CLB 的监听器数量配额？
 
 1. [提工单](https://console.cloud.tencent.com/workorder/category?level1_id=6&level2_id=163&source=14&data_title=%E8%B4%9F%E8%BD%BD%E5%9D%87%E8%A1%A1&step=1) 到负载均衡。
 2. **问题类型** 选 **配额/白名单**。
@@ -804,6 +804,16 @@ spec:
 如果本身有腾讯云工作人员对接您，也可以直接联系他们进行调整。
 
 需要注意的是，如果调整的是实例维度的监听器数量配额，务必确保对应的端口池中所有的 CLB 实例都做了相同的配额调整，且需要显式指定 `listenerQuota` 字段，值为调整后的监听器数量配额。
+
+### 端口池自动扩容 CLB 的条件是什么？
+
+如果端口池配置了自动创建 CLB（`spec.clb.autoCreate` 为 `true`），则会在可分配的 CLB 监听器数量不足时自动创建新的 CLB 实例并加入端口池。
+
+可分配的 CLB 监听器数量不足的条件又是什么？是端口池中所有 CLB 实例的分配监听器数量均小于 2 的时候。
+
+那可分配的 CLB 监听器数量是多少呢？是 CLB 的监听器数量配额减去已分配的监听器数量。 CLB 的监听器数量配额默认是 50（参考 [CLB 使用约束](https://cloud.tencent.com/document/product/214/6187) 中的 `一个实例可添加的监听器数量`）；已分配的监听器数量可通过查看 CLBPortPool 对象中 status 里的 `allocated` 字段：`kubectl get clbportpool xxx -o yaml`。
+
+为什么是监听器数量小于 2 时扩容？因为 `TCPUDP` 协议一个端口会消耗 2 个监听器（2 个相同端口号的监听器，一个 TCP 协议，一个 UDP 协议）如果数量小于 1 才扩容，可能导致无法扩容。
 
 ## TODO
 
