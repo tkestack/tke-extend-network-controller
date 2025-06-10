@@ -238,10 +238,18 @@ func (r *CLBBindingReconciler[T]) ensureListener(ctx context.Context, bd clbbind
 	pool := portpool.Allocator.GetPool(binding.Pool)
 	if pool == nil { // 端口池不存在，移除 binding 并并记录事件
 		r.Recorder.Event(bd.GetObject(), corev1.EventTypeWarning, "PortPoolDeleted", fmt.Sprintf("port pool has been deleted (%s/%s/%d)", binding.Pool, binding.LoadbalancerId, binding.LoadbalancerPort))
+		// 确保监听器被清理
+		if err := r.cleanupPortBinding(ctx, binding); err != nil {
+			return binding, errors.WithStack(err)
+		}
 		return nil, nil
 	} else {
 		if !pool.IsLbExists(portpool.NewLBKeyFromBinding(binding)) { // lb 被删除，移除 binding 并记录到事件
 			r.Recorder.Event(bd.GetObject(), corev1.EventTypeWarning, "CLBDeleted", fmt.Sprintf("clb has been deleted (%s/%s/%d)", binding.Pool, binding.LoadbalancerId, binding.LoadbalancerPort))
+			// 确保监听器被清理
+			if err := r.cleanupPortBinding(ctx, binding); err != nil {
+				return binding, errors.WithStack(err)
+			}
 			return nil, nil
 		}
 	}
