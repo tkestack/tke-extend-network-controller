@@ -32,7 +32,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
 // GameServerSetReconciler reconciles a GameServerSet object
@@ -94,10 +93,6 @@ func (r *GameServerSetReconciler) sync(ctx context.Context, gss *gamekruiseiov1a
 		if apierrors.IsNotFound(err) { // 不存在，创建一个
 			pp.Name = ppName
 			pp.Spec = ppSpec
-			// 设置 CLBPortPool 的 owner 为 GameServerSet，以便 GameServerSet 被删除时，CLBPortPool 也被清理
-			if err := controllerutil.SetOwnerReference(gss, pp, r.Scheme); err != nil {
-				return ctrl.Result{}, errors.WithStack(err)
-			}
 			if err := r.Create(ctx, pp); err != nil {
 				return ctrl.Result{}, errors.WithStack(err)
 			}
