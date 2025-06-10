@@ -40,13 +40,36 @@ type GameServerSetReconciler struct {
 	Scheme *runtime.Scheme
 }
 
-// +kubebuilder:rbac:groups=game.kruise.io,resources=gameserversets,verbs=get;list;watch
+// +kubebuilder:rbac:groups=game.kruise.io,resources=gameserversets,verbs=get;list;watch;update;patch
 // +kubebuilder:rbac:groups=game.kruise.io,resources=gameserversets/status,verbs=get
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
 func (r *GameServerSetReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	return Reconcile(ctx, req, r.Client, &gamekruiseiov1alpha1.GameServerSet{}, r.sync)
+	return ReconcileWithFinalizer(ctx, req, r.Client, &gamekruiseiov1alpha1.GameServerSet{}, r.sync, r.cleanup)
+}
+
+func (r *GameServerSetReconciler) cleanup(ctx context.Context, gss *gamekruiseiov1alpha1.GameServerSet) (ctrl.Result, error) {
+	ppName := getPortPoolName(gss)
+	pp := &networkingv1alpha1.CLBPortPool{}
+	if err := r.Get(ctx, client.ObjectKey{Name: ppName}, pp); err != nil {
+		if apierrors.IsNotFound(err) { // 已经删除，忽略
+			return ctrl.Result{}, nil
+		}
+		return ctrl.Result{}, errors.WithStack(err)
+	}
+	if !pp.DeletionTimestamp.IsZero() { // 正在删除，忽略
+		return ctrl.Result{}, nil
+	}
+	// 还未删除，发起删除请求
+	if err := r.Delete(ctx, pp); err != nil {
+		return ctrl.Result{}, errors.WithStack(err)
+	}
+	return ctrl.Result{}, nil
+}
+
+func getPortPoolName(gss *gamekruiseiov1alpha1.GameServerSet) string {
+	return fmt.Sprintf("%s-%s", gss.Namespace, gss.Name)
 }
 
 func (r *GameServerSetReconciler) sync(ctx context.Context, gss *gamekruiseiov1alpha1.GameServerSet) (ctrl.Result, error) {
@@ -87,7 +110,7 @@ func (r *GameServerSetReconciler) sync(ctx context.Context, gss *gamekruiseiov1a
 	}
 
 	// 确保 CLBPortPool 存在并符合预期
-	ppName := fmt.Sprintf("%s-%s", gss.Namespace, gss.Name)
+	ppName := getPortPoolName(gss)
 	pp := &networkingv1alpha1.CLBPortPool{}
 	if err := r.Get(ctx, client.ObjectKey{Name: ppName}, pp); err != nil {
 		if apierrors.IsNotFound(err) { // 不存在，创建一个
