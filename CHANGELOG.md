@@ -1,5 +1,11 @@
 # 版本说明
 
+## v2.1.1 (2025-06-10)
+
+- enable 注解值为 false 时解绑 rs 但保留监听器实现网络隔离。
+- OKG GameServerSet 删除时，清理关联的 CLBPortPool。
+- 修复某些删除场景的监听器泄露情况。
+
 ## v2.1.0 (2025-06-09)
 
 - 支持为 OKG 的 GameServerSet 的 TencentCloud-CLB 模式的 GameServer 自动创建对应的端口池。
