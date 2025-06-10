@@ -85,30 +85,6 @@ webhooks:
     service:
       name: {{ include "tke-extend-network-controller.fullname" . }}-webhook-service
       namespace: {{ .Release.Namespace | quote }}
-      path: /validate--v1-pod
-  failurePolicy: Fail
-  name: vpod-v1.kb.io
-  matchConditions:
-  - expression: |
-      'annotations' in object.metadata && 'networking.cloud.tencent.com/enable-clb-port-mapping' in object.metadata.annotations
-    name: check-annotation
-  rules:
-  - apiGroups:
-    - ""
-    apiVersions:
-    - v1
-    operations:
-    - CREATE
-    - UPDATE
-    resources:
-    - pods
-  sideEffects: None
-- admissionReviewVersions:
-  - v1
-  clientConfig:
-    service:
-      name: {{ include "tke-extend-network-controller.fullname" . }}-webhook-service
-      namespace: {{ .Release.Namespace | quote }}
       path: /validate-networking-cloud-tencent-com-v1alpha1-clbportpool
   failurePolicy: Fail
   name: vclbportpool-v1alpha1.kb.io
