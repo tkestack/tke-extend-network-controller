@@ -29,7 +29,6 @@ import (
 	"github.com/imroc/tke-extend-network-controller/internal/clbbinding"
 	"github.com/imroc/tke-extend-network-controller/internal/constant"
 	"github.com/imroc/tke-extend-network-controller/pkg/eventsource"
-	"github.com/imroc/tke-extend-network-controller/pkg/kube"
 	"github.com/imroc/tke-extend-network-controller/pkg/util"
 	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
@@ -195,19 +194,8 @@ func (r *PodReconciler) syncCLBHostPortMapping(ctx context.Context, pod *corev1.
 	if err != nil {
 		return result, errors.WithStack(err)
 	}
-	if pod.Annotations[constant.CLBHostPortMappingResultKey] != string(val) {
-		patchMap := map[string]any{
-			"metadata": map[string]any{
-				"annotations": map[string]string{
-					constant.CLBHostPortMappingResultKey:  string(val),
-					constant.CLBHostPortMappingStatuslKey: "Ready",
-				},
-			},
-		}
-		if err := kube.PatchMap(ctx, r.Client, pod, patchMap); err != nil {
-			return result, errors.WithStack(err)
-		}
-		r.Recorder.Event(pod, corev1.EventTypeNormal, "PatchAnnotation", "clb port mapping result annotation is been patched")
+	if err := patchResult(ctx, r.Client, pod, string(val)); err != nil {
+		return result, errors.WithStack(err)
 	}
 	return
 }

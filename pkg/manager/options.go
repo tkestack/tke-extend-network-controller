@@ -6,6 +6,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
+	agonesv1 "agones.dev/agones/pkg/apis/agones/v1"
 	corev1 "k8s.io/api/core/v1"
 
 	"github.com/imroc/tke-extend-network-controller/pkg/kube"
@@ -28,6 +29,12 @@ func GetOptions(scheme *runtime.Scheme, metricsAddr, probeAddr string, enableLea
 			ByObject: map[client.Object]cache.ByObject{
 				&corev1.Pod{}: {
 					Transform: kube.StripPodUnusedFields,
+				},
+				&corev1.Node{}: {
+					Transform: kube.StripNodeUnusedFields,
+				},
+				&agonesv1.GameServer{}: {
+					Transform: kube.StripAgonesGameServerUnusedFields,
 				},
 			},
 		},

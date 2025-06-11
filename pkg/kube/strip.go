@@ -3,6 +3,8 @@ package kube
 import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	agonesv1 "agones.dev/agones/pkg/apis/agones/v1"
 )
 
 // StripPodUnusedFields is the transform function for shared pod informers,
@@ -67,6 +69,22 @@ func StripNodeUnusedFields(obj any) (any, error) {
 
 	node.Spec = corev1.NodeSpec{
 		ProviderID: node.Spec.ProviderID,
+	}
+	return obj, nil
+}
+
+func StripAgonesGameServerUnusedFields(obj any) (any, error) {
+	gs := obj.(*agonesv1.GameServer)
+	if gs == nil {
+		return obj, nil
+	}
+	gs.ObjectMeta = metav1.ObjectMeta{
+		Namespace:         gs.Namespace,
+		Name:              gs.Name,
+		DeletionTimestamp: gs.DeletionTimestamp,
+		ResourceVersion:   gs.ResourceVersion,
+		Labels:            gs.Labels,
+		Annotations:       gs.Annotations,
 	}
 	return obj, nil
 }

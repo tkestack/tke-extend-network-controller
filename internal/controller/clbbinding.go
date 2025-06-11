@@ -12,6 +12,8 @@ import (
 	"strings"
 	"time"
 
+	agonesv1 "agones.dev/agones/pkg/apis/agones/v1"
+
 	"github.com/imroc/tke-extend-network-controller/internal/constant"
 	"go.uber.org/multierr"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -522,22 +524,58 @@ func (r *CLBBindingReconciler[T]) ensureBackendStatusAnnotation(ctx context.Cont
 		return errors.WithStack(err)
 	}
 
-	if annotations := backend.GetAnnotations(); annotations != nil && annotations[constant.CLBPortMappingResultKey] == string(val) {
-		// 注解符合预期，无需更新
-		return nil
-	}
-	patchMap := map[string]any{
-		"metadata": map[string]any{
-			"annotations": map[string]string{
-				constant.CLBPortMappingResultKey:  string(val),
-				constant.CLBPortMappingStatuslKey: "Ready",
-			},
-		},
-	}
-	if err := kube.PatchMap(ctx, r.Client, backend.GetObject(), patchMap); err != nil {
+	if err := patchResult(ctx, r.Client, backend.GetObject(), string(val)); err != nil {
 		return errors.WithStack(err)
 	}
-	log.FromContext(ctx).V(3).Info("patch clb port mapping status success", "value", string(val))
+	return nil
+}
+
+func patchResult(ctx context.Context, c client.Client, obj client.Object, result string) error {
+	annotations := obj.GetAnnotations()
+	if annotations == nil {
+		annotations = map[string]string{}
+	}
+	if annotations[constant.CLBPortMappingResultKey] != string(result) {
+		patchMap := map[string]any{
+			"metadata": map[string]any{
+				"annotations": map[string]string{
+					constant.CLBPortMappingResultKey:  string(result),
+					constant.CLBPortMappingStatuslKey: "Ready",
+				},
+			},
+		}
+		if err := kube.PatchMap(ctx, c, obj, patchMap); err != nil {
+			return errors.WithStack(err)
+		}
+	}
+	// 如果关联了 agones 的 gameserver，也给把 result 注解 patch 到 gameserver 上
+	if gsName := annotations[constant.AgonesGameServerAnnotationKey]; gsName != "" {
+		gs := &agonesv1.GameServer{}
+		if err := c.Get(ctx, client.ObjectKey{
+			Namespace: obj.GetNamespace(),
+			Name:      gsName,
+		}, gs); err != nil {
+			if apierrors.IsNotFound(err) { // 实际不存在 gameserver，忽略
+				return nil
+			}
+			return errors.WithStack(err)
+		}
+		// 存在对应的 gameserver，patch result 注解
+		gsAnnotations := gs.GetAnnotations()
+		if gsAnnotations == nil || gsAnnotations[constant.CLBPortMappingResultKey] != string(result) {
+			patchMap := map[string]any{
+				"metadata": map[string]any{
+					"annotations": map[string]string{
+						constant.CLBPortMappingResultKey: string(result),
+					},
+				},
+			}
+			if err := kube.PatchMap(ctx, c, gs, patchMap); err != nil {
+				return errors.WithStack(err)
+			}
+		}
+	}
+	log.FromContext(ctx).V(3).Info("patch clb port mapping status success", "value", string(result))
 	return nil
 }
 

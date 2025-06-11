@@ -3,6 +3,7 @@ package clbbinding
 import (
 	"context"
 
+	agonesv1 "agones.dev/agones/pkg/apis/agones/v1"
 	networkingv1alpha1 "github.com/imroc/tke-extend-network-controller/api/v1alpha1"
 	"github.com/imroc/tke-extend-network-controller/pkg/eventsource"
 	"github.com/pkg/errors"
@@ -65,6 +66,10 @@ func (b podBackend) GetIP() string {
 
 func (b podBackend) GetObject() client.Object {
 	return b.Pod
+}
+
+func (b podBackend) GetAgonesGameServer() *agonesv1.GameServer {
+	return nil
 }
 
 var ErrNodeNameIsEmpty = errors.New("node name is empty")

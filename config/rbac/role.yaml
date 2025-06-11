@@ -20,6 +20,16 @@ rules:
   verbs:
   - get
 - apiGroups:
+  - agones.dev
+  resources:
+  - gameservers
+  verbs:
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
   - ""
   resources:
   - events
