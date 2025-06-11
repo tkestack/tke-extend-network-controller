@@ -4,6 +4,7 @@ import (
 	"context"
 	"os"
 
+	agonesv1 "agones.dev/agones/pkg/apis/agones/v1"
 	networkingv1alpha1 "github.com/imroc/tke-extend-network-controller/api/v1alpha1"
 	"github.com/imroc/tke-extend-network-controller/internal/portpool"
 	kruisegamev1alpha1 "github.com/openkruise/kruise-game/apis/v1alpha1"
@@ -23,6 +24,7 @@ func init() {
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))     // k8s native resources
 	utilruntime.Must(networkingv1alpha1.AddToScheme(scheme)) // tke-extend-network-controller CRDs
 	utilruntime.Must(kruisegamev1alpha1.AddToScheme(scheme)) // OKG CRDs
+	utilruntime.Must(agonesv1.AddToScheme(scheme))           // Agones CRDs
 }
 
 func SetupManager(mgr ctrl.Manager) {

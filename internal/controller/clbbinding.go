@@ -547,9 +547,14 @@ func patchResult(ctx context.Context, c client.Client, obj client.Object, result
 		if err := kube.PatchMap(ctx, c, obj, patchMap); err != nil {
 			return errors.WithStack(err)
 		}
+		log.FromContext(ctx).V(3).Info("patch clb port mapping result success", "value", string(result))
 	}
 	// 如果关联了 agones 的 gameserver，也给把 result 注解 patch 到 gameserver 上
-	if gsName := annotations[constant.AgonesGameServerAnnotationKey]; gsName != "" {
+	labels := obj.GetLabels()
+	if labels == nil {
+		return nil
+	}
+	if gsName := labels[constant.AgonesGameServerLabelKey]; gsName != "" {
 		gs := &agonesv1.GameServer{}
 		if err := c.Get(ctx, client.ObjectKey{
 			Namespace: obj.GetNamespace(),
@@ -574,8 +579,8 @@ func patchResult(ctx context.Context, c client.Client, obj client.Object, result
 				return errors.WithStack(err)
 			}
 		}
+		log.FromContext(ctx).V(3).Info("patch clb port mapping result to agones gameserver success", "value", string(result))
 	}
-	log.FromContext(ctx).V(3).Info("patch clb port mapping status success", "value", string(result))
 	return nil
 }
 

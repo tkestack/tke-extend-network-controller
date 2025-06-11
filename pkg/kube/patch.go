@@ -14,7 +14,7 @@ func PatchMap(ctx context.Context, apiClient client.Client, obj client.Object, p
 	if err != nil {
 		return errors.WithStack(err)
 	}
-	if err := apiClient.Patch(ctx, obj, client.RawPatch(types.StrategicMergePatchType, patch)); err != nil {
+	if err := apiClient.Patch(ctx, obj, client.RawPatch(types.MergePatchType, patch)); err != nil {
 		return errors.WithStack(err)
 	}
 	return nil
