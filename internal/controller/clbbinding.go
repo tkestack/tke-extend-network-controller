@@ -415,6 +415,10 @@ func (r *CLBBindingReconciler[T]) ensureBackendBindings(ctx context.Context, bd 
 	if err != nil {
 		return errors.WithStack(err)
 	}
+	// 还不需要绑定，不可能更新 Bound 状态和写入注解，直接返回
+	if !needBind {
+		return nil
+	}
 
 	// 所有端口都已绑定成功，更新状态并将绑定信息写入 backend 注解
 	if status.State != networkingv1alpha1.CLBBindingStateBound {
