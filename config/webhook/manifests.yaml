@@ -10,26 +10,6 @@ webhooks:
     service:
       name: webhook-service
       namespace: system
-      path: /mutate-networking-cloud-tencent-com-v1alpha1-dedicatedclblistener
-  failurePolicy: Fail
-  name: mdedicatedclblistener.kb.io
-  rules:
-  - apiGroups:
-    - networking.cloud.tencent.com
-    apiVersions:
-    - v1alpha1
-    operations:
-    - CREATE
-    - UPDATE
-    resources:
-    - dedicatedclblisteners
-  sideEffects: None
-- admissionReviewVersions:
-  - v1
-  clientConfig:
-    service:
-      name: webhook-service
-      namespace: system
       path: /mutate-networking-cloud-tencent-com-v1alpha1-clbportpool
   failurePolicy: Fail
   name: mclbportpool-v1alpha1.kb.io
@@ -50,26 +30,6 @@ kind: ValidatingWebhookConfiguration
 metadata:
   name: validating-webhook-configuration
 webhooks:
-- admissionReviewVersions:
-  - v1
-  clientConfig:
-    service:
-      name: webhook-service
-      namespace: system
-      path: /validate-networking-cloud-tencent-com-v1alpha1-dedicatedclblistener
-  failurePolicy: Fail
-  name: vdedicatedclblistener.kb.io
-  rules:
-  - apiGroups:
-    - networking.cloud.tencent.com
-    apiVersions:
-    - v1alpha1
-    operations:
-    - CREATE
-    - UPDATE
-    resources:
-    - dedicatedclblisteners
-  sideEffects: None
 - admissionReviewVersions:
   - v1
   clientConfig:

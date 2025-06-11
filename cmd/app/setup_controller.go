@@ -3,7 +3,6 @@ package app
 import (
 	"os"
 
-	networkingv1alpha1 "github.com/imroc/tke-extend-network-controller/api/v1alpha1"
 	"github.com/imroc/tke-extend-network-controller/internal/clbbinding"
 	"github.com/imroc/tke-extend-network-controller/internal/controller"
 	"github.com/imroc/tke-extend-network-controller/pkg/util"
@@ -11,33 +10,6 @@ import (
 )
 
 func SetupControllers(mgr ctrl.Manager) {
-	// DedicatedCLBService controller
-	if err := (&controller.DedicatedCLBServiceReconciler{
-		Client:    mgr.GetClient(),
-		Scheme:    mgr.GetScheme(),
-		APIReader: mgr.GetAPIReader(),
-		Recorder:  mgr.GetEventRecorderFor("dedicatedclbservice-controller"),
-	}).SetupWithManager(mgr, util.GetWorkerCount("WORKER_DEDICATED_CLB_SERVICE_CONTROLLER")); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "DedicatedCLBService")
-		os.Exit(1)
-	}
-
-	// DedicatedCLBListener controller and index and webhook
-	if err := (&controller.DedicatedCLBListenerReconciler{
-		Client:    mgr.GetClient(),
-		Scheme:    mgr.GetScheme(),
-		APIReader: mgr.GetAPIReader(),
-		Recorder:  mgr.GetEventRecorderFor("dedicatedclblistener-controller"),
-	}).SetupWithManager(mgr, util.GetWorkerCount("WORKER_DEDICATED_CLB_LISTENER_CONTROLLER")); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "CLBListenerReconciler")
-		os.Exit(1)
-	}
-	indexer := mgr.GetFieldIndexer()
-	if err := networkingv1alpha1.IndexFieldForDedicatedCLBListener(indexer); err != nil {
-		setupLog.Error(err, "unable to index DedicatedCLBListener")
-		os.Exit(1)
-	}
-
 	// CLBPortPool cotroller
 	if err := (&controller.CLBPortPoolReconciler{
 		Client:   mgr.GetClient(),

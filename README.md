@@ -18,7 +18,7 @@
 
 - [安装](./docs/install.md)
 - [使用 CLB 端口池为 Pod 映射公网地址](./docs/clb-port-pool.md)
-- [使用 CLB 为 Pod 分配公网地址映射（即将过时）](./docs/clb-mapping.md)
+- [使用 CLB 为 Pod 分配公网地址映射（已废弃）](./docs/clb-mapping.md)
 - [CRD 字段说明](docs/crd.md)
 - [API 参考](docs/api.md)
 - [变更记录](CHANGELOG.md)
