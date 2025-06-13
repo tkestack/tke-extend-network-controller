@@ -632,6 +632,7 @@ metadata:
 
 以下是操作演示：
 
+
 [![](https://image-host-1251893006.cos.ap-chengdu.myqcloud.com/videos/agones-clb-hostport-mapping.png)](https://image-host-1251893006.cos.ap-chengdu.myqcloud.com/videos/agones-clb-hostport-mapping.mp4)
 
 ## 内网 CLB 绑 EIP 映射
@@ -819,11 +820,11 @@ spec:
 
 为什么是监听器数量小于 2 时扩容？因为 `TCPUDP` 协议一个端口会消耗 2 个监听器（2 个相同端口号的监听器，一个 TCP 协议，一个 UDP 协议）如果数量小于 1 才扩容，可能导致无法扩容。
 
-## TODO
+## 视频教程（更新中）
 
-- 端口分配算法：支持先把 clb 分配满，再分配下一个 clb。
-- 与 Agones 和 OKG 联动，映射信息写入 GameServer CR。
-- 通过 EIP、NATGW 等方式映射。
+**在 TKE 使用 Agones 部署游戏服并通过 CLB 为每个游戏服映射独立的公网地址：**
+
+[![](https://i1.hdslb.com/bfs/archive/74870cc81a785ebdad7936c0dcdfac77efabbefc.jpg)](https://www.bilibili.com/video/BV1vaMAzqEGL/)
 
 ## CRD 字段参考
 
