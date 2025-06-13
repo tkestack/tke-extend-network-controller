@@ -1,6 +1,6 @@
 ## kubebuilder 版本
 
-当前使用的 kubebuilder 版本为 4.5.2。
+当前使用的 kubebuilder 版本为 4.6.0。
 
 ## kubebuilder 使用记录
 
