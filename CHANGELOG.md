@@ -1,5 +1,17 @@
 # 版本说明
 
+## v2.2.0 (2025-06-13)
+
+- 废弃旧版 API（DedicatedCLBListener/DedicatedCLBService），请使用新版的端口池替代，参考 [使用 CLB 端口池为 Pod 映射公网地址](./docs/clb-port-pool.md)。
+- 支持将映射信息写入 Agones 的 GameServer，以便通过 GameServerAllocation API 分配 GameServer 时也能直接获取到映射信息。参考视频教程 [在 TKE 使用 Agones 部署游戏服并通过 CLB 为每个游戏服映射独立的公网地址](https://www.bilibili.com/video/BV1vaMAzqEGL/)。
+- 移除暂时不需要的 pod webhook。
+- 更新 API 文档。
+- 安装文档：安装 chart 到 kube-system。
+- chart 优化：避免名称拼接导致的长度超限。
+- 升级 golang 到 v1.24。
+- 升级 kubebuilder 到 v4.6.0。
+- 升级 controller-runtime 到 v0.21.0。
+
 ## v2.1.1 (2025-06-10)
 
 - enable 注解值为 false 时解绑 rs 但保留监听器实现网络隔离。
