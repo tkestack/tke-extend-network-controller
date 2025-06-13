@@ -65,6 +65,7 @@ func StripNodeUnusedFields(obj any) (any, error) {
 		DeletionTimestamp: node.DeletionTimestamp,
 		ResourceVersion:   node.ResourceVersion,
 		Labels:            node.Labels,
+		Annotations:       node.Annotations,
 	}
 
 	node.Spec = corev1.NodeSpec{

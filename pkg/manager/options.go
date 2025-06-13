@@ -30,9 +30,6 @@ func GetOptions(scheme *runtime.Scheme, metricsAddr, probeAddr string, enableLea
 				&corev1.Pod{}: {
 					Transform: kube.StripPodUnusedFields,
 				},
-				&corev1.Node{}: {
-					Transform: kube.StripNodeUnusedFields,
-				},
 				&agonesv1.GameServer{}: {
 					Transform: kube.StripAgonesGameServerUnusedFields,
 				},
