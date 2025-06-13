@@ -1,5 +1,9 @@
 # 版本说明
 
+## v2.2.1 (2025-06-13)
+
+- 修复 `v2.2.0` 引入的 node controller 无法获取 node annotation 问题以及端口段+hostPort映射场景的 annotation key 不正确问题。
+
 ## v2.2.0 (2025-06-13)
 
 - 废弃旧版 API（DedicatedCLBListener/DedicatedCLBService），请使用新版的端口池替代，参考 [使用 CLB 端口池为 Pod 映射公网地址](./docs/clb-port-pool.md)。
