@@ -11,44 +11,7 @@
 - [CLBNodeBinding](#clbnodebinding)
 - [CLBPodBinding](#clbpodbinding)
 - [CLBPortPool](#clbportpool)
-- [DedicatedCLBListener](#dedicatedclblistener)
-- [DedicatedCLBService](#dedicatedclbservice)
 
-
-
-#### AllocatableCLBInfo
-
-
-
-
-
-
-
-_Appears in:_
-- [DedicatedCLBServiceStatus](#dedicatedclbservicestatus)
-
-| Field | Description | Default | Validation |
-| --- | --- | --- | --- |
-| `lbId` _string_ | CLB 实例的 ID。 |  |  |
-| `currentPort` _integer_ | CLB 当前已被分配的端口。 |  |  |
-| `autoCreate` _boolean_ | 是否是自动创建的 CLB。如果是，删除 DedicatedCLBService 时，CLB 也会被清理。 |  |  |
-
-
-#### AllocatedCLBInfo
-
-
-
-
-
-
-
-_Appears in:_
-- [DedicatedCLBServiceStatus](#dedicatedclbservicestatus)
-
-| Field | Description | Default | Validation |
-| --- | --- | --- | --- |
-| `lbId` _string_ | CLB 实例的 ID。 |  |  |
-| `autoCreate` _boolean_ | 是否是自动创建的 CLB。如果是，删除 DedicatedCLBService 时，CLB 也会被清理。 |  |  |
 
 
 #### AutoCreateConfig
@@ -110,6 +73,8 @@ _Appears in:_
 | `PortPoolNotFound` |  |
 | `NoPortAvailable` |  |
 | `Deleting` |  |
+| `PortPoolNotAllocatable` |  |
+| `Allocated` |  |
 
 
 #### CLBBindingStatus
@@ -126,7 +91,7 @@ _Appears in:_
 
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
-| `state` _[CLBBindingState](#clbbindingstate)_ | 绑定状态 |  |  |
+| `state` _[CLBBindingState](#clbbindingstate)_ | 绑定状态 | Pending |  |
 | `message` _string_ | 状态信息 |  |  |
 | `portBindings` _[PortBindingStatus](#portbindingstatus) array_ | 端口绑定详情 |  |  |
 
@@ -211,6 +176,7 @@ _Appears in:_
 | --- | --- | --- | --- |
 | `startPort` _integer_ | 端口池的起始端口号 |  |  |
 | `endPort` _integer_ | 端口池的结束端口号 |  |  |
+| `listenerQuota` _integer_ | 监听器数量配额。仅用在单独调整了指定 CLB 实例监听器数量配额的场景（TOTAL_LISTENER_QUOTA），<br />控制器默认会获取账号维度的监听器数量配额作为端口分配的依据，如果 listenerQuota 不为空，<br />将以它的值作为该端口池中所有 CLB 监听器数量配额覆盖账号维度的监听器数量配额。<br /><br />注意：如果指定了 listenerQuota，不支持启用 CLB 自动创建，且需自行保证该端口池中所有 CLB<br />实例的监听器数量配额均等于 listenerQuota 的值。 |  |  |
 | `segmentLength` _integer_ | 端口段的长度 |  |  |
 | `region` _string_ | 地域代码，如ap-chengdu |  |  |
 | `exsistedLoadBalancerIDs` _string array_ | 已有负载均衡器ID列表 |  |  |
@@ -249,8 +215,9 @@ _Appears in:_
 
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
-| `state` _[CLBPortPoolState](#clbportpoolstate)_ | 状态: Pending/Active/Scaling |  |  |
+| `state` _[CLBPortPoolState](#clbportpoolstate)_ | 状态: Pending/Active/Scaling | Pending |  |
 | `message` _string_ | 状态信息 |  |  |
+| `quota` _integer_ | 监听器数量的 Quota |  |  |
 | `loadbalancerStatuses` _[LoadBalancerStatus](#loadbalancerstatus) array_ | 负载均衡器状态列表 |  |  |
 
 
@@ -286,149 +253,6 @@ _Appears in:_
 | `internetAccessible` _[InternetAccessible](#internetaccessible)_ | 仅适用于公网负载均衡。负载均衡的网络计费模式。 |  |  |
 
 
-#### DedicatedCLBListener
-
-
-
-DedicatedCLBListener is the Schema for the dedicatedclblisteners API
-
-
-
-
-
-| Field | Description | Default | Validation |
-| --- | --- | --- | --- |
-| `apiVersion` _string_ | `networking.cloud.tencent.com/v1alpha1` | | |
-| `kind` _string_ | `DedicatedCLBListener` | | |
-| `kind` _string_ | Kind is a string value representing the REST resource this object represents.<br />Servers may infer this from the endpoint the client submits requests to.<br />Cannot be updated.<br />In CamelCase.<br />More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds |  |  |
-| `apiVersion` _string_ | APIVersion defines the versioned schema of this representation of an object.<br />Servers should convert recognized schemas to the latest internal value, and<br />may reject unrecognized values.<br />More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources |  |  |
-| `metadata` _[ObjectMeta](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.28/#objectmeta-v1-meta)_ | Refer to Kubernetes API documentation for fields of `metadata`. |  |  |
-| `spec` _[DedicatedCLBListenerSpec](#dedicatedclblistenerspec)_ |  |  |  |
-| `status` _[DedicatedCLBListenerStatus](#dedicatedclblistenerstatus)_ |  |  |  |
-
-
-#### DedicatedCLBListenerSpec
-
-
-
-DedicatedCLBListenerSpec defines the desired state of DedicatedCLBListener
-
-
-
-_Appears in:_
-- [DedicatedCLBListener](#dedicatedclblistener)
-
-| Field | Description | Default | Validation |
-| --- | --- | --- | --- |
-| `lbId` _string_ | CLB 实例的 ID。 |  |  |
-| `lbRegion` _string_ | CLB 所在地域，不填则使用 TKE 集群所在的地域。 |  |  |
-| `lbPort` _integer_ | CLB 监听器的端口号。 |  |  |
-| `lbEndPort` _integer_ | CLB 端口段监听器的结束端口号。 |  |  |
-| `protocol` _string_ | CLB 监听器的协议。 |  | Enum: [TCP UDP] <br /> |
-| `extensiveParameters` _string_ | 创建监听器的参数，JSON 格式，详细参数请参考 CreateListener 接口：https://cloud.tencent.com/document/api/214/30693 |  |  |
-| `targetPod` _[TargetPod](#targetpod)_ | CLB 监听器绑定的目标 Pod。 |  |  |
-
-
-#### DedicatedCLBListenerStatus
-
-
-
-DedicatedCLBListenerStatus defines the observed state of DedicatedCLBListener
-
-
-
-_Appears in:_
-- [DedicatedCLBListener](#dedicatedclblistener)
-
-| Field | Description | Default | Validation |
-| --- | --- | --- | --- |
-| `listenerId` _string_ | CLB 监听器的 ID。 |  |  |
-| `state` _string_ | CLB 监听器的状态。 |  | Enum: [Bound Available Pending Failed Deleting] <br /> |
-| `message` _string_ | 记录 CLB 监听器的失败信息。 |  |  |
-| `address` _string_ | CLB 监听器的外部地址。 |  |  |
-
-
-#### DedicatedCLBService
-
-
-
-DedicatedCLBService is the Schema for the dedicatedclbservices API
-
-
-
-
-
-| Field | Description | Default | Validation |
-| --- | --- | --- | --- |
-| `apiVersion` _string_ | `networking.cloud.tencent.com/v1alpha1` | | |
-| `kind` _string_ | `DedicatedCLBService` | | |
-| `kind` _string_ | Kind is a string value representing the REST resource this object represents.<br />Servers may infer this from the endpoint the client submits requests to.<br />Cannot be updated.<br />In CamelCase.<br />More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds |  |  |
-| `apiVersion` _string_ | APIVersion defines the versioned schema of this representation of an object.<br />Servers should convert recognized schemas to the latest internal value, and<br />may reject unrecognized values.<br />More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources |  |  |
-| `metadata` _[ObjectMeta](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.28/#objectmeta-v1-meta)_ | Refer to Kubernetes API documentation for fields of `metadata`. |  |  |
-| `spec` _[DedicatedCLBServiceSpec](#dedicatedclbservicespec)_ |  |  |  |
-| `status` _[DedicatedCLBServiceStatus](#dedicatedclbservicestatus)_ |  |  |  |
-
-
-#### DedicatedCLBServicePort
-
-
-
-
-
-
-
-_Appears in:_
-- [DedicatedCLBServiceSpec](#dedicatedclbservicespec)
-
-| Field | Description | Default | Validation |
-| --- | --- | --- | --- |
-| `protocol` _string_ | 端口协议，支持 TCP、UDP。 |  |  |
-| `targetPort` _integer_ | 目标端口。 |  |  |
-| `addressPodAnnotation` _string_ | Pod 外部地址的注解，如果设置，Pod 被映射的外部 CLB 地址将会被自动写到 Pod 的该注解中，Pod 内部可通过 Downward API 感知到自身的外部地址。 |  |  |
-
-
-#### DedicatedCLBServiceSpec
-
-
-
-DedicatedCLBServiceSpec defines the desired state of DedicatedCLBService
-
-
-
-_Appears in:_
-- [DedicatedCLBService](#dedicatedclbservice)
-
-| Field | Description | Default | Validation |
-| --- | --- | --- | --- |
-| `lbRegion` _string_ | CLB 所在地域，不填则使用 TKE 集群所在的地域。 |  |  |
-| `vpcId` _string_ | CLB 所在 VPC ID，不填则使用 TKE 集群所在的 VPC 的 ID。 |  |  |
-| `minPort` _integer_ | CLB 端口范围的最小端口号。 | 500 |  |
-| `maxPort` _integer_ | CLB 端口范围的最大端口号。 | 50000 |  |
-| `maxPod` _integer_ | 限制单个 CLB 的 Pod/监听器 的最大数量。 |  |  |
-| `selector` _object (keys:string, values:string)_ | Pod 的标签选择器，被选中的 Pod 会被绑定到 CLB 监听器下。 |  |  |
-| `ports` _[DedicatedCLBServicePort](#dedicatedclbserviceport) array_ | Pod 监听的端口。 |  |  |
-| `listenerExtensiveParameters` _string_ | 创建监听器的参数，JSON 格式，详细参数请参考 CreateListener 接口：https://cloud.tencent.com/document/api/214/30693 |  |  |
-| `existedLbIds` _string array_ | 复用的已有的 CLB ID，可动态追加。 |  |  |
-| `lbAutoCreate` _[LbAutoCreate](#lbautocreate)_ | 启用自动创建 CLB 的功能。 |  |  |
-
-
-#### DedicatedCLBServiceStatus
-
-
-
-DedicatedCLBServiceStatus defines the observed state of DedicatedCLBService
-
-
-
-_Appears in:_
-- [DedicatedCLBService](#dedicatedclbservice)
-
-| Field | Description | Default | Validation |
-| --- | --- | --- | --- |
-| `allocatableLb` _[AllocatableCLBInfo](#allocatableclbinfo) array_ | 可分配端口的 CLB 列表 |  |  |
-| `allocatedLb` _[AllocatedCLBInfo](#allocatedclbinfo) array_ | 已分配完端口的 CLB 列表 |  |  |
-
-
 #### InternetAccessible
 
 
@@ -445,23 +269,6 @@ _Appears in:_
 | `internetChargeType` _string_ | TRAFFIC_POSTPAID_BY_HOUR 按流量按小时后计费 ; BANDWIDTH_POSTPAID_BY_HOUR 按带宽按小时后计费; BANDWIDTH_PACKAGE 按带宽包计费;BANDWIDTH_PREPAID按带宽预付费。注意：此字段可能返回 null，表示取不到有效值。 |  | Enum: [TRAFFIC_POSTPAID_BY_HOUR BANDWIDTH_POSTPAID_BY_HOUR BANDWIDTH_PACKAGE BANDWIDTH_PREPAID] <br /> |
 | `internetMaxBandwidthOut` _integer_ | 最大出带宽，单位Mbps，仅对公网属性的共享型、性能容量型和独占型 CLB 实例、以及内网属性的性能容量型 CLB 实例生效。<br />- 对于公网属性的共享型和独占型 CLB 实例，最大出带宽的范围为1Mbps-2048Mbps。<br />- 对于公网属性和内网属性的性能容量型 CLB实例，最大出带宽的范围为1Mbps-61440Mbps。<br />（调用CreateLoadBalancer创建LB时不指定此参数则设置为默认值10Mbps。此上限可调整） |  |  |
 | `bandwidthpkgSubType` _string_ | 带宽包的类型，如 SINGLEISP（单线）、BGP（多线）。 |  | Enum: [SINGLEISP BGP] <br /> |
-
-
-#### LbAutoCreate
-
-
-
-
-
-
-
-_Appears in:_
-- [DedicatedCLBServiceSpec](#dedicatedclbservicespec)
-
-| Field | Description | Default | Validation |
-| --- | --- | --- | --- |
-| `enable` _boolean_ | 是否启用自动创建 CLB 的功能，如果启用，当 CLB 不足时，会自动创建新的 CLB。 |  |  |
-| `extensiveParameters` _string_ | 创建 CLB 时的参数，JSON 格式，详细参数请参考 CreateLoadBalancer 接口：https://cloud.tencent.com/document/api/214/30692 |  |  |
 
 
 #### LoadBalancerState
@@ -494,12 +301,13 @@ _Appears in:_
 
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
-| `autoCreated` _boolean_ |  |  |  |
-| `state` _[LoadBalancerState](#loadbalancerstate)_ |  |  |  |
-| `loadbalancerID` _string_ |  |  |  |
-| `loadbalancerName` _string_ |  |  |  |
-| `ips` _string array_ |  |  |  |
-| `hostname` _string_ |  |  |  |
+| `autoCreated` _boolean_ | 是否自动创建 |  |  |
+| `state` _[LoadBalancerState](#loadbalancerstate)_ | CLB 状态（Running/NotFound） |  |  |
+| `loadbalancerID` _string_ | CLB 实例 ID |  |  |
+| `loadbalancerName` _string_ | CLB 实例名称 |  |  |
+| `ips` _string array_ | CLB 实例的 IP 地址 |  |  |
+| `hostname` _string_ | CLB 实例的域名 (域名化 CLB) |  |  |
+| `allocated` _integer_ | 已分配的监听器数量 |  |  |
 
 
 #### PortBindingStatus
@@ -562,22 +370,5 @@ _Appears in:_
 | --- | --- | --- | --- |
 | `tagKey` _string_ | 标签的键 |  |  |
 | `tagValue` _string_ | 标签的值 |  |  |
-
-
-#### TargetPod
-
-
-
-
-
-
-
-_Appears in:_
-- [DedicatedCLBListenerSpec](#dedicatedclblistenerspec)
-
-| Field | Description | Default | Validation |
-| --- | --- | --- | --- |
-| `podName` _string_ | Pod 的名称。 |  |  |
-| `targetPort` _integer_ | Pod 监听的端口。 |  |  |
 
 
