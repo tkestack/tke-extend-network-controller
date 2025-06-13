@@ -38,7 +38,7 @@ type NodeReconciler struct {
 	CLBBindingReconciler[*clbbinding.CLBNodeBinding]
 }
 
-// +kubebuilder:rbac:groups=core,resources=nodes,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=core,resources=nodes,verbs=get;list;watch;update;patch
 // +kubebuilder:rbac:groups=core,resources=nodes/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups=core,resources=nodes/finalizers,verbs=update
 // +kubebuilder:rbac:groups=core,resources=events,verbs=create;patch

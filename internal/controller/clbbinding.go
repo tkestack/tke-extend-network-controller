@@ -528,23 +528,31 @@ func (r *CLBBindingReconciler[T]) ensureBackendStatusAnnotation(ctx context.Cont
 		return errors.WithStack(err)
 	}
 
-	if err := patchResult(ctx, r.Client, backend.GetObject(), string(val)); err != nil {
+	if err := patchResult(ctx, r.Client, backend.GetObject(), string(val), false); err != nil {
 		return errors.WithStack(err)
 	}
 	return nil
 }
 
-func patchResult(ctx context.Context, c client.Client, obj client.Object, result string) error {
+func patchResult(ctx context.Context, c client.Client, obj client.Object, result string, hostPort bool) error {
 	annotations := obj.GetAnnotations()
 	if annotations == nil {
 		annotations = map[string]string{}
+	}
+	var resultKey, statusKey string
+	if hostPort {
+		resultKey = constant.CLBHostPortMappingResultKey
+		statusKey = constant.CLBHostPortMappingStatuslKey
+	} else {
+		resultKey = constant.CLBPortMappingResultKey
+		statusKey = constant.CLBPortMappingStatuslKey
 	}
 	if annotations[constant.CLBPortMappingResultKey] != string(result) {
 		patchMap := map[string]any{
 			"metadata": map[string]any{
 				"annotations": map[string]string{
-					constant.CLBPortMappingResultKey:  string(result),
-					constant.CLBPortMappingStatuslKey: "Ready",
+					resultKey: string(result),
+					statusKey: "Ready",
 				},
 			},
 		}
@@ -571,11 +579,11 @@ func patchResult(ctx context.Context, c client.Client, obj client.Object, result
 		}
 		// 存在对应的 gameserver，patch result 注解
 		gsAnnotations := gs.GetAnnotations()
-		if gsAnnotations == nil || gsAnnotations[constant.CLBPortMappingResultKey] != string(result) {
+		if gsAnnotations == nil || gsAnnotations[resultKey] != string(result) {
 			patchMap := map[string]any{
 				"metadata": map[string]any{
 					"annotations": map[string]string{
-						constant.CLBPortMappingResultKey: string(result),
+						resultKey: string(result),
 					},
 				},
 			}

@@ -51,7 +51,7 @@ type PodReconciler struct {
 	CLBBindingReconciler[*clbbinding.CLBPodBinding]
 }
 
-// +kubebuilder:rbac:groups=core,resources=pods,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=core,resources=pods,verbs=get;list;watch;update;patch
 // +kubebuilder:rbac:groups=core,resources=pods/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups=core,resources=pods/finalizers,verbs=update
 // +kubebuilder:rbac:groups=core,resources=events,verbs=create;patch
@@ -189,7 +189,7 @@ func (r *PodReconciler) syncCLBHostPortMapping(ctx context.Context, pod *corev1.
 	if err != nil {
 		return result, errors.WithStack(err)
 	}
-	if err := patchResult(ctx, r.Client, pod, string(val)); err != nil {
+	if err := patchResult(ctx, r.Client, pod, string(val), true); err != nil {
 		return result, errors.WithStack(err)
 	}
 	return
