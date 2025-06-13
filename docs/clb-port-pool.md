@@ -822,7 +822,9 @@ spec:
 
 ## 视频教程（更新中）
 
-**在 TKE 使用 Agones 部署游戏服并通过 CLB 为每个游戏服映射独立的公网地址：**
+以下是相关视频教程，可点击封面跳转播放，持续更新中。
+
+### 在 TKE 使用 Agones 部署游戏服并通过 CLB 为每个游戏服映射独立的公网地址
 
 [![](https://i1.hdslb.com/bfs/archive/74870cc81a785ebdad7936c0dcdfac77efabbefc.jpg)](https://www.bilibili.com/video/BV1vaMAzqEGL/)
 
