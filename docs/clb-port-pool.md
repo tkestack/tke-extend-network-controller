@@ -826,8 +826,11 @@ spec:
 
 ### 在 TKE 使用 Agones 部署游戏服并通过 CLB 为每个游戏服映射独立的公网地址
 
-[![](https://i1.hdslb.com/bfs/archive/74870cc81a785ebdad7936c0dcdfac77efabbefc.jpg)](https://www.bilibili.com/video/BV1vaMAzqEGL/)
+[![](https://i1.hdslb.com/bfs/archive/74870cc81a785ebdad7936c0dcdfac77efabbefc.jpg)](https://www.bilibili.com/video/BV1vaMAzqEGL/?share_source=copy_web&vd_source=471575ae03d431e29c4355f21f275ab4)
 
+### 在 TKE 使用 Agones 大规模部署游戏服时如何用CLB映射地址？
+
+[![](https://i1.hdslb.com/bfs/archive/63623361abe6917c8633b6338b887ef5b3c0d545.jpg)](https://www.bilibili.com/video/BV1odMkzWEDu/?share_source=copy_web&vd_source=471575ae03d431e29c4355f21f275ab4)
 ## CRD 字段参考
 
 关于 CRD 字段的详细说明，请参考 [API 参考](./api.md)。
