@@ -824,6 +824,10 @@ spec:
 
 以下是相关视频教程，可点击封面跳转播放，持续更新中。
 
+### tke-extend-network-controller 介绍与快速上手
+
+[![](https://i1.hdslb.com/bfs/archive/a1710675e075f3daadeb5df5dfde1e5180c02580.jpg)](https://www.bilibili.com/video/BV1RVMSzKE19/?share_source=copy_web&vd_source=471575ae03d431e29c4355f21f275ab4)
+
 ### 在 TKE 使用 Agones 部署游戏服并通过 CLB 为每个游戏服映射独立的公网地址
 
 [![](https://i1.hdslb.com/bfs/archive/74870cc81a785ebdad7936c0dcdfac77efabbefc.jpg)](https://www.bilibili.com/video/BV1vaMAzqEGL/?share_source=copy_web&vd_source=471575ae03d431e29c4355f21f275ab4)
