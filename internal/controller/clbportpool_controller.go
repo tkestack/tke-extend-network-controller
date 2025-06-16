@@ -285,6 +285,25 @@ func (r *CLBPortPoolReconciler) ensureLb(ctx context.Context, pool *networkingv1
 	return nil
 }
 
+func (r *CLBPortPoolReconciler) ensureQuota(ctx context.Context, pool *networkingv1alpha1.CLBPortPool) error {
+	quota := util.GetValue(pool.Spec.ListenerQuota)
+	if quota == 0 {
+		q, err := clb.Quota.GetQuota(ctx, pool.GetRegion(), clb.TOTAL_LISTENER_QUOTA)
+		if err != nil {
+			return errors.WithStack(err)
+		}
+		quota = uint16(q)
+	}
+	if pool.Status.Quota != quota {
+		pool.Status.Quota = quota
+		if err := r.Status().Update(ctx, pool); err != nil {
+			return errors.WithStack(err)
+		}
+		portpool.Allocator.EnsureLbIds(name string, lbKeys []portpool.LBKey)
+	}
+	return nil
+}
+
 // 同步端口池
 func (r *CLBPortPoolReconciler) sync(ctx context.Context, pool *networkingv1alpha1.CLBPortPool) (result ctrl.Result, err error) {
 	// 确保分配器缓存中存在该 port pool，放在最开头，避免同时创建 CLBPortPool 和 CLBBinding 导致分配端口时找不到 pool
@@ -292,30 +311,16 @@ func (r *CLBPortPoolReconciler) sync(ctx context.Context, pool *networkingv1alph
 
 	needUpdateStatus := false
 
-	// 确定 quota
-	if pool.Status.Quota == 0 {
-		quota := util.GetValue(pool.Spec.ListenerQuota)
-		if quota == 0 {
-			q, err := clb.Quota.GetQuota(ctx, pool.GetRegion(), clb.TOTAL_LISTENER_QUOTA)
-			if err != nil {
-				return result, errors.WithStack(err)
-			}
-			quota = uint16(q)
-		}
-		pool.Status.Quota = quota
-		needUpdateStatus = true
-	}
-
 	// 初始化状态
 	if pool.Status.State == "" {
-		pool.Status.State = networkingv1alpha1.CLBPortPoolStatePending
-		needUpdateStatus = true
-	}
-
-	if needUpdateStatus {
-		if err := r.Status().Update(ctx, pool); err != nil {
+		if err := r.ensureState(ctx, pool, networkingv1alpha1.CLBPortPoolStatePending); err != nil {
 			return result, errors.WithStack(err)
 		}
+	}
+
+	// 同步 quota
+	if err := r.ensureQuota(ctx, pool); err != nil {
+		return result, errors.WithStack(err)
 	}
 
 	// 确保 lb 列表可用
