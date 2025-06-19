@@ -1,5 +1,11 @@
 # 版本说明
 
+## v2.2.2 (2025-06-19)
+
+- chart：默认使用 tke-extend-network-controller 作为应用名称，与 release 名称不挂钩。
+- 修复：动态检查 agones 和 okg 是否安装，仅在安装时才启用对 agones 和 okg 的支持，避免因集群找不到对应的 crd 定义而报错。
+- 一些其它小优化。
+
 ## v2.2.1 (2025-06-13)
 
 - 修复 `v2.2.0` 引入的 node controller 无法获取 node annotation 问题以及端口段+hostPort映射场景的 annotation key 不正确问题。
