@@ -5,6 +5,7 @@ import (
 
 	"github.com/imroc/tke-extend-network-controller/internal/clbbinding"
 	"github.com/imroc/tke-extend-network-controller/internal/controller"
+	"github.com/imroc/tke-extend-network-controller/pkg/clusterinfo"
 	"github.com/imroc/tke-extend-network-controller/pkg/util"
 	ctrl "sigs.k8s.io/controller-runtime"
 )
@@ -68,11 +69,13 @@ func SetupControllers(mgr ctrl.Manager) {
 	}
 
 	// GameServerSet controller
-	if err := (&controller.GameServerSetReconciler{
-		Client: mgr.GetClient(),
-		Scheme: mgr.GetScheme(),
-	}).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "GameServerSet")
-		os.Exit(1)
+	if clusterinfo.OKGSupported {
+		if err := (&controller.GameServerSetReconciler{
+			Client: mgr.GetClient(),
+			Scheme: mgr.GetScheme(),
+		}).SetupWithManager(mgr); err != nil {
+			setupLog.Error(err, "unable to create controller", "controller", "GameServerSet")
+			os.Exit(1)
+		}
 	}
 }

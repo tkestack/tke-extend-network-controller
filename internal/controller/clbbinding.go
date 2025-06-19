@@ -28,6 +28,7 @@ import (
 	"github.com/imroc/tke-extend-network-controller/internal/clbbinding"
 	"github.com/imroc/tke-extend-network-controller/internal/portpool"
 	"github.com/imroc/tke-extend-network-controller/pkg/clb"
+	"github.com/imroc/tke-extend-network-controller/pkg/clusterinfo"
 	"github.com/imroc/tke-extend-network-controller/pkg/kube"
 	"github.com/imroc/tke-extend-network-controller/pkg/util"
 	"github.com/pkg/errors"
@@ -561,6 +562,11 @@ func patchResult(ctx context.Context, c client.Client, obj client.Object, result
 		}
 		log.FromContext(ctx).V(3).Info("patch clb port mapping result success", "value", string(result))
 	}
+
+	if !clusterinfo.AgonesSupported { // 没安装 agones，不做后续处理
+		return nil
+	}
+
 	// 如果关联了 agones 的 gameserver，也给把 result 注解 patch 到 gameserver 上
 	labels := obj.GetLabels()
 	if labels == nil {

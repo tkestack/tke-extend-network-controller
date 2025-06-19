@@ -6,9 +6,10 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	agonesv1 "agones.dev/agones/pkg/apis/agones/v1"
 	corev1 "k8s.io/api/core/v1"
 
+	agonesv1 "agones.dev/agones/pkg/apis/agones/v1"
+	"github.com/imroc/tke-extend-network-controller/pkg/clusterinfo"
 	"github.com/imroc/tke-extend-network-controller/pkg/kube"
 	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
@@ -24,16 +25,19 @@ func GetOptions(scheme *runtime.Scheme, metricsAddr, probeAddr string, enableLea
 		TLSOpts: tlsOpts,
 	})
 
+	byObject := map[client.Object]cache.ByObject{}
+	byObject[&corev1.Pod{}] = cache.ByObject{
+		Transform: kube.StripPodUnusedFields,
+	}
+	if clusterinfo.AgonesSupported {
+		byObject[&agonesv1.GameServer{}] = cache.ByObject{
+			Transform: kube.StripAgonesGameServerUnusedFields,
+		}
+	}
+
 	return manager.Options{
 		Cache: cache.Options{
-			ByObject: map[client.Object]cache.ByObject{
-				&corev1.Pod{}: {
-					Transform: kube.StripPodUnusedFields,
-				},
-				&agonesv1.GameServer{}: {
-					Transform: kube.StripAgonesGameServerUnusedFields,
-				},
-			},
+			ByObject: byObject,
 		},
 		Scheme: scheme,
 		// Metrics endpoint is enabled in 'config/default/kustomization.yaml'. The Metrics options configure the server.

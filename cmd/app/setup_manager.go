@@ -4,10 +4,8 @@ import (
 	"context"
 	"os"
 
-	agonesv1 "agones.dev/agones/pkg/apis/agones/v1"
 	networkingv1alpha1 "github.com/imroc/tke-extend-network-controller/api/v1alpha1"
 	"github.com/imroc/tke-extend-network-controller/internal/portpool"
-	kruisegamev1alpha1 "github.com/openkruise/kruise-game/apis/v1alpha1"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
@@ -15,6 +13,7 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
+	"sigs.k8s.io/controller-runtime/pkg/manager"
 )
 
 var scheme = runtime.NewScheme()
@@ -23,11 +22,11 @@ func init() {
 	// Add API to schema
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))     // k8s native resources
 	utilruntime.Must(networkingv1alpha1.AddToScheme(scheme)) // tke-extend-network-controller CRDs
-	utilruntime.Must(kruisegamev1alpha1.AddToScheme(scheme)) // OKG CRDs
-	utilruntime.Must(agonesv1.AddToScheme(scheme))           // Agones CRDs
+	// utilruntime.Must(kruisegamev1alpha1.AddToScheme(scheme)) // OKG CRDs
+	// utilruntime.Must(agonesv1.AddToScheme(scheme))           // Agones CRDs
 }
 
-func SetupManager(mgr ctrl.Manager) {
+func SetupManager(mgr ctrl.Manager, opts manager.Options) {
 	if err := mgr.Add(&initCache{mgr.GetClient(), mgr.GetEventRecorderFor("clbportpool-controller")}); err != nil {
 		setupLog.Error(err, "problem add init cache")
 		os.Exit(1)

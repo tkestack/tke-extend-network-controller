@@ -19,6 +19,7 @@ import (
 
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 	// to ensure that exec-entrypoint and run can make use of them.
+
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 )
 
@@ -61,9 +62,16 @@ func runManager() {
 	probeAddr := viper.GetString(healthProbeBindAddressFlag)
 	enableLeaderElection := viper.GetBool(leaderElectFlag)
 
+	cfg := ctrl.GetConfigOrDie()
+	if err := InitOptionalScheme(cfg); err != nil {
+		setupLog.Error(err, "unable to init optional scheme")
+		os.Exit(1)
+	}
+
+	opts := manager.GetOptions(scheme, metricsAddr, probeAddr, enableLeaderElection)
 	mgr, err := ctrl.NewManager(
 		ctrl.GetConfigOrDie(),
-		manager.GetOptions(scheme, metricsAddr, probeAddr, enableLeaderElection),
+		opts,
 	)
 	if err != nil {
 		setupLog.Error(err, "unable to create manager")
@@ -71,7 +79,7 @@ func runManager() {
 	}
 
 	// setup manager
-	SetupManager(mgr)
+	SetupManager(mgr, opts)
 
 	// TODO: remove the tricky code in the future
 	networkingv1alpha1.Init(mgr)
