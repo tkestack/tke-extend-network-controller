@@ -1,5 +1,9 @@
 # 版本说明
 
+## v2.2.3 (2025-06-20)
+
+- 优化：当端口池的 CLB 配置错误时（如创建的 CLB 的所在 VPC 不正确导致无法绑定成功），用户可直接更正 CLBPortPool 中的 exsistedLoadBalancerIDs 字段，错误的 CLB 会自动从分配器中移除，已分配的且没有绑定成功的会自动释放并重新对账，然后会自动重新分配正确的 CLB 并绑定成功。
+
 ## v2.2.2 (2025-06-19)
 
 - chart：默认使用 tke-extend-network-controller 作为应用名称，与 release 名称不挂钩。
