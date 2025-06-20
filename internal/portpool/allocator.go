@@ -117,6 +117,20 @@ func (pa *PortAllocator) Release(pool string, lbKey LBKey, port ProtocolPort) bo
 	return false
 }
 
+func (pa *PortAllocator) IsLbExists(pool string, lbKey LBKey) bool {
+	if pp := pa.GetPool(pool); pp != nil {
+		return pp.IsLbExists(lbKey)
+	}
+	return false
+}
+
+func (pa *PortAllocator) RemoveLB(pool string, lbKey LBKey) bool {
+	if pp := pa.GetPool(pool); pp != nil {
+		return pp.RemoveLB(lbKey)
+	}
+	return false
+}
+
 var Allocator = NewPortAllocator()
 
 func (pa *PortAllocator) MarkAllocated(poolName string, lbKey LBKey, port uint16, endPort *uint16, protocol string) {

@@ -237,24 +237,37 @@ func (r *CLBBindingReconciler[T]) createListener(ctx context.Context, bd clbbind
 // 对账单个监听器
 func (r *CLBBindingReconciler[T]) ensureListener(ctx context.Context, bd clbbinding.CLBBinding, binding *networkingv1alpha1.PortBindingStatus) (*networkingv1alpha1.PortBindingStatus, error) {
 	log.FromContext(ctx).V(10).Info("ensureListener", "binding", binding)
+	// 如果 lb 已被移除，且当前还未绑定成功，则移除该端口绑定，等待重新分配端口（配错 lb导致一直无法绑定成功，更正后，可以触发重新分配以便能够成功绑定）
+	if bd.GetStatus().State != networkingv1alpha1.CLBBindingStateBound && !portpool.Allocator.IsLbExists(binding.Pool, portpool.NewLBKeyFromBinding(binding)) {
+		r.Recorder.Eventf(bd.GetObject(), corev1.EventTypeNormal, "PortBindingRemoved", "lb %q not exists, remove port binding (lbPort:%s protocol:%s)", binding.LoadbalancerId, binding.LoadbalancerPort, binding.Protocol)
+		return nil, nil
+	}
+
+	removeReason := ""
+	removeMsg := ""
+
 	// 确保关联的 pool 无误
 	pool := portpool.Allocator.GetPool(binding.Pool)
-	if pool == nil { // 端口池不存在，移除 binding 并并记录事件
-		r.Recorder.Event(bd.GetObject(), corev1.EventTypeWarning, "PortPoolDeleted", fmt.Sprintf("port pool has been deleted (%s/%s/%d)", binding.Pool, binding.LoadbalancerId, binding.LoadbalancerPort))
+	if pool == nil {
+		// 如果端口池被删，且当前还未绑定成功，则移除该端口绑定
+		if bd.GetStatus().State != networkingv1alpha1.CLBBindingStateBound {
+			removeReason = "PortPoolDeleted"
+			removeMsg = "port pool has been deleted"
+		}
+	} else {
+		// 如果 lb 已被移除，且当前还未绑定成功，则移除该端口绑定。等待重新分配端口（配错 lb导致一直无法绑定成功，更正后，可以触发重新分配以便能够成功绑定）
+		if bd.GetStatus().State != networkingv1alpha1.CLBBindingStateBound && !pool.IsLbExists(portpool.NewLBKeyFromBinding(binding)) {
+			removeReason = "CLBDeleted"
+			removeMsg = "clb has been removed"
+		}
+	}
+	if removeMsg != "" {
+		r.Recorder.Eventf(bd.GetObject(), corev1.EventTypeWarning, removeReason, "%s (%s/%s/%d/%s)", removeMsg, binding.Pool, binding.LoadbalancerId, binding.LoadbalancerPort, binding.Protocol)
 		// 确保监听器被清理
 		if err := r.cleanupPortBinding(ctx, binding); err != nil {
 			return binding, errors.WithStack(err)
 		}
 		return nil, nil
-	} else {
-		if !pool.IsLbExists(portpool.NewLBKeyFromBinding(binding)) { // lb 被删除，移除 binding 并记录到事件
-			r.Recorder.Event(bd.GetObject(), corev1.EventTypeWarning, "CLBDeleted", fmt.Sprintf("clb has been deleted (%s/%s/%d)", binding.Pool, binding.LoadbalancerId, binding.LoadbalancerPort))
-			// 确保监听器被清理
-			if err := r.cleanupPortBinding(ctx, binding); err != nil {
-				return binding, errors.WithStack(err)
-			}
-			return nil, nil
-		}
 	}
 
 	// 没有监听器 ID，尝试直接新建（不调查接口，加速大规模场景扩容速度）

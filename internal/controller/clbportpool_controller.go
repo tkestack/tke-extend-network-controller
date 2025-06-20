@@ -171,6 +171,11 @@ func (r *CLBPortPoolReconciler) ensureLbStatus(ctx context.Context, pool *networ
 	insufficientPorts := true
 	autoCreatedLbNum := uint16(0)
 
+	existedLbIds := make(map[string]struct{})
+	for _, lbId := range pool.Spec.ExsistedLoadBalancerIDs {
+		existedLbIds[lbId] = struct{}{}
+	}
+
 	// 构造当前 lb status 列表
 	for _, lbStatus := range pool.Status.LoadbalancerStatuses {
 		lbId := lbStatus.LoadbalancerID
@@ -187,6 +192,13 @@ func (r *CLBPortPoolReconciler) ensureLbStatus(ctx context.Context, pool *networ
 			}
 			if util.GetValue(lbStatus.AutoCreated) {
 				autoCreatedLbNum++
+			} else { // 已有的 lb，如果被手动移除，可能是 lb 有误（比如错误的 vpc），也将其从status和分配器中移除
+				if _, exists := existedLbIds[lbId]; !exists {
+					if portpool.Allocator.RemoveLB(pool.Name, portpool.NewLBKey(lbId, pool.GetRegion())) {
+						r.Recorder.Eventf(pool, corev1.EventTypeNormal, "RemoveLoadBalancer", "remove existed clb %s from pool", lbId)
+					}
+					continue
+				}
 			}
 			allocatableLBs = append(allocatableLBs, lbKey)
 		} else {
