@@ -16,4 +16,11 @@ const (
 	ProtocolTCPUDP               = "TCPUDP"
 	OKGNetworkType               = "TencentCloud-CLB"
 	AgonesGameServerLabelKey     = "agones.dev/gameserver"
+
+	// 均匀端口分配策略，每次找已分配数最少的 lb 来分配端口
+	LbPolicyUniform = "Uniform"
+	// 按固定顺序分配
+	LbPolicyInOrder = "InOrder"
+	// 随机分配策略，每次随机找一个 lb 来分配端口
+	LbPolicyRandom = "Random"
 )

@@ -6,6 +6,7 @@ import (
 	"sync"
 
 	networkingv1alpha1 "github.com/imroc/tke-extend-network-controller/api/v1alpha1"
+	"github.com/imroc/tke-extend-network-controller/internal/constant"
 	"github.com/pkg/errors"
 )
 
@@ -59,19 +60,25 @@ func (pa *PortAllocator) EnsureLbIds(name string, lbKeys []LBKey) error {
 }
 
 // AddPoolIfNotExists 添加新的端口池
-func (pa *PortAllocator) AddPoolIfNotExists(name string) bool {
+func (pa *PortAllocator) AddPoolIfNotExists(pool *networkingv1alpha1.CLBPortPool) bool {
 	pa.mu.Lock()
 	defer pa.mu.Unlock()
 
-	if _, exists := pa.pools[name]; exists {
+	if _, exists := pa.pools[pool.Name]; exists {
 		return false
 	}
 
-	pool := &PortPool{
-		Name:  name,
-		cache: make(map[LBKey]map[ProtocolPort]struct{}),
+	lbPolicy := constant.LbPolicyRandom
+	if pool.Spec.LbPolicy != nil {
+		lbPolicy = *pool.Spec.LbPolicy
 	}
-	pa.pools[name] = pool
+
+	p := &PortPool{
+		Name:     pool.Name,
+		LbPolicy: lbPolicy,
+		cache:    make(map[LBKey]map[ProtocolPort]struct{}),
+	}
+	pa.pools[pool.Name] = p
 	return true
 }
 

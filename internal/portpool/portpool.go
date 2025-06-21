@@ -2,9 +2,11 @@ package portpool
 
 import (
 	"context"
+	"slices"
 	"sync"
 
 	networkingv1alpha1 "github.com/imroc/tke-extend-network-controller/api/v1alpha1"
+	"github.com/imroc/tke-extend-network-controller/internal/constant"
 
 	ctrl "sigs.k8s.io/controller-runtime"
 )
@@ -103,9 +105,11 @@ func NewLBKeyFromBinding(binding *networkingv1alpha1.PortBindingStatus) LBKey {
 
 // PortPool 管理单个端口池的状态
 type PortPool struct {
-	Name  string
-	mu    sync.Mutex
-	cache map[LBKey]map[ProtocolPort]struct{}
+	Name     string
+	LbPolicy string
+	mu       sync.Mutex
+	cache    map[LBKey]map[ProtocolPort]struct{}
+	lbList   []LBKey
 }
 
 func (pp *PortPool) IsLbExists(key LBKey) bool {
@@ -123,9 +127,9 @@ func (pp *PortPool) AllocatePort(ctx context.Context, quota int64, ports ...Prot
 		return nil, true
 	}
 	quotaExceeded := true
-	for lbKey, allocated := range pp.cache { // 遍历所有 lb，尝试分配端口
+	tryAllocate := func(lbKey LBKey, allocated map[ProtocolPort]struct{}) []PortAllocation {
 		if int64(len(allocated)+len(ports)) > quota { // 监听器数量已满，换下个 lb
-			continue
+			return nil
 		}
 		quotaExceeded = false
 		canAllocate := true
@@ -146,7 +150,30 @@ func (pp *PortPool) AllocatePort(ctx context.Context, quota int64, ports ...Prot
 				}
 				result = append(result, pa)
 			}
-			return result, false
+			return result
+		}
+		return nil
+	}
+	switch pp.LbPolicy {
+	case constant.LbPolicyInOrder, constant.LbPolicyUniform: // 有序分配 或 均匀分配
+		if pp.LbPolicy == constant.LbPolicyUniform { // 如果是均匀分配，则需要按已分配数量排序，找分配数量最小的 lb 分配
+			slices.SortFunc(pp.lbList, func(a, b LBKey) int {
+				return len(pp.cache[a]) - len(pp.cache[b])
+			})
+		}
+		for _, lbKey := range pp.lbList {
+			allocated := pp.cache[lbKey]
+			result := tryAllocate(lbKey, allocated)
+			if len(result) > 0 {
+				return result, false
+			}
+		}
+	default: // 默认用 Random，按 map 的 key 顺序遍历（golang map 的 key 是无序的，每次遍历顺序随机）
+		for lbKey, allocated := range pp.cache {
+			result := tryAllocate(lbKey, allocated)
+			if len(result) > 0 {
+				return result, false
+			}
 		}
 	}
 	// 所有 lb 都无法分配此端口，返回空结果
@@ -160,8 +187,15 @@ func (pp *PortPool) RemoveLB(lbKey LBKey) bool {
 	if !exists {
 		return false
 	}
-	delete(pp.cache, lbKey)
+	pp.removeLBUnlock(lbKey)
 	return true
+}
+
+func (pp *PortPool) removeLBUnlock(lbKey LBKey) {
+	delete(pp.cache, lbKey)
+	pp.lbList = slices.DeleteFunc(pp.lbList, func(lb LBKey) bool {
+		return lb == lbKey
+	})
 }
 
 // 释放已分配的端口
@@ -202,11 +236,12 @@ func (pp *PortPool) EnsureLbIds(lbKeys []LBKey) {
 	}
 	for lbKey := range lbToDelete { // 删除多余的 lb
 		ppLog.Info("remove lb", "lb", lbKey, "pool", pp.Name)
-		delete(pp.cache, lbKey)
+		pp.removeLBUnlock(lbKey)
 	}
 	// 添加缺失的lb
 	for _, lbKey := range lbToAdd {
 		ppLog.Info("add lb", "lb", lbKey, "pool", pp.Name)
 		pp.cache[lbKey] = make(map[ProtocolPort]struct{})
+		pp.lbList = append(pp.lbList, lbKey)
 	}
 }

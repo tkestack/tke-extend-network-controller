@@ -47,6 +47,12 @@ type CLBPortPoolSpec struct {
 	// +kubebuilder:validation:XValidation:rule="self == oldSelf", message="Value is immutable"
 	// +optional
 	Region *string `json:"region,omitempty"`
+	// CLB 分配策略，单个端口池中有多个可分配 CLB 时，分配端口挑选 CLB 的策略。
+	// 可选值：Uniform（均匀分配）、InOrder（顺序分配）、Random（随机分配）。默认值为 Random。
+	// +kubebuilder:validation:Enum=Uniform;InOrder;Random
+	// +kubebuilder:validation:XValidation:rule="self == oldSelf", message="Value is immutable"
+	// +optional
+	LbPolicy *string `json:"lbPolicy,omitempty"`
 	// 已有负载均衡器ID列表
 	ExsistedLoadBalancerIDs []string `json:"exsistedLoadBalancerIDs,omitempty"`
 	// 自动创建配置

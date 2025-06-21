@@ -207,6 +207,18 @@ spec:
                 items:
                   type: string
                 type: array
+              lbPolicy:
+                description: |-
+                  CLB 分配策略，单个端口池中有多个可分配 CLB 时，分配端口挑选 CLB 的策略。
+                  可选值：Uniform（均匀分配）、InOrder（顺序分配）、Random（随机分配）。默认值为 Random。
+                enum:
+                - Uniform
+                - InOrder
+                - Random
+                type: string
+                x-kubernetes-validations:
+                - message: Value is immutable
+                  rule: self == oldSelf
               listenerQuota:
                 description: |-
                   监听器数量配额。仅用在单独调整了指定 CLB 实例监听器数量配额的场景（TOTAL_LISTENER_QUOTA），

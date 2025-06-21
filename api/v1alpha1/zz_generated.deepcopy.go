@@ -325,6 +325,11 @@ func (in *CLBPortPoolSpec) DeepCopyInto(out *CLBPortPoolSpec) {
 		*out = new(string)
 		**out = **in
 	}
+	if in.LbPolicy != nil {
+		in, out := &in.LbPolicy, &out.LbPolicy
+		*out = new(string)
+		**out = **in
+	}
 	if in.ExsistedLoadBalancerIDs != nil {
 		in, out := &in.ExsistedLoadBalancerIDs, &out.ExsistedLoadBalancerIDs
 		*out = make([]string, len(*in))

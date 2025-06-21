@@ -64,7 +64,7 @@ func (i *initCache) Start(ctx context.Context) error {
 	}
 	for index := range ppl.Items {
 		pp := &ppl.Items[index]
-		portpool.Allocator.AddPoolIfNotExists(pp.Name)
+		portpool.Allocator.AddPoolIfNotExists(pp)
 
 		lbKeys := []portpool.LBKey{}
 		for _, lbStatus := range pp.Status.LoadbalancerStatuses {
