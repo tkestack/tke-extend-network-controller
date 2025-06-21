@@ -2,6 +2,7 @@ package portpool
 
 import (
 	"context"
+	"iter"
 	"slices"
 	"sync"
 
@@ -112,6 +113,30 @@ type PortPool struct {
 	lbList   []LBKey
 }
 
+func (pp *PortPool) getCache() iter.Seq2[LBKey, map[ProtocolPort]struct{}] {
+	return func(yield func(LBKey, map[ProtocolPort]struct{}) bool) {
+		switch pp.LbPolicy {
+		case constant.LbPolicyInOrder, constant.LbPolicyUniform: // 有序分配 或 均匀分配
+			if pp.LbPolicy == constant.LbPolicyUniform { // 如果是均匀分配，则需要按已分配数量排序，找分配数量最小的 lb 分配
+				slices.SortFunc(pp.lbList, func(a, b LBKey) int {
+					return len(pp.cache[a]) - len(pp.cache[b])
+				})
+			}
+			for _, lbKey := range pp.lbList {
+				if !yield(lbKey, pp.cache[lbKey]) { // 若 yield 返回 false 则中断
+					return
+				}
+			}
+		default: // 默认用 Random，按 map 的 key 顺序遍历（golang map 的 key 是无序的，每次遍历顺序随机）
+			for lbKey, allocated := range pp.cache {
+				if !yield(lbKey, allocated) { // 若 yield 返回 false 则中断
+					return
+				}
+			}
+		}
+	}
+}
+
 func (pp *PortPool) IsLbExists(key LBKey) bool {
 	pp.mu.Lock()
 	defer pp.mu.Unlock()
@@ -119,61 +144,74 @@ func (pp *PortPool) IsLbExists(key LBKey) bool {
 	return exists
 }
 
+func (pp *PortPool) AllocatePortFromRange(ctx context.Context, startPort, endPort, quota, segmentLength uint16, protocol string) ([]PortAllocation, bool) {
+	pp.mu.Lock()
+	defer pp.mu.Unlock()
+	if len(pp.cache) == 0 {
+		return nil, true
+	}
+	portNum := 1
+	if protocol == constant.ProtocolTCPUDP {
+		portNum = 2
+	}
+	quotaExceeded := true
+	for lb, allocated := range pp.getCache() {
+		if uint16(len(allocated)+portNum) > quota { // 监听器数量已满，换下个 lb
+			continue
+		}
+		quotaExceeded = false
+		for port := startPort; port <= endPort; port += segmentLength { // 遍历该端口池的所有端口号
+			endPort := uint16(0)
+			if segmentLength > 1 {
+				endPort = port + segmentLength - 1
+			}
+			if result := pp.tryAllocateFromLb(lb, allocated, port, endPort, protocol); len(result) > 0 {
+				return result, false
+			}
+		}
+	}
+	return nil, quotaExceeded
+}
+
+func (pp *PortPool) tryAllocateFromLb(lbKey LBKey, allocated map[ProtocolPort]struct{}, port, endPort uint16, protocol string) []PortAllocation {
+	ports := portsToAllocate(port, endPort, protocol)
+	for _, port := range ports { // 确保所有待分配的端口都未被分配
+		if _, exists := allocated[port.Key()]; exists { // 有端口已被占用，标记无法分配
+			return nil
+		}
+	}
+	result := []PortAllocation{}
+	for _, port := range ports {
+		allocated[port.Key()] = struct{}{}
+		pa := PortAllocation{
+			PortPool:     pp,
+			ProtocolPort: port,
+			LBKey:        lbKey,
+		}
+		result = append(result, pa)
+	}
+	return result
+}
+
 // 分配指定端口
-func (pp *PortPool) AllocatePort(ctx context.Context, quota int64, ports ...ProtocolPort) ([]PortAllocation, bool) {
+func (pp *PortPool) AllocatePort(ctx context.Context, quota int64, port, endPort uint16, protocol string) ([]PortAllocation, bool) {
 	pp.mu.Lock()
 	defer pp.mu.Unlock()
 	if len(pp.cache) == 0 {
 		return nil, true
 	}
 	quotaExceeded := true
-	tryAllocate := func(lbKey LBKey, allocated map[ProtocolPort]struct{}) []PortAllocation {
-		if int64(len(allocated)+len(ports)) > quota { // 监听器数量已满，换下个 lb
-			return nil
+	portNum := 1
+	if protocol == constant.ProtocolTCPUDP {
+		portNum = 2
+	}
+	for lbKey, allocated := range pp.getCache() {
+		if int64(len(allocated)+portNum) > quota { // 监听器数量已满，换下个 lb
+			continue
 		}
 		quotaExceeded = false
-		canAllocate := true
-		for _, port := range ports { // 确保所有待分配的端口都未被分配
-			if _, exists := allocated[port.Key()]; exists { // 有端口已被占用，标记无法分配
-				canAllocate = false
-				break
-			}
-		}
-		if canAllocate { // 找到有 lb 可分配端口，分配端口并返回
-			result := []PortAllocation{}
-			for _, port := range ports {
-				allocated[port.Key()] = struct{}{}
-				pa := PortAllocation{
-					PortPool:     pp,
-					ProtocolPort: port,
-					LBKey:        lbKey,
-				}
-				result = append(result, pa)
-			}
-			return result
-		}
-		return nil
-	}
-	switch pp.LbPolicy {
-	case constant.LbPolicyInOrder, constant.LbPolicyUniform: // 有序分配 或 均匀分配
-		if pp.LbPolicy == constant.LbPolicyUniform { // 如果是均匀分配，则需要按已分配数量排序，找分配数量最小的 lb 分配
-			slices.SortFunc(pp.lbList, func(a, b LBKey) int {
-				return len(pp.cache[a]) - len(pp.cache[b])
-			})
-		}
-		for _, lbKey := range pp.lbList {
-			allocated := pp.cache[lbKey]
-			result := tryAllocate(lbKey, allocated)
-			if len(result) > 0 {
-				return result, false
-			}
-		}
-	default: // 默认用 Random，按 map 的 key 顺序遍历（golang map 的 key 是无序的，每次遍历顺序随机）
-		for lbKey, allocated := range pp.cache {
-			result := tryAllocate(lbKey, allocated)
-			if len(result) > 0 {
-				return result, false
-			}
+		if result := pp.tryAllocateFromLb(lbKey, allocated, port, endPort, protocol); len(result) > 0 {
+			return result, false
 		}
 	}
 	// 所有 lb 都无法分配此端口，返回空结果
