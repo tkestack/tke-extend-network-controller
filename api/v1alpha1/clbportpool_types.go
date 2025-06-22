@@ -47,8 +47,11 @@ type CLBPortPoolSpec struct {
 	// +kubebuilder:validation:XValidation:rule="self == oldSelf", message="Value is immutable"
 	// +optional
 	Region *string `json:"region,omitempty"`
-	// CLB 分配策略，单个端口池中有多个可分配 CLB 时，分配端口挑选 CLB 的策略。
+	// CLB 分配策略，单个端口池中有多个可分配 CLB ，分配端口时 CLB 的挑选策略。
 	// 可选值：Uniform（均匀分配）、InOrder（顺序分配）、Random（随机分配）。默认值为 Random。
+	//
+	// 若希望减小 DDoS 攻击的影响，建议使用 Uniform 策略，避免业务使用的 IP 过于集中；若希望提高
+	// CLB 的利用率，建议使用 InOrder 策略。
 	// +kubebuilder:validation:Enum=Uniform;InOrder;Random
 	// +kubebuilder:validation:XValidation:rule="self == oldSelf", message="Value is immutable"
 	// +optional
