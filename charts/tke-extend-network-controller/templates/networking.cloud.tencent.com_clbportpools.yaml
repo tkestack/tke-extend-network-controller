@@ -220,9 +220,6 @@ spec:
                 - InOrder
                 - Random
                 type: string
-                x-kubernetes-validations:
-                - message: Value is immutable
-                  rule: self == oldSelf
               listenerQuota:
                 description: |-
                   监听器数量配额。仅用在单独调整了指定 CLB 实例监听器数量配额的场景（TOTAL_LISTENER_QUOTA），

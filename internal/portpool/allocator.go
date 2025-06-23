@@ -84,7 +84,6 @@ func (pa *PortAllocator) EnsurePool(pool *networkingv1alpha1.CLBPortPool) (added
 			p.LbPolicy = lbPolicy
 		}
 	}
-
 	return
 }
 

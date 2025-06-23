@@ -53,7 +53,6 @@ type CLBPortPoolSpec struct {
 	// 若希望减小 DDoS 攻击的影响，建议使用 Uniform 策略，避免业务使用的 IP 过于集中；若希望提高
 	// CLB 的利用率，建议使用 InOrder 策略。
 	// +kubebuilder:validation:Enum=Uniform;InOrder;Random
-	// +kubebuilder:validation:XValidation:rule="self == oldSelf", message="Value is immutable"
 	// +optional
 	LbPolicy *string `json:"lbPolicy,omitempty"`
 	// 已有负载均衡器ID列表
