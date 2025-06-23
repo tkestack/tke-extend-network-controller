@@ -59,27 +59,33 @@ func (pa *PortAllocator) EnsureLbIds(name string, lbKeys []LBKey) error {
 	return nil
 }
 
-// AddPoolIfNotExists 添加新的端口池
-func (pa *PortAllocator) AddPoolIfNotExists(pool *networkingv1alpha1.CLBPortPool) bool {
+// EnsurePool 添加新的端口池
+func (pa *PortAllocator) EnsurePool(pool *networkingv1alpha1.CLBPortPool) (added bool) {
 	pa.mu.Lock()
 	defer pa.mu.Unlock()
 
-	if _, exists := pa.pools[pool.Name]; exists {
-		return false
-	}
+	p, exists := pa.pools[pool.Name]
 
 	lbPolicy := constant.LbPolicyRandom
 	if pool.Spec.LbPolicy != nil {
 		lbPolicy = *pool.Spec.LbPolicy
 	}
 
-	p := &PortPool{
-		Name:     pool.Name,
-		LbPolicy: lbPolicy,
-		cache:    make(map[LBKey]map[ProtocolPort]struct{}),
+	if !exists {
+		p = &PortPool{
+			Name:     pool.Name,
+			LbPolicy: lbPolicy,
+			cache:    make(map[LBKey]map[ProtocolPort]struct{}),
+		}
+		pa.pools[pool.Name] = p
+		added = true
+	} else {
+		if p.LbPolicy != lbPolicy {
+			p.LbPolicy = lbPolicy
+		}
 	}
-	pa.pools[pool.Name] = p
-	return true
+
+	return
 }
 
 // RemovePool 移除端口池

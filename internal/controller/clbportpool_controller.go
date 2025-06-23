@@ -318,7 +318,7 @@ func (r *CLBPortPoolReconciler) ensureQuota(ctx context.Context, pool *networkin
 // 同步端口池
 func (r *CLBPortPoolReconciler) sync(ctx context.Context, pool *networkingv1alpha1.CLBPortPool) (result ctrl.Result, err error) {
 	// 确保分配器缓存中存在该 port pool，放在最开头，避免同时创建 CLBPortPool 和 CLBBinding 导致分配端口时找不到 pool
-	portpool.Allocator.AddPoolIfNotExists(pool)
+	portpool.Allocator.EnsurePool(pool)
 
 	// 初始化状态
 	if pool.Status.State == "" {
