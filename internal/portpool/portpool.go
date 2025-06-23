@@ -3,6 +3,7 @@ package portpool
 import (
 	"context"
 	"iter"
+	"reflect"
 	"slices"
 	"sync"
 
@@ -268,6 +269,11 @@ func (pp *PortPool) AllocatedPorts(lbKey LBKey) uint16 {
 func (pp *PortPool) EnsureLbIds(lbKeys []LBKey) {
 	pp.mu.Lock()
 	defer pp.mu.Unlock()
+
+	if reflect.DeepEqual(lbKeys, pp.lbList) {
+		return
+	}
+
 	lbToDelete := make(map[LBKey]struct{})
 	for lbKey := range pp.cache {
 		lbToDelete[lbKey] = struct{}{}
@@ -285,9 +291,11 @@ func (pp *PortPool) EnsureLbIds(lbKeys []LBKey) {
 		pp.removeLBUnlock(lbKey)
 	}
 	// 添加缺失的lb
-	for _, lbKey := range lbToAdd {
-		ppLog.Info("add lb", "lb", lbKey, "pool", pp.Name)
-		pp.cache[lbKey] = make(map[ProtocolPort]struct{})
-		pp.lbList = append(pp.lbList, lbKey)
+	if len(lbToAdd) > 0 {
+		for _, lbKey := range lbToAdd {
+			ppLog.Info("add lb", "lb", lbKey, "pool", pp.Name)
+			pp.cache[lbKey] = make(map[ProtocolPort]struct{})
+		}
+		pp.lbList = lbKeys
 	}
 }
