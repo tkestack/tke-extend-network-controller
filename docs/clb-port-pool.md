@@ -838,6 +838,11 @@ spec:
 ### 在 TKE 使用 Agones 大规模部署游戏服时如何用CLB映射地址？
 
 [![](https://i1.hdslb.com/bfs/archive/63623361abe6917c8633b6338b887ef5b3c0d545.jpg)](https://www.bilibili.com/video/BV1odMkzWEDu/?share_source=copy_web&vd_source=471575ae03d431e29c4355f21f275ab4)
+
+### LB 分配策略和 LB 黑名单功能演示
+
+[![](https://i2.hdslb.com/bfs/archive/b9df61fcaccd59b4e4cf1aee4e96408497038e78.jpg)](https://www.bilibili.com/video/BV11zK8zfET7/?vd_source=aec72c2053794e8a3e75e07931c8b440)
+
 ## CRD 字段参考
 
 关于 CRD 字段的详细说明，请参考 [API 参考](./api.md)。
