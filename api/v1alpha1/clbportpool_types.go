@@ -55,9 +55,18 @@ type CLBPortPoolSpec struct {
 	// +kubebuilder:validation:Enum=Uniform;InOrder;Random
 	// +optional
 	LbPolicy *string `json:"lbPolicy,omitempty"`
-	// 已有负载均衡器ID列表
+	// CLB 黑名单，负载均衡实例 ID 的数组，用于禁止某些 CLB 实例被分配端口，可动态追加和移除。
+	// 如果发现某个 CLB 被 DDoS 攻击或其他原因导致不可用，可将该 CLB 的实例 ID 加入到黑名单中，
+	// 避免后续端口分配使用该 CLB。
+	// +optional
+	LbBlacklist []string `json:"lbBlacklist,omitempty"`
+	// 已有负载均衡器实例 ID 列表，可动态追加。
+	// 该列表的负载均衡器将会被端口池用于分配端口映射。
+	// +optional
 	ExsistedLoadBalancerIDs []string `json:"exsistedLoadBalancerIDs,omitempty"`
-	// 自动创建配置
+	// 自动创建的配置，如果启用，则当端口池中负载均衡器可用监听器数量不足时会自动创建新的负载
+	// 均衡器来补充可分配监听器数量。
+	// +optional
 	AutoCreate *AutoCreateConfig `json:"autoCreate,omitempty"`
 }
 
@@ -65,13 +74,15 @@ func (pool *CLBPortPool) GetRegion() string {
 	return util.GetRegionFromPtr(pool.Spec.Region)
 }
 
-// AutoCreateConfig 定义自动创建CLB的配置
+// AutoCreateConfig 定义自动创建 CLB 的配置
 type AutoCreateConfig struct {
 	// 是否启用自动创建
 	Enabled bool `json:"enabled"`
 	// 自动创建的最大负载均衡器数量
+	// +optional
 	MaxLoadBalancers *uint16 `json:"maxLoadBalancers,omitempty"`
 	// 自动创建参数
+	// +optional
 	Parameters *CreateLBParameters `json:"parameters,omitempty"`
 }
 

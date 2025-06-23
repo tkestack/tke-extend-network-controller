@@ -106,11 +106,13 @@ func NewLBKeyFromBinding(binding *networkingv1alpha1.PortBindingStatus) LBKey {
 
 // PortPool 管理单个端口池的状态
 type PortPool struct {
-	Name     string
-	LbPolicy string
-	mu       sync.Mutex
-	cache    map[LBKey]map[ProtocolPort]struct{}
-	lbList   []LBKey
+	Name        string
+	LbPolicy    string
+	LbBlacklist map[LBKey]struct{}
+	lbBlacklist []string
+	mu          sync.Mutex
+	cache       map[LBKey]map[ProtocolPort]struct{}
+	lbList      []LBKey
 }
 
 func (pp *PortPool) getCache() iter.Seq2[LBKey, map[ProtocolPort]struct{}] {
@@ -123,12 +125,18 @@ func (pp *PortPool) getCache() iter.Seq2[LBKey, map[ProtocolPort]struct{}] {
 				})
 			}
 			for _, lbKey := range pp.lbList {
+				if _, exists := pp.LbBlacklist[lbKey]; exists { // 若 lb 在黑名单中，则跳过
+					continue
+				}
 				if !yield(lbKey, pp.cache[lbKey]) { // 若 yield 返回 false 则中断
 					return
 				}
 			}
 		default: // 默认用 Random，按 map 的 key 顺序遍历（golang map 的 key 是无序的，每次遍历顺序随机）
 			for lbKey, allocated := range pp.cache {
+				if _, exists := pp.LbBlacklist[lbKey]; exists { // 若 lb 在黑名单中，则跳过
+					continue
+				}
 				if !yield(lbKey, allocated) { // 若 yield 返回 false 则中断
 					return
 				}

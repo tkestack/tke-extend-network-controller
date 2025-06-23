@@ -3,6 +3,7 @@ package portpool
 import (
 	"context"
 	"fmt"
+	"reflect"
 	"sync"
 
 	networkingv1alpha1 "github.com/imroc/tke-extend-network-controller/api/v1alpha1"
@@ -66,22 +67,31 @@ func (pa *PortAllocator) EnsurePool(pool *networkingv1alpha1.CLBPortPool) (added
 
 	p, exists := pa.pools[pool.Name]
 
+	if !exists {
+		p = &PortPool{
+			Name:        pool.Name,
+			LbBlacklist: make(map[LBKey]struct{}),
+			cache:       make(map[LBKey]map[ProtocolPort]struct{}),
+		}
+		pa.pools[pool.Name] = p
+		added = true
+	}
+
 	lbPolicy := constant.LbPolicyRandom
 	if pool.Spec.LbPolicy != nil {
 		lbPolicy = *pool.Spec.LbPolicy
 	}
-
-	if !exists {
-		p = &PortPool{
-			Name:     pool.Name,
-			LbPolicy: lbPolicy,
-			cache:    make(map[LBKey]map[ProtocolPort]struct{}),
-		}
-		pa.pools[pool.Name] = p
-		added = true
-	} else {
-		if p.LbPolicy != lbPolicy {
-			p.LbPolicy = lbPolicy
+	if p.LbPolicy != lbPolicy {
+		p.LbPolicy = lbPolicy
+	}
+	if !reflect.DeepEqual(p.lbBlacklist, pool.Spec.LbBlacklist) {
+		p.lbBlacklist = pool.Spec.LbBlacklist
+		p.LbBlacklist = make(map[LBKey]struct{})
+		for _, lbId := range pool.Spec.LbBlacklist {
+			lbKey := LBKey{LbId: lbId, Region: pool.GetRegion()}
+			if _, exists := p.LbBlacklist[lbKey]; !exists {
+				p.LbBlacklist[lbKey] = struct{}{}
+			}
 		}
 	}
 	return
