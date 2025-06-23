@@ -23,6 +23,9 @@ spec:
   endPort: 30100 # 可选，端口池的结束端口号。通常只在明确需要限制 CLB 最大端口号时才需要设置，默认情况下会根据当前监听器数量配额和端口分配情况来自动决定。
   segmentLength: 0 # 可选，端口段的长度。仅当值大于 1 时才有效，此时将使用 CLB 端口段监听器来映射（1 个 CLB 监听器可映射 segmentLength 个端口)，结合节点的 HostPort 可实现大规模场景的映射。
   exsistedLoadBalancerIDs: [lb-04iq85jh] # 指定已有的 CLB 实例 ID，可动态追加
+  lbPolicy: Random # 可选，CLB 分配策略，单个端口池中有多个可分配 CLB ，分配端口时 CLB 的挑选策略。可选值：Uniform（均匀分配）、InOrder（顺序分配）、Random（随机分配）。默认值为 Random。若希望减小 DDoS 攻击的影响，建议使用 Uniform 策略，避免业务使用的 IP 过于集中；若希望提高CLB 的利用率，建议使用 InOrder 策略。
+  lbBlacklist: [] # 可选，CLB 黑名单，负载均衡实例 ID 的数组，用于禁止某些 CLB 实例被分配端口，可动态追加和移除。如果发现某个 CLB 被 DDoS 攻击或其他原因导致不可用，可将该 CLB 的实例 ID 加入到黑名单中，避免后续端口分配使用该 CLB。
+  listenerQuota: 50 # 可选，监听器数量配额。仅用在单独调整了指定 CLB 实例监听器数量配额的场景（TOTAL_LISTENER_QUOTA），控制器默认会获取账号维度的监听器数量配额作为端口分配的依据，如果 listenerQuota 不为空，将以它的值作为该端口池中所有 CLB 监听器数量配额覆盖账号维度的监听器数量配额。注意：如果指定了 listenerQuota，不支持启用 CLB 自动创建，且需自行保证该端口池中所有 CLB 实例的监听器数量配额均等于 listenerQuota 的值。
   region: ap-guangzhou # 可选，CLB 说在地域的地域代码，如 ap-chengdu，默认使用 TKE 集群说在地域。
   autoCreate: # 可选，自动创建 CLB 的配置，如果不配置，则不会自动创建 CLB
     enabled: true # 是否启用自动创建，如果启用将会在 CLB 端口不足时自动创建 CLB
