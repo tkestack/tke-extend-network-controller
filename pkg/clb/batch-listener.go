@@ -110,7 +110,7 @@ func startCreateListenerProccessor(concurrent int) {
 					err, "batch create listener failed",
 					"lbId", lbId,
 					"protocol", lis.Protocol,
-					"tasks", fmt.Sprintf("%+v", tasks),
+					"tasks", len(tasks),
 				)
 				for _, task := range tasks {
 					task.Result <- &ListenerResult{

@@ -66,7 +66,7 @@ func (pp PortPools) allocateSamePortAcrossPools(
 	ctx context.Context,
 	startPort, endPort, quota, segmentLength uint16, protocol string,
 ) PortAllocations {
-	log.FromContext(ctx).Info("allocateSamePortAcrossPools", "pools", pp.Names(), "startPort", startPort, "endPort", endPort, "segmentLength", segmentLength)
+	log.FromContext(ctx).V(10).Info("allocateSamePortAcrossPools", "pools", pp.Names(), "startPort", startPort, "endPort", endPort, "segmentLength", segmentLength)
 LOOP_PORT:
 	for port := startPort; port <= endPort; port += segmentLength { // 遍历所有端口号，确保所有端口池都能分配到相同端口号
 		endPort := uint16(0)
