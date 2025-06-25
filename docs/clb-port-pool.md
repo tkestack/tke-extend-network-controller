@@ -452,6 +452,12 @@ networking.cloud.tencent.com/clb-hostport-mapping-status: Ready
 networking.cloud.tencent.com/enable-clb-hostport-mapping: "true"
 ```
 
+### 其它注意事项
+
+使用 `tke-extend-network-controller` 的默认部署配置，没有指定 request 和 limit，在大规模场景下，`tke-extend-network-controller` 消耗的资源也更多。如果调度到超级节点，默认 Pod 规格是 1C2G；如果调度到非超级节点上，实际可使用的资源也无法确定。
+
+所以建议在规模较大的场景下一定根据实际情况合理设置 request 和 limit（对应 `values.yaml` 中的 `resources` 字段），具体大小可根据实际压测结合监控数据确定。
+
 ## 多线接入场景使用多端口池映射
 
 ### 为什么要使用多线接入
