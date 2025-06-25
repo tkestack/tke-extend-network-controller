@@ -3,8 +3,8 @@ package kube
 import (
 	"context"
 
-	networkingv1alpha1 "github.com/tkestack/tke-extend-network-controller/api/v1alpha1"
 	"github.com/pkg/errors"
+	networkingv1alpha1 "github.com/tkestack/tke-extend-network-controller/api/v1alpha1"
 	"k8s.io/apimachinery/pkg/types"
 )
 

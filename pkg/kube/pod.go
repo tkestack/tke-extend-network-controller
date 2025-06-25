@@ -4,8 +4,8 @@ import (
 	"context"
 	"time"
 
-	"github.com/tkestack/tke-extend-network-controller/internal/constant"
 	"github.com/pkg/errors"
+	"github.com/tkestack/tke-extend-network-controller/internal/constant"
 	corev1 "k8s.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"

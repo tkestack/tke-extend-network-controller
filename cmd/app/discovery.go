@@ -2,9 +2,9 @@ package app
 
 import (
 	agonesv1 "agones.dev/agones/pkg/apis/agones/v1"
-	"github.com/tkestack/tke-extend-network-controller/pkg/clusterinfo"
 	gamekruiseiov1alpha1 "github.com/openkruise/kruise-game/apis/v1alpha1"
 	"github.com/pkg/errors"
+	"github.com/tkestack/tke-extend-network-controller/pkg/clusterinfo"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"

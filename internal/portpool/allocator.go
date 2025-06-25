@@ -6,9 +6,9 @@ import (
 	"reflect"
 	"sync"
 
+	"github.com/pkg/errors"
 	networkingv1alpha1 "github.com/tkestack/tke-extend-network-controller/api/v1alpha1"
 	"github.com/tkestack/tke-extend-network-controller/internal/constant"
-	"github.com/pkg/errors"
 )
 
 // PortAllocator 管理多个端口池

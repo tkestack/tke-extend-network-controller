@@ -19,10 +19,10 @@ package controller
 import (
 	"context"
 
+	"github.com/pkg/errors"
 	"github.com/tkestack/tke-extend-network-controller/internal/clbbinding"
 	"github.com/tkestack/tke-extend-network-controller/internal/constant"
 	"github.com/tkestack/tke-extend-network-controller/pkg/eventsource"
-	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
