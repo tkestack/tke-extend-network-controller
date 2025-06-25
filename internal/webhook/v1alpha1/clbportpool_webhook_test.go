@@ -20,7 +20,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
-	networkingv1alpha1 "github.com/imroc/tke-extend-network-controller/api/v1alpha1"
+	networkingv1alpha1 "github.com/tkestack/tke-extend-network-controller/api/v1alpha1"
 	// TODO (user): Add any additional imports if needed
 )
 

@@ -4,8 +4,8 @@ import (
 	"context"
 
 	"github.com/go-logr/logr"
-	"github.com/imroc/tke-extend-network-controller/pkg/cloudapi"
-	"github.com/imroc/tke-extend-network-controller/pkg/clusterinfo"
+	"github.com/tkestack/tke-extend-network-controller/pkg/cloudapi"
+	"github.com/tkestack/tke-extend-network-controller/pkg/clusterinfo"
 	"github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common/profile"
 	vpc "github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/vpc/v20170312"
 	ctrl "sigs.k8s.io/controller-runtime"

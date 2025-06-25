@@ -2,7 +2,7 @@ package app
 
 import (
 	agonesv1 "agones.dev/agones/pkg/apis/agones/v1"
-	"github.com/imroc/tke-extend-network-controller/pkg/clusterinfo"
+	"github.com/tkestack/tke-extend-network-controller/pkg/clusterinfo"
 	gamekruiseiov1alpha1 "github.com/openkruise/kruise-game/apis/v1alpha1"
 	"github.com/pkg/errors"
 	"k8s.io/apimachinery/pkg/api/meta"

@@ -5,10 +5,10 @@ import (
 	"fmt"
 	"strings"
 
-	networkingv1alpha1 "github.com/imroc/tke-extend-network-controller/api/v1alpha1"
-	"github.com/imroc/tke-extend-network-controller/pkg/kube"
+	networkingv1alpha1 "github.com/tkestack/tke-extend-network-controller/api/v1alpha1"
+	"github.com/tkestack/tke-extend-network-controller/pkg/kube"
 
-	"github.com/imroc/tke-extend-network-controller/internal/constant"
+	"github.com/tkestack/tke-extend-network-controller/internal/constant"
 	"github.com/pkg/errors"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )

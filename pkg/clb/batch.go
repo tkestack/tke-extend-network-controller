@@ -3,7 +3,7 @@ package clb
 import (
 	"time"
 
-	"github.com/imroc/tke-extend-network-controller/pkg/util"
+	"github.com/tkestack/tke-extend-network-controller/pkg/util"
 )
 
 func init() {

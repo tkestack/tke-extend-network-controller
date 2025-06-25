@@ -9,8 +9,8 @@ import (
 	corev1 "k8s.io/api/core/v1"
 
 	agonesv1 "agones.dev/agones/pkg/apis/agones/v1"
-	"github.com/imroc/tke-extend-network-controller/pkg/clusterinfo"
-	"github.com/imroc/tke-extend-network-controller/pkg/kube"
+	"github.com/tkestack/tke-extend-network-controller/pkg/clusterinfo"
+	"github.com/tkestack/tke-extend-network-controller/pkg/kube"
 	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/metrics/filters"

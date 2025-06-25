@@ -6,7 +6,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/imroc/tke-extend-network-controller/pkg/clusterinfo"
+	"github.com/tkestack/tke-extend-network-controller/pkg/clusterinfo"
 	"github.com/pkg/errors"
 	clb "github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/clb/v20180317"
 )

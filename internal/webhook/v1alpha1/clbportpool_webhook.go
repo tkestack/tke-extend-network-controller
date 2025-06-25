@@ -20,7 +20,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/imroc/tke-extend-network-controller/pkg/util"
+	"github.com/tkestack/tke-extend-network-controller/pkg/util"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/validation/field"
@@ -29,8 +29,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
-	networkingv1alpha1 "github.com/imroc/tke-extend-network-controller/api/v1alpha1"
-	"github.com/imroc/tke-extend-network-controller/pkg/clusterinfo"
+	networkingv1alpha1 "github.com/tkestack/tke-extend-network-controller/api/v1alpha1"
+	"github.com/tkestack/tke-extend-network-controller/pkg/clusterinfo"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 

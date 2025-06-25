@@ -17,7 +17,7 @@ limitations under the License.
 package main
 
 import (
-	"github.com/imroc/tke-extend-network-controller/cmd/app"
+	"github.com/tkestack/tke-extend-network-controller/cmd/app"
 )
 
 func main() {

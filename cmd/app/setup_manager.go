@@ -4,8 +4,8 @@ import (
 	"context"
 	"os"
 
-	networkingv1alpha1 "github.com/imroc/tke-extend-network-controller/api/v1alpha1"
-	"github.com/imroc/tke-extend-network-controller/internal/portpool"
+	networkingv1alpha1 "github.com/tkestack/tke-extend-network-controller/api/v1alpha1"
+	"github.com/tkestack/tke-extend-network-controller/internal/portpool"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"

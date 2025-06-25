@@ -6,16 +6,16 @@ import (
 
 	"github.com/spf13/viper"
 
-	"github.com/imroc/tke-extend-network-controller/pkg/clb"
-	"github.com/imroc/tke-extend-network-controller/pkg/cloudapi"
-	"github.com/imroc/tke-extend-network-controller/pkg/clusterinfo"
-	"github.com/imroc/tke-extend-network-controller/pkg/kube"
-	"github.com/imroc/tke-extend-network-controller/pkg/manager"
-	"github.com/imroc/tke-extend-network-controller/pkg/util"
+	"github.com/tkestack/tke-extend-network-controller/pkg/clb"
+	"github.com/tkestack/tke-extend-network-controller/pkg/cloudapi"
+	"github.com/tkestack/tke-extend-network-controller/pkg/clusterinfo"
+	"github.com/tkestack/tke-extend-network-controller/pkg/kube"
+	"github.com/tkestack/tke-extend-network-controller/pkg/manager"
+	"github.com/tkestack/tke-extend-network-controller/pkg/util"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
-	networkingv1alpha1 "github.com/imroc/tke-extend-network-controller/api/v1alpha1"
+	networkingv1alpha1 "github.com/tkestack/tke-extend-network-controller/api/v1alpha1"
 
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 	// to ensure that exec-entrypoint and run can make use of them.

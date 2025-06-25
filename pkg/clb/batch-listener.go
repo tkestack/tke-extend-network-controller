@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/imroc/tke-extend-network-controller/pkg/util"
+	"github.com/tkestack/tke-extend-network-controller/pkg/util"
 	"github.com/pkg/errors"
 	clb "github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/clb/v20180317"
 	"github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common"

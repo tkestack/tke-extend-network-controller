@@ -14,7 +14,7 @@ import (
 
 	agonesv1 "agones.dev/agones/pkg/apis/agones/v1"
 
-	"github.com/imroc/tke-extend-network-controller/internal/constant"
+	"github.com/tkestack/tke-extend-network-controller/internal/constant"
 	"go.uber.org/multierr"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -24,13 +24,13 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
-	networkingv1alpha1 "github.com/imroc/tke-extend-network-controller/api/v1alpha1"
-	"github.com/imroc/tke-extend-network-controller/internal/clbbinding"
-	"github.com/imroc/tke-extend-network-controller/internal/portpool"
-	"github.com/imroc/tke-extend-network-controller/pkg/clb"
-	"github.com/imroc/tke-extend-network-controller/pkg/clusterinfo"
-	"github.com/imroc/tke-extend-network-controller/pkg/kube"
-	"github.com/imroc/tke-extend-network-controller/pkg/util"
+	networkingv1alpha1 "github.com/tkestack/tke-extend-network-controller/api/v1alpha1"
+	"github.com/tkestack/tke-extend-network-controller/internal/clbbinding"
+	"github.com/tkestack/tke-extend-network-controller/internal/portpool"
+	"github.com/tkestack/tke-extend-network-controller/pkg/clb"
+	"github.com/tkestack/tke-extend-network-controller/pkg/clusterinfo"
+	"github.com/tkestack/tke-extend-network-controller/pkg/kube"
+	"github.com/tkestack/tke-extend-network-controller/pkg/util"
 	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
 )

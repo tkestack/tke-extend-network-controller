@@ -8,4 +8,4 @@
 
 ## 沟通
 
-有任何疑问或需求，欢迎通过 [issue](https://github.com/imroc/tke-extend-network-controller/issues/new) 联系我们。
+有任何疑问或需求，欢迎通过 [issue](https://github.com/tkestack/tke-extend-network-controller/issues/new) 联系我们。

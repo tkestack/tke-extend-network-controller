@@ -4,8 +4,8 @@ import (
 	"context"
 	"time"
 
-	"github.com/imroc/tke-extend-network-controller/internal/constant"
-	"github.com/imroc/tke-extend-network-controller/pkg/kube"
+	"github.com/tkestack/tke-extend-network-controller/internal/constant"
+	"github.com/tkestack/tke-extend-network-controller/pkg/kube"
 	"github.com/pkg/errors"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	ctrl "sigs.k8s.io/controller-runtime"

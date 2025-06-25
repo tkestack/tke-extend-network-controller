@@ -3,7 +3,7 @@ package app
 import (
 	"os"
 
-	webhook "github.com/imroc/tke-extend-network-controller/internal/webhook/v1alpha1"
+	webhook "github.com/tkestack/tke-extend-network-controller/internal/webhook/v1alpha1"
 	ctrl "sigs.k8s.io/controller-runtime"
 )
 

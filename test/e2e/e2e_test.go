@@ -24,7 +24,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
-	"github.com/imroc/tke-extend-network-controller/test/utils"
+	"github.com/tkestack/tke-extend-network-controller/test/utils"
 )
 
 const namespace = "tke-extend-network-controller-system"

@@ -6,8 +6,8 @@ import (
 	"reflect"
 	"sync"
 
-	networkingv1alpha1 "github.com/imroc/tke-extend-network-controller/api/v1alpha1"
-	"github.com/imroc/tke-extend-network-controller/internal/constant"
+	networkingv1alpha1 "github.com/tkestack/tke-extend-network-controller/api/v1alpha1"
+	"github.com/tkestack/tke-extend-network-controller/internal/constant"
 	"github.com/pkg/errors"
 )
 

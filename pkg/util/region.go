@@ -7,7 +7,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/imroc/tke-extend-network-controller/pkg/clusterinfo"
+	"github.com/tkestack/tke-extend-network-controller/pkg/clusterinfo"
 )
 
 func GetRegionFromPtr(region *string) string {

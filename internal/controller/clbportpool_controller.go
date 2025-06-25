@@ -34,11 +34,11 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
-	networkingv1alpha1 "github.com/imroc/tke-extend-network-controller/api/v1alpha1"
-	"github.com/imroc/tke-extend-network-controller/internal/portpool"
-	"github.com/imroc/tke-extend-network-controller/pkg/clb"
-	"github.com/imroc/tke-extend-network-controller/pkg/eventsource"
-	"github.com/imroc/tke-extend-network-controller/pkg/util"
+	networkingv1alpha1 "github.com/tkestack/tke-extend-network-controller/api/v1alpha1"
+	"github.com/tkestack/tke-extend-network-controller/internal/portpool"
+	"github.com/tkestack/tke-extend-network-controller/pkg/clb"
+	"github.com/tkestack/tke-extend-network-controller/pkg/eventsource"
+	"github.com/tkestack/tke-extend-network-controller/pkg/util"
 )
 
 // CLBPortPoolReconciler reconciles a CLBPortPool object

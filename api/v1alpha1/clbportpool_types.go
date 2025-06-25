@@ -17,7 +17,7 @@ limitations under the License.
 package v1alpha1
 
 import (
-	"github.com/imroc/tke-extend-network-controller/pkg/util"
+	"github.com/tkestack/tke-extend-network-controller/pkg/util"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 

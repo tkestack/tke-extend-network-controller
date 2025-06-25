@@ -5,8 +5,8 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
-	"github.com/imroc/tke-extend-network-controller/pkg/cloudapi"
-	"github.com/imroc/tke-extend-network-controller/pkg/clusterinfo"
+	"github.com/tkestack/tke-extend-network-controller/pkg/cloudapi"
+	"github.com/tkestack/tke-extend-network-controller/pkg/clusterinfo"
 	clb "github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/clb/v20180317"
 	"github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common/profile"
 	ctrl "sigs.k8s.io/controller-runtime"

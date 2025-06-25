@@ -6,7 +6,7 @@ domain: cloud.tencent.com
 layout:
 - go.kubebuilder.io/v4
 projectName: tke-extend-network-controller
-repo: github.com/imroc/tke-extend-network-controller
+repo: github.com/tkestack/tke-extend-network-controller
 resources:
 - api:
     crdVersion: v1
@@ -15,7 +15,7 @@ resources:
   domain: cloud.tencent.com
   group: networking
   kind: CLBPodBinding
-  path: github.com/imroc/tke-extend-network-controller/api/v1alpha1
+  path: github.com/tkestack/tke-extend-network-controller/api/v1alpha1
   version: v1alpha1
   webhooks:
     validation: true
@@ -26,7 +26,7 @@ resources:
   domain: cloud.tencent.com
   group: networking
   kind: CLBPortPool
-  path: github.com/imroc/tke-extend-network-controller/api/v1alpha1
+  path: github.com/tkestack/tke-extend-network-controller/api/v1alpha1
   version: v1alpha1
   webhooks:
     defaulting: true
@@ -38,7 +38,7 @@ resources:
   domain: cloud.tencent.com
   group: networking
   kind: CLBNodeBinding
-  path: github.com/imroc/tke-extend-network-controller/api/v1alpha1
+  path: github.com/tkestack/tke-extend-network-controller/api/v1alpha1
   version: v1alpha1
 - controller: true
   core: true

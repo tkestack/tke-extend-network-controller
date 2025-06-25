@@ -3,7 +3,7 @@ package clbbinding
 import (
 	"slices"
 
-	networkingv1alpha1 "github.com/imroc/tke-extend-network-controller/api/v1alpha1"
+	networkingv1alpha1 "github.com/tkestack/tke-extend-network-controller/api/v1alpha1"
 )
 
 func SortPortBindings(bindings []networkingv1alpha1.PortBindingStatus) {

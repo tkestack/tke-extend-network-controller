@@ -3,10 +3,10 @@ package app
 import (
 	"os"
 
-	"github.com/imroc/tke-extend-network-controller/internal/clbbinding"
-	"github.com/imroc/tke-extend-network-controller/internal/controller"
-	"github.com/imroc/tke-extend-network-controller/pkg/clusterinfo"
-	"github.com/imroc/tke-extend-network-controller/pkg/util"
+	"github.com/tkestack/tke-extend-network-controller/internal/clbbinding"
+	"github.com/tkestack/tke-extend-network-controller/internal/controller"
+	"github.com/tkestack/tke-extend-network-controller/pkg/clusterinfo"
+	"github.com/tkestack/tke-extend-network-controller/pkg/util"
 	ctrl "sigs.k8s.io/controller-runtime"
 )
 

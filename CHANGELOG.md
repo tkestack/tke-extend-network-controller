@@ -211,7 +211,7 @@
 ## v0.1.9 (2024-08-19)
 
 修复：
-* 修复 clb 不存在时无法删除 DedicatedCLBListener ([#1](https://github.com/imroc/tke-extend-network-controller/issues/1))。
+* 修复 clb 不存在时无法删除 DedicatedCLBListener ([#1](https://github.com/tkestack/tke-extend-network-controller/issues/1))。
  
 优化：
 * 一些文档优化。

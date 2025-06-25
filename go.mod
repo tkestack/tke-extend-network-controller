@@ -1,4 +1,4 @@
-module github.com/imroc/tke-extend-network-controller
+module github.com/tkestack/tke-extend-network-controller
 
 go 1.24.0
 
