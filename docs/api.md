@@ -18,7 +18,7 @@
 
 
 
-AutoCreateConfig 定义自动创建CLB的配置
+AutoCreateConfig 定义自动创建 CLB 的配置
 
 
 
@@ -179,8 +179,10 @@ _Appears in:_
 | `listenerQuota` _integer_ | 监听器数量配额。仅用在单独调整了指定 CLB 实例监听器数量配额的场景（TOTAL_LISTENER_QUOTA），<br />控制器默认会获取账号维度的监听器数量配额作为端口分配的依据，如果 listenerQuota 不为空，<br />将以它的值作为该端口池中所有 CLB 监听器数量配额覆盖账号维度的监听器数量配额。<br /><br />注意：如果指定了 listenerQuota，不支持启用 CLB 自动创建，且需自行保证该端口池中所有 CLB<br />实例的监听器数量配额均等于 listenerQuota 的值。 |  |  |
 | `segmentLength` _integer_ | 端口段的长度 |  |  |
 | `region` _string_ | 地域代码，如ap-chengdu |  |  |
-| `exsistedLoadBalancerIDs` _string array_ | 已有负载均衡器ID列表 |  |  |
-| `autoCreate` _[AutoCreateConfig](#autocreateconfig)_ | 自动创建配置 |  |  |
+| `lbPolicy` _string_ | CLB 分配策略，单个端口池中有多个可分配 CLB ，分配端口时 CLB 的挑选策略。<br />可选值：Uniform（均匀分配）、InOrder（顺序分配）、Random（随机分配）。默认值为 Random。<br /><br />若希望减小 DDoS 攻击的影响，建议使用 Uniform 策略，避免业务使用的 IP 过于集中；若希望提高<br />CLB 的利用率，建议使用 InOrder 策略。 |  | Enum: [Uniform InOrder Random] <br /> |
+| `lbBlacklist` _string array_ | CLB 黑名单，负载均衡实例 ID 的数组，用于禁止某些 CLB 实例被分配端口，可动态追加和移除。<br />如果发现某个 CLB 被 DDoS 攻击或其他原因导致不可用，可将该 CLB 的实例 ID 加入到黑名单中，<br />避免后续端口分配使用该 CLB。 |  |  |
+| `exsistedLoadBalancerIDs` _string array_ | 已有负载均衡器实例 ID 列表，可动态追加。<br />该列表的负载均衡器将会被端口池用于分配端口映射。 |  |  |
+| `autoCreate` _[AutoCreateConfig](#autocreateconfig)_ | 自动创建的配置，如果启用，则当端口池中负载均衡器可用监听器数量不足时会自动创建新的负载<br />均衡器来补充可分配监听器数量。 |  |  |
 
 
 #### CLBPortPoolState
