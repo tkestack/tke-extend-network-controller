@@ -62,3 +62,8 @@ helm upgrade --install --namespace kube-system -f values.yaml \
 ```
 
 > 升级方法：先执行 `helm repo update`，然后再重复执行上面相同的 `helm upgrade` 完整命令即可完成升级。
+
+## ‼️注意事项
+
+1. 如需升级，确保升级前后的 release 所在命名空间一致，比如之前安装在 `tke-extend-network-controller` 命名空间，那么后续升级时也需要指定 `--namespace tke-extend-network-controller` 而不要指定从 `--namespace kube-system` 或者其它。
+2. 升级时也不要执行 `helm uninstall` 的卸载操作，除非你清楚后果。这个很危险，因为卸载时也会删除 CRD 本身（CRD 是 chart 的 template 的一部分）。
