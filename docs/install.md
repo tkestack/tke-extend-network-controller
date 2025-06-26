@@ -60,3 +60,5 @@ helm repo add tke-extend-network-controller https://tkestack.github.io/tke-exten
 helm upgrade --install --namespace kube-system -f values.yaml \
   tke-extend-network-controller tke-extend-network-controller/tke-extend-network-controller
 ```
+
+> 升级方法：先执行 `helm repo update`，然后再重复执行上面相同的 `helm upgrade` 完整命令即可完成升级。
