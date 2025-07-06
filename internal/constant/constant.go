@@ -11,6 +11,7 @@ const (
 	Finalizer                    = "networking.cloud.tencent.com/finalizer"
 	Ratain                       = "networking.cloud.tencent.com/retain"
 	LastUpdateTime               = "networking.cloud.tencent.com/last-update-time"
+	FinalizedKey                 = "networking.cloud.tencent.com/finalized"
 	ProtocolTCP                  = "TCP"
 	ProtocolUDP                  = "UDP"
 	ProtocolTCPUDP               = "TCPUDP"

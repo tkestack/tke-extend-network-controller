@@ -239,8 +239,10 @@ func (r *CLBBindingReconciler[T]) createListener(ctx context.Context, bd clbbind
 // 对账单个监听器
 func (r *CLBBindingReconciler[T]) ensureListener(ctx context.Context, bd clbbinding.CLBBinding, binding *networkingv1alpha1.PortBindingStatus) (*networkingv1alpha1.PortBindingStatus, error) {
 	log.FromContext(ctx).V(10).Info("ensureListener", "binding", binding)
+	log.FromContext(ctx).V(10).Info("end ensureListener", "binding", binding)
 	// 如果 lb 已被移除，且当前还未绑定成功，则移除该端口绑定，等待重新分配端口（配错 lb导致一直无法绑定成功，更正后，可以触发重新分配以便能够成功绑定）
 	if bd.GetStatus().State != networkingv1alpha1.CLBBindingStateBound && !portpool.Allocator.IsLbExists(binding.Pool, portpool.NewLBKeyFromBinding(binding)) {
+		log.FromContext(ctx).V(10).Info("remove clbbinding", "reason", "lb not exists", "binding", binding)
 		r.Recorder.Eventf(bd.GetObject(), corev1.EventTypeNormal, "PortBindingRemoved", "lb %q not exists, remove port binding (lbPort:%s protocol:%s)", binding.LoadbalancerId, binding.LoadbalancerPort, binding.Protocol)
 		return nil, nil
 	}
@@ -264,10 +266,14 @@ func (r *CLBBindingReconciler[T]) ensureListener(ctx context.Context, bd clbbind
 		}
 	}
 	if removeMsg != "" {
+		log.FromContext(ctx).V(10).Info("remove clbbinding", "message", removeMsg, "binding", binding)
 		r.Recorder.Eventf(bd.GetObject(), corev1.EventTypeWarning, removeReason, "%s (%s/%s/%d/%s)", removeMsg, binding.Pool, binding.LoadbalancerId, binding.LoadbalancerPort, binding.Protocol)
 		// 确保监听器被清理
 		if err := r.cleanupPortBinding(ctx, binding); err != nil {
 			return binding, errors.WithStack(err)
+		}
+		if portpool.Allocator.ReleaseBinding(binding) {
+			notifyPortPoolReconcile(binding.Pool)
 		}
 		return nil, nil
 	}
@@ -284,7 +290,9 @@ func (r *CLBBindingReconciler[T]) ensureListener(ctx context.Context, bd clbbind
 	}
 
 	// 已有监听器 ID，对账看是否符合预期
+	log.FromContext(ctx).V(10).Info("try GetListenerById", "binding", binding)
 	lis, err := clb.GetListenerById(ctx, binding.Region, binding.LoadbalancerId, binding.ListenerId)
+	log.FromContext(ctx).V(10).Info("GetListenerById", "binding", binding, "lis", lis)
 	if err != nil {
 		if clb.IsLoadBalancerNotExistsError(err) { // lb 已删除，通知关联的端口池重新对账
 			r.Recorder.Eventf(
@@ -319,6 +327,7 @@ func (r *CLBBindingReconciler[T]) ensureListener(ctx context.Context, bd clbbind
 			return binding, nil
 		}
 	} else { // 通过 ID 查到了监听器，对比是否符合预期
+		log.FromContext(ctx).V(10).Info("found listener id, ensureListenerExpected", "binding", binding, "lis", lis)
 		binding, err = r.ensureListenerExpected(ctx, binding, lis)
 		if err != nil {
 			return binding, errors.WithStack(err)
@@ -622,6 +631,8 @@ func patchResult(ctx context.Context, c client.Client, obj client.Object, result
 }
 
 func (r *CLBBindingReconciler[T]) ensurePortBound(ctx context.Context, bd clbbinding.CLBBinding, backend clbbinding.Backend, binding *networkingv1alpha1.PortBindingStatus) error {
+	log.FromContext(ctx).V(10).Info("ensurePortBound", "binding", *binding)
+	defer log.FromContext(ctx).V(10).Info("end ensurePortBound", "binding", *binding)
 	targets, err := clb.DescribeTargetsTryBatch(ctx, binding.Region, binding.LoadbalancerId, binding.ListenerId)
 	if err != nil {
 		return errors.WithStack(err)
@@ -736,7 +747,7 @@ LOOP_PORT:
 		before := time.Now()
 		allocated, err := portpool.Allocator.Allocate(ctx, port.Pools, port.Protocol, util.GetValue(port.UseSamePortAcrossPools))
 		cost := time.Since(before)
-		log.FromContext(ctx).V(3).Info("allocate port", "cost", cost.String(), "allocated", allocated, "protocol", port.Protocol, "pools", port.Pools, "useSamePortAcrossPools", util.GetValue(port.UseSamePortAcrossPools), "err", err)
+		log.FromContext(ctx).V(3).Info("allocate port", "cost", cost.String(), "allocated", allocated.String(), "protocol", port.Protocol, "pools", port.Pools, "useSamePortAcrossPools", util.GetValue(port.UseSamePortAcrossPools), "err", err)
 		if err != nil {
 			return errors.WithStack(err)
 		}
@@ -781,6 +792,9 @@ LOOP_PORT:
 			releasePorts()
 			return errors.WithStack(err)
 		}
+		for _, pool := range allocatedPorts.Pools() {
+			notifyPortPoolReconcile(pool)
+		}
 	}
 	return nil
 }
@@ -801,6 +815,13 @@ func (r *CLBBindingReconciler[T]) ensureState(ctx context.Context, bd clbbinding
 
 // 清理 CLBBinding
 func (r *CLBBindingReconciler[T]) cleanup(ctx context.Context, bd T) (result ctrl.Result, err error) {
+	anno := bd.GetAnnotations()
+	if anno == nil {
+		anno = make(map[string]string)
+	}
+	if anno[constant.FinalizedKey] == "true" {
+		return result, nil
+	}
 	log := log.FromContext(ctx)
 	status := bd.GetStatus()
 	log.Info("cleanup "+bd.GetType(), "bindings", len(status.PortBindings))
@@ -808,6 +829,7 @@ func (r *CLBBindingReconciler[T]) cleanup(ctx context.Context, bd T) (result ctr
 		return result, errors.WithStack(err)
 	}
 	ch := make(chan error)
+	controllerutil.ContainsFinalizer(bd.GetObject(), constant.Finalizer)
 	for _, binding := range status.PortBindings {
 		go func(binding *networkingv1alpha1.PortBindingStatus) {
 			if err := r.cleanupPortBinding(ctx, binding); err != nil {
@@ -826,6 +848,23 @@ func (r *CLBBindingReconciler[T]) cleanup(ctx context.Context, bd T) (result ctr
 	if err != nil {
 		return result, errors.WithStack(err)
 	}
+	// 全部解绑完成，打上标记，避免重复释放端口导致冲突（比如刚释放完端口又被其它 pod 分配，然后再次进入cleanup时又被清理，有可能再次分配给其它 pod，导致相同ip:port被重复分配）
+	anno[constant.FinalizedKey] = "true"
+	bd.SetAnnotations(anno)
+	if err := r.Update(ctx, bd.GetObject()); err != nil {
+		return result, errors.WithStack(err)
+	}
+	// 释放已分配端口
+	log.V(10).Info("release allocated ports", "bindings", status.PortBindings)
+	pools := make(map[string]struct{})
+	for _, binding := range status.PortBindings {
+		if portpool.Allocator.ReleaseBinding(&binding) {
+			pools[binding.Pool] = struct{}{}
+		}
+	}
+	for pool := range pools {
+		notifyPortPoolReconcile(pool)
+	}
 	// 清理完成，检查 obj 是否是正常状态，如果是，通常是手动删除 CLBBinding 场景，此时触发一次 obj 对账，让被删除的 CLBBinding 重新创建出来
 	backend, err := bd.GetAssociatedObject(ctx, r.Client)
 	if err != nil {
@@ -843,22 +882,17 @@ func (r *CLBBindingReconciler[T]) cleanup(ctx context.Context, bd T) (result ctr
 }
 
 func (r *CLBBindingReconciler[T]) cleanupPortBinding(ctx context.Context, binding *networkingv1alpha1.PortBindingStatus) error {
-	releasePort := func() {
-		if portpool.Allocator.ReleaseBinding(binding) {
-			log.FromContext(ctx).V(3).Info("release allocated port", "port", binding.LoadbalancerPort, "protocol", binding.Protocol, "pool", binding.Pool, "lb", binding.LoadbalancerId)
-			notifyPortPoolReconcile(binding.Pool)
-		}
-	}
+	log.FromContext(ctx).V(10).Info("cleanupPortBinding", "binding", binding)
 	lis, err := clb.GetListenerByIdOrPort(ctx, binding.Region, binding.LoadbalancerId, binding.ListenerId, int64(binding.LoadbalancerPort), binding.Protocol)
 	if err != nil {
 		if clb.IsLoadBalancerNotExistsError(err) { // 忽略 lbid 不存在的错误，就当清理成功
-			releasePort()
+			log.FromContext(ctx).V(10).Info("ignore cleanup due to lb not exists", "binding", binding)
 			return nil
 		}
 		return errors.WithStack(err)
 	}
 	if lis == nil { // 监听器已删除，忽略
-		releasePort()
+		log.FromContext(ctx).V(10).Info("ignore cleanup due to listener already deleted", "binding", binding)
 		return nil
 	}
 	// 清理监听器
@@ -868,19 +902,16 @@ func (r *CLBBindingReconciler[T]) cleanupPortBinding(ctx context.Context, bindin
 		switch errCause {
 		case clb.ErrListenerNotFound: // 监听器不存在，忽略
 			log.FromContext(ctx).Info("delete listener while listener not found, ignore")
-			releasePort()
 			return nil
 		default:
 			if clb.IsLoadBalancerNotExistsError(errCause) { // lb 不存在，忽略
 				log.FromContext(ctx).Info("lb not found, ignore when cleanup listener")
-				releasePort()
 				return nil
 			}
 		}
 		// 其它错误，不释放端口，返回错误
 		return errors.WithStack(err)
 	} else { // 没有错误，删除成功
-		releasePort()
 		return nil
 	}
 }

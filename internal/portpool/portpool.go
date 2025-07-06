@@ -2,6 +2,7 @@ package portpool
 
 import (
 	"context"
+	"fmt"
 	"iter"
 	"reflect"
 	"slices"
@@ -64,6 +65,29 @@ func (pa PortAllocation) Release() {
 }
 
 type PortAllocations []PortAllocation
+
+func (pas PortAllocations) Pools() []string {
+	if len(pas) == 0 {
+		return []string{}
+	}
+	pools := make(map[string]struct{})
+	for _, pa := range pas {
+		pools[pa.PortPool.Name] = struct{}{}
+	}
+	ret := []string{}
+	for pool := range pools {
+		ret = append(ret, pool)
+	}
+	return ret
+}
+
+func (pas PortAllocations) String() string {
+	ret := []string{}
+	for _, pa := range pas {
+		ret = append(ret, fmt.Sprintf("%s:%d/%s", pa.LBKey.LbId, pa.Port, pa.Protocol))
+	}
+	return fmt.Sprint(ret)
+}
 
 func (pas PortAllocations) Release() {
 	for _, pa := range pas {

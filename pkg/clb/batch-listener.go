@@ -173,30 +173,20 @@ func startDescribeListenerProccessor(concurrent int) {
 			return
 		}
 		// 查询成功
-		taskMap := make(map[string]*DescribeListenerTask)
-		for _, task := range tasks {
-			taskMap[task.ListenerId] = task
-		}
+		listeners := make(map[string]*clb.Listener)
 		// 给查到结果的 task 返回 listener 信息
 		for _, lis := range res.Response.Listeners {
-			task := taskMap[*lis.ListenerId]
-			result := &DescribeListenerResult{
-				Listener: &Listener{
-					ListenerId:   *lis.ListenerId,
-					Protocol:     *lis.Protocol,
-					Port:         *lis.Port,
-					ListenerName: *lis.ListenerName,
-				},
-			}
-			if lis.EndPort != nil {
-				result.Listener.EndPort = *lis.EndPort
-			}
-			task.Result <- result
-			delete(taskMap, *lis.ListenerId)
+			listeners[*lis.ListenerId] = lis
 		}
-		// 不存在的 listener 返回空结果
-		for _, task := range taskMap { // 没找到监听器，返回空结果
-			task.Result <- &DescribeListenerResult{}
+		// 确保每个 task 都有返回结果（即便是空）
+		for _, task := range tasks {
+			if lis, ok := listeners[task.ListenerId]; ok {
+				task.Result <- &DescribeListenerResult{
+					Listener: convertListener(lis),
+				}
+			} else {
+				task.Result <- &DescribeListenerResult{}
+			}
 		}
 	})
 }
