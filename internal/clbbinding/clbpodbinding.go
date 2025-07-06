@@ -93,6 +93,19 @@ func (b podBackend) TriggerReconcile() {
 	}
 }
 
+func (b *CLBPodBinding) GetAssociatedObjectByIP(ctx context.Context, apiClient client.Client, ip string) (Backend, error) {
+	podList := &corev1.PodList{}
+	if err := apiClient.List(ctx, podList, client.MatchingFields{
+		"status.podIP": ip,
+	}); err != nil {
+		return nil, errors.WithStack(err)
+	}
+	if len(podList.Items) > 0 {
+		return podBackend{&podList.Items[0], apiClient}, nil
+	}
+	return nil, nil
+}
+
 func (b *CLBPodBinding) GetAssociatedObject(ctx context.Context, apiClient client.Client) (Backend, error) {
 	pod := &corev1.Pod{}
 	if err := apiClient.Get(ctx, client.ObjectKeyFromObject(b), pod); err != nil {

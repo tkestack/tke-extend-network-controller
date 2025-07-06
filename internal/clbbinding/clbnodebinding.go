@@ -88,3 +88,16 @@ func (b *CLBNodeBinding) GetAssociatedObject(ctx context.Context, apiClient clie
 	}
 	return nodeBackend{node}, nil
 }
+
+func (b *CLBNodeBinding) GetAssociatedObjectByIP(ctx context.Context, apiClient client.Client, ip string) (Backend, error) {
+	nodeList := &corev1.NodeList{}
+	if err := apiClient.List(ctx, nodeList, client.MatchingFields{
+		"status.nodeIP": ip,
+	}); err != nil {
+		return nil, errors.WithStack(err)
+	}
+	if len(nodeList.Items) > 0 {
+		return nodeBackend{&nodeList.Items[0]}, nil
+	}
+	return nil, nil
+}

@@ -652,6 +652,18 @@ func (r *CLBBindingReconciler[T]) ensurePortBound(ctx context.Context, bd clbbin
 	}
 	// 清理多余的 rs
 	if len(targetToDelete) > 0 {
+		for _, target := range targetToDelete {
+			ip := target.TargetIP
+			backend, err := bd.GetAssociatedObjectByIP(ctx, r.Client, ip)
+			if err != nil {
+				return errors.WithStack(err)
+			}
+			if backend != nil {
+				msg := fmt.Sprintf("port conflict due to %s:%d/%s is already bound to %s", binding.LoadbalancerId, binding.LoadbalancerPort, binding.Protocol, backend.GetName())
+				r.Recorder.Event(bd.GetObject(), corev1.EventTypeWarning, "OtherTargetBound", msg)
+				return nil
+			}
+		}
 		r.Recorder.Eventf(bd.GetObject(), corev1.EventTypeNormal, "DeregisterTarget", "remove unexpected target: %v", targetToDelete)
 		if err := clb.DeregisterTargetsForListenerTryBatch(ctx, binding.Region, binding.LoadbalancerId, binding.ListenerId, targetToDelete...); err != nil {
 			return errors.WithStack(err)

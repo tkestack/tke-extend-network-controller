@@ -13,6 +13,7 @@ type CLBBinding interface {
 	GetSpec() *networkingv1alpha1.CLBBindingSpec
 	GetStatus() *networkingv1alpha1.CLBBindingStatus
 	GetAssociatedObject(context.Context, client.Client) (Backend, error)
+	GetAssociatedObjectByIP(context.Context, client.Client, string) (Backend, error)
 	GetObject() client.Object
 	GetType() string
 	FetchObject(context.Context, client.Client) (client.Object, error)

@@ -81,7 +81,6 @@ func runManager() {
 	// setup manager
 	SetupManager(mgr, opts)
 
-	// TODO: remove the tricky code in the future
 	networkingv1alpha1.Init(mgr)
 	kube.Init(mgr)
 
