@@ -71,6 +71,7 @@ func (r *CLBBindingReconciler[T]) sync(ctx context.Context, bd T) (result ctrl.R
 		errCause := errors.Cause(err)
 		switch errCause {
 		case ErrLBNotFoundInPool: // lb 不存在于端口池中，通常是 lb 扩容了但还未将 lb 信息写入端口池的 status 中，重新入队重试
+			log.FromContext(ctx).Info("lb info not found in pool yet, will retry", "err", err)
 			result.RequeueAfter = 20 * time.Microsecond
 			return result, nil
 		case portpool.ErrPortPoolNotAllocatable: // 端口池不可用
@@ -100,6 +101,7 @@ func (r *CLBBindingReconciler[T]) sync(ctx context.Context, bd T) (result ctrl.R
 				}
 				return result, errors.WithStack(err)
 			} else { // 端口池存在，但还没更新到分配器缓存，忽略，等待端口池就绪后会自动触发重新对账
+				log.FromContext(ctx).Info("pool found but not exist in pool allocator yet, will retry", "pool", poolName)
 				result.RequeueAfter = 20 * time.Microsecond
 				return result, nil
 			}
@@ -335,6 +337,7 @@ func (r *CLBBindingReconciler[T]) ensureBackendBindings(ctx context.Context, bd 
 			if err = r.ensureState(ctx, bd, networkingv1alpha1.CLBBindingStateNoBackend); err != nil {
 				return errors.WithStack(err)
 			}
+			log.FromContext(ctx).V(10).Info("not bind backend due to backend not found")
 			needBind = false
 		}
 		// 其它错误，直接返回
@@ -348,6 +351,7 @@ func (r *CLBBindingReconciler[T]) ensureBackendBindings(ctx context.Context, bd 
 			if err = r.ensureState(ctx, bd, networkingv1alpha1.CLBBindingStateWaitBackend); err != nil {
 				return errors.WithStack(err)
 			}
+			log.FromContext(ctx).V(10).Info("not bind backend due to pod not scheduled")
 			needBind = false
 		}
 		return errors.WithStack(err)
@@ -367,6 +371,7 @@ func (r *CLBBindingReconciler[T]) ensureBackendBindings(ctx context.Context, bd 
 				return errors.WithStack(err)
 			}
 		}
+		log.FromContext(ctx).V(10).Info("not bind backend due to node type not supported")
 		needBind = false
 	}
 
@@ -376,6 +381,7 @@ func (r *CLBBindingReconciler[T]) ensureBackendBindings(ctx context.Context, bd 
 		if err = r.ensureState(ctx, bd, networkingv1alpha1.CLBBindingStateWaitBackend); err != nil {
 			return errors.WithStack(err)
 		}
+		log.FromContext(ctx).V(10).Info("not bind backend due to no pod ip")
 		needBind = false
 	}
 
@@ -1015,6 +1021,7 @@ func (r *CLBBindingReconciler[T]) syncCLBBinding(ctx context.Context, obj client
 		} else { // 存在
 			// 正在删除，重新入队（滚动更新场景，旧的解绑完，确保 CLBBinding 要重建出来）
 			if !binding.GetDeletionTimestamp().IsZero() {
+				log.FromContext(ctx).Info("wait old clbbinding to be deleted, will retry", "binding", binding)
 				result.RequeueAfter = time.Second
 				return result, nil
 			}
