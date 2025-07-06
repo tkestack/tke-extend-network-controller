@@ -675,6 +675,7 @@ func (r *CLBBindingReconciler[T]) ensurePortAllocated(ctx context.Context, bd cl
 			Pool:     binding.Pool,
 		}
 		bindings[key] = binding
+		newBindings = append(newBindings, *binding)
 	}
 
 	var allocatedPorts portpool.PortAllocations
@@ -709,16 +710,10 @@ LOOP_PORT:
 				})
 			}
 		}
-		alreadyAllocated := false
 		for _, key := range keys {
-			if binding, exists := bindings[key]; exists { // 已分配端口，跳过
-				delete(bindings, key)
-				alreadyAllocated = true
-				newBindings = append(newBindings, *binding)
+			if _, exists := bindings[key]; exists { // 已分配端口，跳过
+				continue LOOP_PORT
 			}
-		}
-		if alreadyAllocated {
-			continue LOOP_PORT
 		}
 		// 未分配端口，先检查证书配置
 		var certId *string
@@ -785,20 +780,6 @@ LOOP_PORT:
 			// 更新状态失败，释放已分配端口
 			releasePorts()
 			return errors.WithStack(err)
-		} else {
-			// 因 spec 变更导致已分配的端口被删除，应该释放端口，并且通知端口池以便更新 allocated 数量状态
-			for _, binding := range bindings {
-				poolsShouldReconcile[binding.Pool] = struct{}{}
-				if portpool.Allocator.ReleaseBinding(binding) {
-					log.FromContext(ctx).Info("release allocated port due to spec changed", "port", binding.LoadbalancerPort, "protocol", binding.Protocol, "pool", binding.Pool, "lb", binding.LoadbalancerId)
-				} else {
-					log.FromContext(ctx).Info("try release allocated port due to spec changed but released already", "port", binding.LoadbalancerPort, "protocol", binding.Protocol, "pool", binding.Pool, "lb", binding.LoadbalancerId)
-				}
-			}
-			// 通知所有需要更新 allocated 状态的端口池重新对账
-			for poolName := range poolsShouldReconcile {
-				notifyPortPoolReconcile(poolName)
-			}
 		}
 	}
 	return nil
