@@ -355,7 +355,7 @@ networking.cloud.tencent.com/clb-port-mapping: |-
 相比之下，方案二是 1 个端口段监听器映射 1 个 Pod 中所有 DS 监听器端口，而方案三则是 1 个端口段监听器映射 1 个节点中所有 Pod 的 DS 监听的端口，因此在使用相同监听器数量的情况下可映射的 Pod 数量方案三远大于方案二，不过也会带来一些限制：
 1. **必须**使用**原生节点**调度 Pod（需使用 HostPort，而超级节点是虚拟节点，没有 HostPort）。
 2. **必须**使用支持 HostPort 动态分配的工作负载类型（Agones 的 Fleet 和 OpenKruiseGame 的 GameServerSet）。
-3. 如果需要实现 Pod 的端口同时用 TCP 和 UDP 协议对外暴露且保持端口号相同，还依赖动态分配 HostPort 的工作负载类型支持分配 TCP 和 UDP 相同端口号的 HostPort，目前已知 Agones 支持（定义 port 的 protocol 时指定 `TCPUDP`，参考 [`#1532`](https://github.com/googleforgames/agones/issues/1523)），OpenKruiseGame 在 `v1.0` 之后支持（也是在定义 port 的 protocol 时指定 TCPUDP，参考 [`#244`](https://github.com/openkruise/kruise-game/pull/244)）。
+3. 如果需要实现 Pod 的端口同时用 TCP 和 UDP 协议对外暴露且保持端口号相同，还依赖动态分配 HostPort 的工作负载类型支持分配 TCP 和 UDP 相同端口号的 HostPort，目前已知 Agones 支持（定义 port 的 protocol 时指定 `TCPUDP`，参考 [`#1532`](https://github.com/googleforgames/agones/issues/1523)），OpenKruiseGame 在 `v1.0` 之后支持（也是在定义 port 的 protocol 时指定 `TCPUDP`，参考 [`#244`](https://github.com/openkruise/kruise-game/pull/244)）。
 
 具体如何配置呢？参考以下方法。
 
