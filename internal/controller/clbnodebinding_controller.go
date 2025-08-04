@@ -106,7 +106,6 @@ func (r *CLBNodeBindingReconciler) findObjectsForNode(_ context.Context, node cl
 	return nil
 }
 
-// TODO: 优化性能
 func (r *CLBNodeBindingReconciler) findObjectsForCLBPortPool(ctx context.Context, portpool client.Object) []reconcile.Request {
 	list := &networkingv1alpha1.CLBNodeBindingList{}
 	if err := r.List(ctx, list); err != nil {

@@ -50,9 +50,6 @@ func SetupCLBPortPoolWebhookWithManager(mgr ctrl.Manager) error {
 
 // CLBPortPoolCustomDefaulter struct is responsible for setting default values on the custom resource of the
 // Kind CLBPortPool when those are created or updated.
-//
-// NOTE: The +kubebuilder:object:generate=false marker prevents controller-gen from generating DeepCopy methods,
-// as it is used only for temporary operations and does not need to be deeply copied.
 type CLBPortPoolCustomDefaulter struct{}
 
 var _ webhook.CustomDefaulter = &CLBPortPoolCustomDefaulter{}
@@ -70,16 +67,10 @@ func (d *CLBPortPoolCustomDefaulter) Default(ctx context.Context, obj runtime.Ob
 	return nil
 }
 
-// TODO(user): change verbs to "verbs=create;update;delete" if you want to enable deletion validation.
-// NOTE: The 'path' attribute must follow a specific pattern and should not be modified directly here.
-// Modifying the path for an invalid path can cause API server errors; failing to locate the webhook.
 // +kubebuilder:webhook:path=/validate-networking-cloud-tencent-com-v1alpha1-clbportpool,mutating=false,failurePolicy=fail,sideEffects=None,groups=networking.cloud.tencent.com,resources=clbportpools,verbs=create;update,versions=v1alpha1,name=vclbportpool-v1alpha1.kb.io,admissionReviewVersions=v1
 
 // CLBPortPoolCustomValidator struct is responsible for validating the CLBPortPool resource
 // when it is created, updated, or deleted.
-//
-// NOTE: The +kubebuilder:object:generate=false marker prevents controller-gen from generating DeepCopy methods,
-// as this struct is used only for temporary operations and does not need to be deeply copied.
 type CLBPortPoolCustomValidator struct {
 	// TODO(user): Add more fields as needed for validation
 }

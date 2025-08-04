@@ -119,7 +119,6 @@ func (r *CLBPodBindingReconciler) findObjectsForPod(ctx context.Context, pod cli
 	}
 }
 
-// TODO: 优化性能
 func (r *CLBPodBindingReconciler) findObjectsForCLBPortPool(ctx context.Context, portpool client.Object) []reconcile.Request {
 	list := &networkingv1alpha1.CLBPodBindingList{}
 	if err := r.List(ctx, list); err != nil {

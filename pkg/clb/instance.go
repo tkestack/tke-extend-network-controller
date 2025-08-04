@@ -54,7 +54,6 @@ func GetClb(ctx context.Context, lbId, region string) (instance *clb.LoadBalance
 	return
 }
 
-// TODO: 支持部分成功
 func Create(ctx context.Context, region, vpcId, extensiveParameters string, num int) (ids []string, err error) {
 	if vpcId == "" {
 		vpcId = clusterinfo.VpcId

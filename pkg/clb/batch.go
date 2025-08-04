@@ -60,7 +60,6 @@ func StartBatchProccessor[T Task](maxTaskOneBatch int, apiName string, writeOp b
 			groupTasks[k] = append(groupTasks[k], task)
 		}
 		// 将合并后的 task 通过 clb 的 BatchXXX 接口批量操作
-		// TODO: 能否细化到部分成功的场景？
 		for lb, tasks := range groupTasks {
 			for len(tasks) > 0 {
 				num := min(len(tasks), maxTaskOneBatch)
