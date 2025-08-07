@@ -115,7 +115,7 @@ func CreateListenerTryBatch(ctx context.Context, region, lbId string, port, endP
 	startTime := time.Now()
 	CreateListenerChan <- task
 	result := <-task.Result
-	log.FromContext(ctx).V(10).Info("CreateListenerTryBatch performance", "cost", time.Since(startTime).String())
+	log.FromContext(ctx).V(3).Info("CreateListenerTryBatch performance", "cost", time.Since(startTime).String())
 	id = result.ListenerId
 	err = result.Err
 	return

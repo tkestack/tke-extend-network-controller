@@ -39,5 +39,5 @@ func LogAPI(ctx context.Context, apiName string, req, resp any, cost time.Durati
 	} else {
 		logger = clbLog
 	}
-	logger.V(10).Info("CLB API Call", "api", apiName, "request", req, "response", resp, "cost", cost.String(), "error", err)
+	logger.Info("CLB API Call", "api", apiName, "request", req, "response", resp, "cost", cost.String(), "error", err)
 }
