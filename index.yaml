@@ -2,6 +2,19 @@ apiVersion: v1
 entries:
   tke-extend-network-controller:
   - apiVersion: v2
+    appVersion: 2.3.4
+    created: "2025-08-07T11:16:08.472414452Z"
+    description: A Network Controller for TKE
+    digest: 75c53cf7b0f292b87d3fcfa7d75e357bdcc7d14593b5f7b7ce4b8589e8f9b55a
+    home: https://github.com/tkestack/tke-extend-network-controller
+    icon: https://cloudcache.tencent-cloud.com/qcloud/ui/static/Industry_tke/b76ab4be-8275-4f41-8438-764267b3af73.png
+    kubeVersion: '>= 1.26.0-0'
+    name: tke-extend-network-controller
+    type: application
+    urls:
+    - https://github.com/tkestack/tke-extend-network-controller/releases/download/tke-extend-network-controller-2.3.4/tke-extend-network-controller-2.3.4.tgz
+    version: 2.3.4
+  - apiVersion: v2
     appVersion: 2.3.3
     created: "2025-08-07T09:16:56.793084877Z"
     description: A Network Controller for TKE
@@ -576,4 +589,4 @@ entries:
     urls:
     - https://github.com/imroc/tke-extend-network-controller/releases/download/tke-extend-network-controller-0.1.1/tke-extend-network-controller-0.1.1.tgz
     version: 0.1.1
-generated: "2025-08-07T09:16:56.793586542Z"
+generated: "2025-08-07T11:16:08.472658938Z"
