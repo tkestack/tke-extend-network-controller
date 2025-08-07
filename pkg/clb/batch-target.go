@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	clb "github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/clb/v20180317"
+	"github.com/tkestack/tke-extend-network-controller/pkg/util"
 )
 
 type RegisterTargetTask struct {
@@ -48,9 +49,16 @@ func startRegisterTargetsProccessor(concurrent int) {
 			}
 			return
 		}
-		_, err = Wait(context.Background(), region, *res.Response.RequestId, apiName)
-		for _, task := range tasks {
-			task.Result <- err
+		if len(res.Response.FailListenerIdSet) > 0 {
+			err := fmt.Errorf("register targets failed for %s", util.ConvertPtrSlice(res.Response.FailListenerIdSet))
+			for _, task := range tasks {
+				task.Result <- err
+			}
+		} else {
+			_, err = Wait(context.Background(), region, *res.Response.RequestId, apiName)
+			for _, task := range tasks {
+				task.Result <- err
+			}
 		}
 	})
 }
