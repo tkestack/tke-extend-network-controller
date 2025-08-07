@@ -83,6 +83,9 @@ func ConvertCreateLoadBalancerRequest(p *networkingv1alpha1.CreateLBParameters) 
 	if req.DynamicVip == nil { // 默认不用域名化的 CLB
 		req.DynamicVip = common.BoolPtr(false)
 	}
+	if req.LoadBalancerPassToTarget == nil { // 默认放通后端
+		req.LoadBalancerPassToTarget = common.BoolPtr(true)
+	}
 
 	// 转换Tags
 	if len(p.Tags) > 0 {
