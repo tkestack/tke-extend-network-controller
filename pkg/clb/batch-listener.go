@@ -237,7 +237,7 @@ func startDeleteListenerProccessor(concurrent int) {
 				}
 			} else {
 				// 其它错误，全部重试
-				clbLog.V(10).Info("other bad error", "rawErr", err.Error())
+				clbLog.V(5).Info("other bad error", "rawErr", err.Error())
 				for _, task := range tasks {
 					task.Result <- err
 				}

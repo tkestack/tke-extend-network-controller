@@ -40,7 +40,7 @@ func (pp PortPools) allocatePortAcrossPools(
 	ctx context.Context,
 	startPort, endPort, quota, segmentLength uint16, protocol string,
 ) PortAllocations {
-	log.FromContext(ctx).V(10).Info("allocatePortAcrossPools", "pools", pp.Names(), "startPort", startPort, "endPort", endPort, "segmentLength", segmentLength)
+	log.FromContext(ctx).V(5).Info("allocatePortAcrossPools", "pools", pp.Names(), "startPort", startPort, "endPort", endPort, "segmentLength", segmentLength)
 	var allocatedPorts PortAllocations
 	for _, pool := range pp { // 遍历所有端口池（由于不需要保证所有端口池的端口号相同，因此外层循环直接遍历端口池）
 		// 尝试分配端口
@@ -51,7 +51,7 @@ func (pp PortPools) allocatePortAcrossPools(
 		}
 		if len(result) > 0 { // 该端口池分配到了端口，追加到结果中
 			allocatedPorts = append(allocatedPorts, result...)
-			log.FromContext(ctx).V(10).Info("allocated port", "pool", pool.Name, "ports", allocatedPorts)
+			log.FromContext(ctx).V(5).Info("allocated port", "pool", pool.Name, "ports", allocatedPorts)
 		} else { // 只要有一个端口池分配失败，则认为无法分配，释放已分配端口，等待 lb 扩容
 			allocatedPorts.Release()
 			return nil
@@ -66,7 +66,7 @@ func (pp PortPools) allocateSamePortAcrossPools(
 	ctx context.Context,
 	startPort, endPort, quota, segmentLength uint16, protocol string,
 ) PortAllocations {
-	log.FromContext(ctx).V(10).Info("allocateSamePortAcrossPools", "pools", pp.Names(), "startPort", startPort, "endPort", endPort, "segmentLength", segmentLength)
+	log.FromContext(ctx).V(5).Info("allocateSamePortAcrossPools", "pools", pp.Names(), "startPort", startPort, "endPort", endPort, "segmentLength", segmentLength)
 LOOP_PORT:
 	for port := startPort; port <= endPort; port += segmentLength { // 遍历所有端口号，确保所有端口池都能分配到相同端口号
 		endPort := uint16(0)

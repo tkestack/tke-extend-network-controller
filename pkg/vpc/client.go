@@ -38,5 +38,5 @@ func LogAPI(ctx context.Context, apiName string, req, resp any, err error) {
 	} else {
 		logger = vpcLog
 	}
-	logger.V(10).Info("VPC API Call", "api", apiName, "request", req, "response", resp, "error", err)
+	logger.Info("VPC API Call", "api", apiName, "request", req, "response", resp, "error", err)
 }
