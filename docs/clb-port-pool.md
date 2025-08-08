@@ -829,6 +829,28 @@ spec:
 
 为什么是监听器数量小于 2 时扩容？因为 `TCPUDP` 协议一个端口会消耗 2 个监听器（2 个相同端口号的监听器，一个 TCP 协议，一个 UDP 协议）如果数量小于 1 才扩容，可能导致无法扩容。
 
+### 自动创建 CLB 失败: only suport domain clb
+
+端口池配置自动创建 CLB 后，创建失败，CLBPortPool 对象在事件中报错：
+
+```txt
+create clb failed: [TencentCloudsDKError] Code=Invalidparameter, Message=only suport domain clb
+```
+
+原因是账号不支持创建 VIP 类型的 CLB，只能创建域名化的 CLB（详情参考[域名化负载均衡快速入门](https://cloud.tencent.com/document/product/214/86948)），解决方法是给端口池显式自动创建域名化的 CLB：
+
+```yaml
+apiVersion: networking.cloud.tencent.com/v1alpha1
+kind: CLBPortPool
+metadata:
+  name: pool-test
+spec:
+  autoCreate:
+    enabled: true
+    parameters:
+      dynamicVip: true # 显式指定创建域名化的 CLB
+```
+
 ## 视频教程（更新中）
 
 以下是相关视频教程，可点击封面跳转播放，持续更新中。
