@@ -346,7 +346,7 @@ func (r *CLBBindingReconciler[T]) ensureBackendBindings(ctx context.Context, bd 
 			if err = r.ensureState(ctx, bd, networkingv1alpha1.CLBBindingStateNoBackend); err != nil {
 				return errors.WithStack(err)
 			}
-			log.FromContext(ctx).Info("not bind backend due to backend not found")
+			log.FromContext(ctx).V(1).Info("not bind backend due to backend not found")
 			needBind = false
 		}
 		// 其它错误，直接返回
@@ -360,7 +360,7 @@ func (r *CLBBindingReconciler[T]) ensureBackendBindings(ctx context.Context, bd 
 			if err = r.ensureState(ctx, bd, networkingv1alpha1.CLBBindingStateWaitBackend); err != nil {
 				return errors.WithStack(err)
 			}
-			log.FromContext(ctx).Info("not bind backend due to pod not scheduled")
+			log.FromContext(ctx).V(1).Info("not bind backend due to pod not scheduled")
 			needBind = false
 		}
 		return errors.WithStack(err)
@@ -390,7 +390,7 @@ func (r *CLBBindingReconciler[T]) ensureBackendBindings(ctx context.Context, bd 
 		if err = r.ensureState(ctx, bd, networkingv1alpha1.CLBBindingStateWaitBackend); err != nil {
 			return errors.WithStack(err)
 		}
-		log.FromContext(ctx).Info("not bind backend due to no pod ip")
+		log.FromContext(ctx).V(1).Info("not bind backend due to no pod ip")
 		needBind = false
 	}
 
@@ -452,7 +452,7 @@ func (r *CLBBindingReconciler[T]) ensureBackendBindings(ctx context.Context, bd 
 	// 所有端口都已绑定成功，更新状态并将绑定信息写入 backend 注解
 	if status.State != networkingv1alpha1.CLBBindingStateBound {
 		cost := time.Since(bd.GetCreationTimestamp().Time)
-		log.FromContext(ctx).Info("binding performance", "cost", cost.String())
+		log.FromContext(ctx).V(1).Info("binding performance", "cost", cost.String())
 		r.Recorder.Event(bd.GetObject(), corev1.EventTypeNormal, "AllBound", "all targets bound to listener")
 		if err := util.RetryIfPossible(func() error {
 			_, err := bd.FetchObject(ctx, r.Client)
