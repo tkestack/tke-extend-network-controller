@@ -11,7 +11,12 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
-func Wait(ctx context.Context, region, reqId, taskName string) (ids []string, err error) {
+const (
+	DefaultWaitInterval = 100 * time.Millisecond
+	LongWaitInterval    = 1 * time.Second
+)
+
+func Wait(ctx context.Context, region, reqId, taskName string, interval time.Duration) (ids []string, err error) {
 	for range 100 {
 		select {
 		case <-ctx.Done():
@@ -29,7 +34,7 @@ func Wait(ctx context.Context, region, reqId, taskName string) (ids []string, er
 			}
 			switch *res.Response.Status {
 			case 2: // 任务进行中，继续等待
-				time.Sleep(1 * time.Second)
+				time.Sleep(interval)
 				log.FromContext(ctx).V(5).Info("task still waiting", "reqId", reqId, "taskName", taskName)
 				continue
 			case 1: // 任务失败，返回错误

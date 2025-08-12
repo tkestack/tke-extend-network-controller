@@ -180,7 +180,7 @@ func DeregisterTargetsForListener(ctx context.Context, region, lbId, listenerId 
 	if err != nil {
 		return err
 	}
-	_, err = Wait(ctx, region, *resp.Response.RequestId, "DeregisterTargets")
+	_, err = Wait(ctx, region, *resp.Response.RequestId, "DeregisterTargets", DefaultWaitInterval)
 	return err
 }
 
@@ -210,7 +210,7 @@ func RegisterTargets(ctx context.Context, region, lbId, listenerId string, targe
 	if err != nil {
 		return err
 	}
-	_, err = Wait(ctx, region, *resp.Response.RequestId, "RegisterTargets")
+	_, err = Wait(ctx, region, *resp.Response.RequestId, "RegisterTargets", DefaultWaitInterval)
 	return err
 }
 

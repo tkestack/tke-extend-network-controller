@@ -55,7 +55,7 @@ func startRegisterTargetsProccessor(concurrent int) {
 				task.Result <- err
 			}
 		} else {
-			_, err = Wait(context.Background(), region, *res.Response.RequestId, apiName)
+			_, err = Wait(context.Background(), region, *res.Response.RequestId, apiName, DefaultWaitInterval)
 			for _, task := range tasks {
 				task.Result <- err
 			}
@@ -172,7 +172,7 @@ func startDeregisterTargetsProccessor(concurrent int) {
 			return
 		}
 		// 解绑失败
-		_, err = Wait(context.Background(), region, *res.Response.RequestId, apiName)
+		_, err = Wait(context.Background(), region, *res.Response.RequestId, apiName, DefaultWaitInterval)
 		if err != nil {
 			for _, task := range tasks {
 				task.Result <- err

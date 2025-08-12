@@ -87,7 +87,7 @@ func Create(ctx context.Context, region, vpcId, extensiveParameters string, num 
 	}
 	ids = util.ConvertPtrSlice(resp.Response.LoadBalancerIds)
 	if len(ids) == 0 {
-		ids, err = Wait(ctx, region, *resp.Response.RequestId, "CreateLoadBalancer")
+		ids, err = Wait(ctx, region, *resp.Response.RequestId, "CreateLoadBalancer", LongWaitInterval)
 		if err != nil {
 			return nil, err
 		}
@@ -137,7 +137,7 @@ func Delete(ctx context.Context, region string, lbIds ...string) error {
 		}
 		return err
 	}
-	_, err = Wait(ctx, region, *resp.Response.RequestId, "DeleteLoadBalancer")
+	_, err = Wait(ctx, region, *resp.Response.RequestId, "DeleteLoadBalancer", LongWaitInterval)
 	return err
 }
 
@@ -157,7 +157,7 @@ func CreateCLB(ctx context.Context, region string, req *clb.CreateLoadBalancerRe
 		return
 	}
 	lbId = *ids[0]
-	if _, err = Wait(ctx, region, *resp.Response.RequestId, "CreateLoadBalancer"); err != nil {
+	if _, err = Wait(ctx, region, *resp.Response.RequestId, "CreateLoadBalancer", LongWaitInterval); err != nil {
 		return
 	}
 	return

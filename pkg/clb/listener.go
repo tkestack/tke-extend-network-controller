@@ -166,7 +166,7 @@ func CreateListener(ctx context.Context, region, lbId string, port, endPort int6
 		err = fmt.Errorf("found %d listeners created", len(resp.Response.ListenerIds))
 		return
 	}
-	_, err = Wait(ctx, region, *resp.Response.RequestId, "CreateListener")
+	_, err = Wait(ctx, region, *resp.Response.RequestId, "CreateListener", DefaultWaitInterval)
 	if err != nil {
 		err = errors.WithStack(err)
 		return
@@ -237,7 +237,7 @@ func DeleteListener(ctx context.Context, region, lbId, listenerId string) error 
 	if err != nil {
 		return errors.WithStack(err)
 	}
-	_, err = Wait(ctx, region, *resp.Response.RequestId, "DeleteListener")
+	_, err = Wait(ctx, region, *resp.Response.RequestId, "DeleteListener", DefaultWaitInterval)
 	if err != nil {
 		return errors.WithStack(err)
 	}

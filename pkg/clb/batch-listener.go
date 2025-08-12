@@ -84,7 +84,7 @@ func doBatchCreateListener(apiName, region, lbId, protocol, certId, extensivePar
 		return
 	}
 	listenerIds = util.ConvertPtrSlice(res.Response.ListenerIds)
-	_, err = Wait(context.Background(), region, *res.Response.RequestId, apiName)
+	_, err = Wait(context.Background(), region, *res.Response.RequestId, apiName, DefaultWaitInterval)
 	if err != nil {
 		err = errors.WithStack(err)
 	}
@@ -244,7 +244,7 @@ func startDeleteListenerProccessor(concurrent int) {
 			}
 			return
 		}
-		_, err = Wait(context.Background(), region, *res.Response.RequestId, apiName)
+		_, err = Wait(context.Background(), region, *res.Response.RequestId, apiName, DefaultWaitInterval)
 		if err != nil {
 			for _, task := range tasks {
 				task.Result <- err
