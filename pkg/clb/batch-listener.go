@@ -47,7 +47,7 @@ type listenerKey struct {
 const TkeListenerName = "TKE-LISTENER"
 
 func doBatchCreateListener(apiName, region, lbId, protocol, certId, extensiveParameters string, tasks []*CreateListenerTask) (listenerIds []string, err error) {
-	res, err := ApiCall(context.Background(), apiName, region, func(ctx context.Context, client *clb.Client) (req *clb.CreateListenerRequest, res *clb.CreateListenerResponse, err error) {
+	res, err := ApiCall(context.Background(), true, apiName, region, func(ctx context.Context, client *clb.Client) (req *clb.CreateListenerRequest, res *clb.CreateListenerResponse, err error) {
 		req = clb.NewCreateListenerRequest()
 		req.LoadBalancerId = &lbId
 		req.HealthCheck = &clb.HealthCheck{
@@ -154,7 +154,7 @@ var DescribeListenerChan = make(chan *DescribeListenerTask, 100)
 func startDescribeListenerProccessor(concurrent int) {
 	apiName := "DescribeListeners"
 	StartBatchProccessor(concurrent, apiName, false, DescribeListenerChan, func(region, lbId string, tasks []*DescribeListenerTask) {
-		res, err := ApiCall(context.Background(), apiName, region, func(ctx context.Context, client *clb.Client) (req *clb.DescribeListenersRequest, res *clb.DescribeListenersResponse, err error) {
+		res, err := ApiCall(context.Background(), false, apiName, region, func(ctx context.Context, client *clb.Client) (req *clb.DescribeListenersRequest, res *clb.DescribeListenersResponse, err error) {
 			req = clb.NewDescribeListenersRequest()
 			req.LoadBalancerId = &lbId
 			for _, task := range tasks {
@@ -216,7 +216,7 @@ var (
 func startDeleteListenerProccessor(concurrent int) {
 	apiName := "DeleteLoadBalancerListeners"
 	StartBatchProccessor(concurrent, apiName, true, DeleteListenerChan, func(region, lbId string, tasks []*DeleteListenerTask) {
-		res, err := ApiCall(context.Background(), apiName, region, func(ctx context.Context, client *clb.Client) (req *clb.DeleteLoadBalancerListenersRequest, res *clb.DeleteLoadBalancerListenersResponse, err error) {
+		res, err := ApiCall(context.Background(), true, apiName, region, func(ctx context.Context, client *clb.Client) (req *clb.DeleteLoadBalancerListenersRequest, res *clb.DeleteLoadBalancerListenersResponse, err error) {
 			req = clb.NewDeleteLoadBalancerListenersRequest()
 			req.LoadBalancerId = &lbId
 			for _, task := range tasks {

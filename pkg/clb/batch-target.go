@@ -30,7 +30,7 @@ var RegisterTargetChan = make(chan *RegisterTargetTask, 100)
 func startRegisterTargetsProccessor(concurrent int) {
 	apiName := "BatchRegisterTargets"
 	StartBatchProccessor(concurrent, apiName, true, RegisterTargetChan, func(region, lbId string, tasks []*RegisterTargetTask) {
-		res, err := ApiCall(context.Background(), apiName, region, func(ctx context.Context, client *clb.Client) (req *clb.BatchRegisterTargetsRequest, res *clb.BatchRegisterTargetsResponse, err error) {
+		res, err := ApiCall(context.Background(), true, apiName, region, func(ctx context.Context, client *clb.Client) (req *clb.BatchRegisterTargetsRequest, res *clb.BatchRegisterTargetsResponse, err error) {
 			req = clb.NewBatchRegisterTargetsRequest()
 			req.LoadBalancerId = &lbId
 			for _, task := range tasks {
@@ -89,7 +89,7 @@ var DescribeTargetsChan = make(chan *DescribeTargetsTask, 100)
 func startDescribeTargetsProccessor(concurrent int) {
 	apiName := "DescribeTargets"
 	StartBatchProccessor(concurrent, apiName, false, DescribeTargetsChan, func(region, lbId string, tasks []*DescribeTargetsTask) {
-		res, err := ApiCall(context.Background(), apiName, region, func(ctx context.Context, client *clb.Client) (req *clb.DescribeTargetsRequest, res *clb.DescribeTargetsResponse, err error) {
+		res, err := ApiCall(context.Background(), false, apiName, region, func(ctx context.Context, client *clb.Client) (req *clb.DescribeTargetsRequest, res *clb.DescribeTargetsResponse, err error) {
 			req = clb.NewDescribeTargetsRequest()
 			req.LoadBalancerId = &lbId
 			for _, task := range tasks {
@@ -149,7 +149,7 @@ var DeregisterTargetsChan = make(chan *DeregisterTargetsTask, 100)
 func startDeregisterTargetsProccessor(concurrent int) {
 	apiName := "BatchDeregisterTargets"
 	StartBatchProccessor(concurrent, apiName, true, DeregisterTargetsChan, func(region, lbId string, tasks []*DeregisterTargetsTask) {
-		res, err := ApiCall(context.Background(), apiName, region, func(ctx context.Context, client *clb.Client) (req *clb.BatchDeregisterTargetsRequest, res *clb.BatchDeregisterTargetsResponse, err error) {
+		res, err := ApiCall(context.Background(), true, apiName, region, func(ctx context.Context, client *clb.Client) (req *clb.BatchDeregisterTargetsRequest, res *clb.BatchDeregisterTargetsResponse, err error) {
 			req = clb.NewBatchDeregisterTargetsRequest()
 			req.LoadBalancerId = &lbId
 			for _, task := range tasks {

@@ -25,7 +25,7 @@ func ContainsTarget(ctx context.Context, region, lbId string, port int64, protoc
 	client := GetClient(region)
 	before := time.Now()
 	resp, err := client.DescribeTargets(req)
-	LogAPI(ctx, "DescribeTargets", req, resp, time.Since(before), err)
+	LogAPI(ctx, false, "DescribeTargets", req, resp, time.Since(before), err)
 	if err != nil {
 		return false, err
 	}
@@ -176,7 +176,7 @@ func DeregisterTargetsForListener(ctx context.Context, region, lbId, listenerId 
 	client := GetClient(region)
 	before := time.Now()
 	resp, err := client.DeregisterTargetsWithContext(ctx, req)
-	LogAPI(ctx, "DeregisterTargets", req, resp, time.Since(before), err)
+	LogAPI(ctx, true, "DeregisterTargets", req, resp, time.Since(before), err)
 	if err != nil {
 		return err
 	}
@@ -206,7 +206,7 @@ func RegisterTargets(ctx context.Context, region, lbId, listenerId string, targe
 	defer mu.Unlock()
 	before := time.Now()
 	resp, err := client.RegisterTargetsWithContext(ctx, req)
-	LogAPI(ctx, "RegisterTargets", req, resp, time.Since(before), err)
+	LogAPI(ctx, true, "RegisterTargets", req, resp, time.Since(before), err)
 	if err != nil {
 		return err
 	}
@@ -254,7 +254,7 @@ func DescribeTargets(ctx context.Context, region, lbId, listenerId string) (targ
 	client := GetClient(region)
 	before := time.Now()
 	resp, err := client.DescribeTargetsWithContext(ctx, req)
-	LogAPI(ctx, "DescribeTargets", req, resp, time.Since(before), err)
+	LogAPI(ctx, false, "DescribeTargets", req, resp, time.Since(before), err)
 	if err != nil {
 		return
 	}

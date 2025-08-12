@@ -18,7 +18,7 @@ func Wait(ctx context.Context, region, reqId, taskName string) (ids []string, er
 			err = ctx.Err()
 			return
 		default:
-			res, err := ApiCall(context.Background(), "DescribeTaskStatus", region, func(ctx context.Context, client *clb.Client) (req *clb.DescribeTaskStatusRequest, res *clb.DescribeTaskStatusResponse, err error) {
+			res, err := ApiCall(context.Background(), false, "DescribeTaskStatus", region, func(ctx context.Context, client *clb.Client) (req *clb.DescribeTaskStatusRequest, res *clb.DescribeTaskStatusResponse, err error) {
 				req = clb.NewDescribeTaskStatusRequest()
 				req.TaskId = &reqId
 				res, err = client.DescribeTaskStatusWithContext(ctx, req)

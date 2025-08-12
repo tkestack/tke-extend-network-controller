@@ -70,7 +70,7 @@ func GetListenerByIdOrPort(ctx context.Context, region, lbId string, listenerId 
 }
 
 func GetListenerByPort(ctx context.Context, region, lbId string, port int64, protocol string) (lis *Listener, err error) {
-	res, err := ApiCall(ctx, "DescribeListeners", region, func(ctx context.Context, client *clb.Client) (req *clb.DescribeListenersRequest, res *clb.DescribeListenersResponse, err error) {
+	res, err := ApiCall(ctx, false, "DescribeListeners", region, func(ctx context.Context, client *clb.Client) (req *clb.DescribeListenersRequest, res *clb.DescribeListenersResponse, err error) {
 		req = clb.NewDescribeListenersRequest()
 		req.Port = &port
 		req.LoadBalancerId = &lbId
@@ -153,7 +153,7 @@ func CreateListener(ctx context.Context, region, lbId string, port, endPort int6
 	defer mu.Unlock()
 	before := time.Now()
 	resp, err := client.CreateListenerWithContext(ctx, req)
-	LogAPI(ctx, "CreateListener", req, resp, time.Since(before), err)
+	LogAPI(ctx, true, "CreateListener", req, resp, time.Since(before), err)
 	if err != nil {
 		err = errors.WithStack(err)
 		return

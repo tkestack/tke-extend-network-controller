@@ -32,12 +32,15 @@ func GetClient(region string) *clb.Client {
 	return client
 }
 
-func LogAPI(ctx context.Context, apiName string, req, resp any, cost time.Duration, err error) {
+func LogAPI(ctx context.Context, writeOp bool, apiName string, req, resp any, cost time.Duration, err error) {
 	var logger logr.Logger
 	if ctx != nil {
 		logger = log.FromContext(ctx)
 	} else {
 		logger = clbLog
+	}
+	if !writeOp {
+		logger = logger.V(1)
 	}
 	logger.Info("CLB API Call", "api", apiName, "request", req, "response", resp, "cost", cost.String(), "error", err)
 }

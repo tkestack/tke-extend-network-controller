@@ -9,7 +9,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
-func ApiCall[Req, Res any](ctx context.Context, apiName, region string, doReq func(ctx context.Context, client *clb.Client) (req Req, res Res, err error)) (res Res, err error) {
+func ApiCall[Req, Res any](ctx context.Context, writeOp bool, apiName, region string, doReq func(ctx context.Context, client *clb.Client) (req Req, res Res, err error)) (res Res, err error) {
 	reqCount := 0
 	start := time.Now()
 	defer func() {
@@ -30,11 +30,11 @@ func ApiCall[Req, Res any](ctx context.Context, apiName, region string, doReq fu
 		}
 		before := time.Now()
 		req, res, err := doReq(ctx, client)
-		LogAPI(ctx, apiName, req, res, time.Since(before), err)
+		LogAPI(ctx, writeOp, apiName, req, res, time.Since(before), err)
 		reqCount++
 		if err != nil {
 			if IsRequestLimitExceededError(err) { // 云 API 限频，重试
-				log.FromContext(ctx).V(3).Info(
+				log.FromContext(ctx).Info(
 					"clb api request limit exceeded",
 					"api", apiName,
 					"err", err,

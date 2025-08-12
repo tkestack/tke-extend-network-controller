@@ -43,7 +43,7 @@ func GetClb(ctx context.Context, lbId, region string) (instance *clb.LoadBalance
 
 	before := time.Now()
 	resp, err := client.DescribeLoadBalancersWithContext(ctx, req)
-	LogAPI(ctx, "DescribeLoadBalancers", req, resp, time.Since(before), err)
+	LogAPI(ctx, false, "DescribeLoadBalancers", req, resp, time.Since(before), err)
 	if err != nil {
 		return
 	}
@@ -81,7 +81,7 @@ func Create(ctx context.Context, region, vpcId, extensiveParameters string, num 
 	client := GetClient(region)
 	before := time.Now()
 	resp, err := client.CreateLoadBalancerWithContext(ctx, req)
-	LogAPI(ctx, "CreateLoadBalancer", req, resp, time.Since(before), err)
+	LogAPI(ctx, true, "CreateLoadBalancer", req, resp, time.Since(before), err)
 	if err != nil {
 		return
 	}
@@ -121,7 +121,7 @@ func Delete(ctx context.Context, region string, lbIds ...string) error {
 	client := GetClient(region)
 	before := time.Now()
 	resp, err := client.DeleteLoadBalancerWithContext(ctx, req)
-	LogAPI(ctx, "DeleteLoadBalancer", req, resp, time.Since(before), err)
+	LogAPI(ctx, true, "DeleteLoadBalancer", req, resp, time.Since(before), err)
 	if err != nil {
 		if IsLbIdNotFoundError(err) {
 			if len(lbIds) == 1 { // lb 已全部删除，忽略
@@ -147,7 +147,7 @@ func CreateCLB(ctx context.Context, region string, req *clb.CreateLoadBalancerRe
 	client := GetClient(region)
 	before := time.Now()
 	resp, err := client.CreateLoadBalancerWithContext(ctx, req)
-	LogAPI(ctx, "CreateLoadBalancer", req, resp, time.Since(before), err)
+	LogAPI(ctx, true, "CreateLoadBalancer", req, resp, time.Since(before), err)
 	if err != nil {
 		return
 	}
@@ -171,57 +171,75 @@ type CLBInfo struct {
 }
 
 func BatchGetClbInfo(ctx context.Context, lbIds []string, region string) (info map[string]*CLBInfo, err error) {
-	res, err := ApiCall(context.Background(), "DescribeLoadBalancers", region, func(ctx context.Context, client *clb.Client) (req *clb.DescribeLoadBalancersRequest, res *clb.DescribeLoadBalancersResponse, err error) {
-		req = clb.NewDescribeLoadBalancersRequest()
-		req.LoadBalancerIds = common.StringPtrs(lbIds)
-		res, err = client.DescribeLoadBalancersWithContext(ctx, req)
-		return
-	})
-	if err != nil {
-		return nil, errors.WithStack(err)
-	}
-	if *res.Response.TotalCount == 0 || len(res.Response.LoadBalancerSet) == 0 {
-		return
-	}
 	info = make(map[string]*CLBInfo)
 	insIds := []*string{}
-	for _, ins := range res.Response.LoadBalancerSet {
-		lbInfo := &CLBInfo{
-			LoadbalancerID:   *ins.LoadBalancerId,
-			LoadbalancerName: *ins.LoadBalancerName,
-		}
-		if !util.IsZero(ins.Domain) {
-			lbInfo.Hostname = ins.Domain
+	for len(lbIds) > 0 {
+		lbs := lbIds
+		if len(lbIds) > 19 { // 分页查询
+			lbs = lbIds[:19]
+			lbIds = lbIds[19:]
 		} else {
-			vips := util.ConvertPtrSlice(ins.LoadBalancerVips)
-			if len(vips) > 0 {
-				lbInfo.Ips = vips
-			}
+			lbIds = nil
 		}
-		info[*ins.LoadBalancerId] = lbInfo
-		insIds = append(insIds, ins.LoadBalancerId)
+		res, err := ApiCall(context.Background(), false, "DescribeLoadBalancers", region, func(ctx context.Context, client *clb.Client) (req *clb.DescribeLoadBalancersRequest, res *clb.DescribeLoadBalancersResponse, err error) {
+			req = clb.NewDescribeLoadBalancersRequest()
+			req.LoadBalancerIds = common.StringPtrs(lbs)
+			res, err = client.DescribeLoadBalancersWithContext(ctx, req)
+			return
+		})
+		if err != nil {
+			return nil, errors.WithStack(err)
+		}
+		if *res.Response.TotalCount == 0 || len(res.Response.LoadBalancerSet) == 0 {
+			return nil, nil
+		}
+		for _, ins := range res.Response.LoadBalancerSet {
+			lbInfo := &CLBInfo{
+				LoadbalancerID:   *ins.LoadBalancerId,
+				LoadbalancerName: *ins.LoadBalancerName,
+			}
+			if !util.IsZero(ins.Domain) {
+				lbInfo.Hostname = ins.Domain
+			} else {
+				vips := util.ConvertPtrSlice(ins.LoadBalancerVips)
+				if len(vips) > 0 {
+					lbInfo.Ips = vips
+				}
+			}
+			info[*ins.LoadBalancerId] = lbInfo
+			insIds = append(insIds, ins.LoadBalancerId)
+		}
 	}
 	vpcClient := vpcpkg.GetClient(region)
-	addrResp, err := ApiCall(context.Background(), "DescribeAddresses", region, func(ctx context.Context, client *clb.Client) (req *vpc.DescribeAddressesRequest, res *vpc.DescribeAddressesResponse, err error) {
-		req = vpc.NewDescribeAddressesRequest()
-		req.Filters = []*vpc.Filter{
-			{
-				Name:   common.StringPtr("instance-id"),
-				Values: insIds,
-			},
+	for len(insIds) > 0 {
+		ids := insIds
+		if len(insIds) > 99 { // 分页查询
+			ids = insIds[:99]
+			insIds = insIds[99:]
+		} else {
+			insIds = nil
 		}
-		res, err = vpcClient.DescribeAddressesWithContext(ctx, req)
-		return
-	})
-	if err != nil {
-		return nil, errors.WithStack(err)
-	}
-	for _, addr := range addrResp.Response.AddressSet {
-		log.FromContext(ctx).V(3).Info("got clb eip addr", "instanceId", addr.InstanceId)
-		if addr.InstanceId != nil {
-			if lbInfo, ok := info[*addr.InstanceId]; ok {
-				log.FromContext(ctx).V(3).Info("set clb eip addr", "instanceId", addr.InstanceId, "eip", *addr.AddressIp)
-				lbInfo.Ips = []string{*addr.AddressIp}
+		addrResp, err := ApiCall(context.Background(), false, "DescribeAddresses", region, func(ctx context.Context, client *clb.Client) (req *vpc.DescribeAddressesRequest, res *vpc.DescribeAddressesResponse, err error) {
+			req = vpc.NewDescribeAddressesRequest()
+			req.Filters = []*vpc.Filter{
+				{
+					Name:   common.StringPtr("instance-id"),
+					Values: ids,
+				},
+			}
+			res, err = vpcClient.DescribeAddressesWithContext(ctx, req)
+			return
+		})
+		if err != nil {
+			return nil, errors.WithStack(err)
+		}
+		for _, addr := range addrResp.Response.AddressSet {
+			log.FromContext(ctx).V(3).Info("got clb eip addr", "instanceId", addr.InstanceId)
+			if addr.InstanceId != nil {
+				if lbInfo, ok := info[*addr.InstanceId]; ok {
+					log.FromContext(ctx).V(3).Info("set clb eip addr", "instanceId", addr.InstanceId, "eip", *addr.AddressIp)
+					lbInfo.Ips = []string{*addr.AddressIp}
+				}
 			}
 		}
 	}

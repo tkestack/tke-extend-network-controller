@@ -123,7 +123,7 @@ func DescribeQuota(ctx context.Context, region string) (quotaMap map[string]int6
 	req := clb.NewDescribeQuotaRequest()
 	before := time.Now()
 	resp, err := client.DescribeQuotaWithContext(ctx, req)
-	LogAPI(ctx, "DescribeQuota", req, resp, time.Since(before), err)
+	LogAPI(ctx, false, "DescribeQuota", req, resp, time.Since(before), err)
 	if err != nil {
 		return nil, errors.WithStack(err)
 	}
