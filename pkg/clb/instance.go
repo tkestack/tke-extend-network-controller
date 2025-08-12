@@ -102,7 +102,7 @@ func Create(ctx context.Context, region, vpcId, extensiveParameters string, num 
 				return nil, err
 			}
 			if *lb.Status == 0 { // 创建中，等待一下
-				log.FromContext(ctx).V(5).Info("lb is still creating", "lbId", lbId)
+				log.FromContext(ctx).V(1).Info("lb is still creating", "lbId", lbId)
 				time.Sleep(time.Second * 3)
 				continue
 			}
@@ -143,7 +143,7 @@ func Delete(ctx context.Context, region string, lbIds ...string) error {
 
 // 创建单个 CLB
 func CreateCLB(ctx context.Context, region string, req *clb.CreateLoadBalancerRequest) (lbId string, err error) {
-	log.FromContext(ctx).V(5).Info("CreateLoadBalancer", "req", *req)
+	log.FromContext(ctx).V(3).Info("CreateLoadBalancer", "req", *req)
 	client := GetClient(region)
 	before := time.Now()
 	resp, err := client.CreateLoadBalancerWithContext(ctx, req)

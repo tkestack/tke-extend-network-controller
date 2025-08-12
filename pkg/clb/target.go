@@ -223,7 +223,7 @@ func RegisterTarget(ctx context.Context, region, lbId, listenerId string, target
 		Target:     target,
 		Result:     make(chan error),
 	}
-	log.FromContext(ctx).V(5).Info("RegisterTarget", "lbId", lbId, "listenerId", listenerId, "target", target)
+	log.FromContext(ctx).V(3).Info("RegisterTarget", "lbId", lbId, "listenerId", listenerId, "target", target)
 	RegisterTargetChan <- task
 	err := <-task.Result
 	return err

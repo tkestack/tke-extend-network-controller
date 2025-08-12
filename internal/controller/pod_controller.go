@@ -77,7 +77,7 @@ func (r *PodReconciler) sync(ctx context.Context, pod *corev1.Pod) (result ctrl.
 	}
 	if pod.Annotations[constant.EnableCLBHostPortMapping] == "true" {
 		if pod.Spec.NodeName == "" {
-			log.FromContext(ctx).V(5).Info("skip host port mapping when pod not schedued to node")
+			log.FromContext(ctx).Info("skip host port mapping when pod not schedued to node")
 			return
 		}
 		result, err = r.syncCLBHostPortMapping(ctx, pod)
