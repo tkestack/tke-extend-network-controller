@@ -37,6 +37,8 @@ type CLBPortPoolSpec struct {
 	// 实例的监听器数量配额均等于 listenerQuota 的值。
 	// +kubebuilder:validation:XValidation:rule="self == oldSelf", message="Value is immutable"
 	ListenerQuota *uint16 `json:"listenerQuota,omitempty"`
+	// 监听器预创建，预先为 lb 创建一些固定的监听器，不销毁，用于加快扩缩容时 CLB 的绑定和解绑速度。
+	ListenerPrecreate *ListenerPrecreateConfig `json:"listenerPrecreate,omitempty"`
 	// +kubebuilder:validation:XValidation:rule="self == oldSelf", message="Value is immutable"
 	// 端口段的长度
 	SegmentLength *uint16 `json:"segmentLength,omitempty"`
@@ -81,6 +83,21 @@ type AutoCreateConfig struct {
 	// 自动创建参数
 	// +optional
 	Parameters *CreateLBParameters `json:"parameters,omitempty"`
+}
+
+// ListenerPrecreateConfig 定义监听器预创建配置
+type ListenerPrecreateConfig struct {
+	// 是否启用监听器预创建
+	// +kubebuilder:validation:XValidation:rule="self == oldSelf", message="Value is immutable"
+	Enabled bool `json:"enabled"`
+	// TCP 监听器预创建数量
+	TCP *uint16 `json:"tcp,omitempty"`
+	// UDP 监听器预创建数量
+	UDP *uint16 `json:"udp,omitempty"`
+	// TCP_SSL 监听器预创建数量
+	TcpSsl *uint16 `json:"tcpSsl,omitempty"`
+	// QUIC 监听器预创建数量
+	Quic *uint16 `json:"quic,omitempty"`
 }
 
 // CreateLBParameters 定义创建负载均衡器的参数
