@@ -118,6 +118,11 @@ type LBKey struct {
 	Region string
 }
 
+type MaxPort struct {
+	Tcp uint16
+	Udp uint16
+}
+
 func NewLBKey(lbId, region string) LBKey {
 	return LBKey{
 		LbId:   lbId,
@@ -135,6 +140,7 @@ type PortPool struct {
 	LbPolicy    string
 	LbBlacklist map[LBKey]struct{}
 	lbBlacklist []string
+	maxPort     *MaxPort
 	mu          sync.Mutex
 	cache       map[LBKey]map[ProtocolPort]struct{}
 	lbList      []LBKey
@@ -206,11 +212,27 @@ func (pp *PortPool) AllocatePortFromRange(ctx context.Context, startPort, endPor
 	return nil, quotaExceeded
 }
 
+// 尝试从 lb 中分配端口
 func (pp *PortPool) tryAllocateFromLb(lbKey LBKey, allocated map[ProtocolPort]struct{}, port, endPort uint16, protocol string) []PortAllocation {
 	ports := portsToAllocate(port, endPort, protocol)
-	for _, port := range ports { // 确保所有待分配的端口都未被分配
+	// 确保所有待分配的端口都未被分配，也如果是预创建监听器，确保待分配的端口都在预创建端口范围内
+	for _, port := range ports {
 		if _, exists := allocated[port.Key()]; exists { // 有端口已被占用，标记无法分配
 			return nil
+		}
+		if pp.maxPort != nil { // 启用了监听器预创建，确保待分配的端口都在预创建端口范围内，否则标记无法分配
+			switch port.Protocol {
+			case "TCP":
+				if pp.maxPort.Tcp > 0 && port.Port > pp.maxPort.Tcp {
+					return nil
+				}
+			case "UDP":
+				if pp.maxPort.Udp > 0 && port.Port > pp.maxPort.Udp {
+					return nil
+				}
+			default: // 不可能出现的协议
+				panic(fmt.Sprintf("unknown protocol: %s", port.Protocol))
+			}
 		}
 	}
 	result := []PortAllocation{}

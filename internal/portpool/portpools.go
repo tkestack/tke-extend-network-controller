@@ -131,7 +131,7 @@ func (pp PortPools) AllocatePort(ctx context.Context, protocol string, useSamePo
 	quota := uint16(0)
 	for _, portPool := range pp {
 		cpp, err := kube.GetCLBPortPool(ctx, portPool.Name)
-		if cpp.Status.State != networkingv1alpha1.CLBPortPoolStateActive && cpp.Status.State != networkingv1alpha1.CLBPortPoolStateScaling {
+		if cpp.Status.State != networkingv1alpha1.CLBPortPoolStateActive {
 			return nil, ErrPortPoolNotAllocatable
 		}
 		if err != nil {

@@ -9,6 +9,7 @@ import (
 	"github.com/pkg/errors"
 	networkingv1alpha1 "github.com/tkestack/tke-extend-network-controller/api/v1alpha1"
 	"github.com/tkestack/tke-extend-network-controller/internal/constant"
+	"github.com/tkestack/tke-extend-network-controller/pkg/util"
 )
 
 // PortAllocator 管理多个端口池
@@ -92,6 +93,18 @@ func (pa *PortAllocator) EnsurePool(pool *networkingv1alpha1.CLBPortPool) (added
 			if _, exists := p.LbBlacklist[lbKey]; !exists {
 				p.LbBlacklist[lbKey] = struct{}{}
 			}
+		}
+	}
+	if lcp := pool.Spec.ListenerPrecreate; lcp != nil && lcp.Enabled {
+		p.maxPort = &MaxPort{}
+		startPort := pool.Spec.StartPort
+		tcpNum := util.GetValue(lcp.TCP)
+		if tcpNum > 0 {
+			p.maxPort.Tcp = startPort + tcpNum - 1
+		}
+		udpNum := util.GetValue(lcp.UDP)
+		if udpNum > 0 {
+			p.maxPort.Udp = startPort + udpNum - 1
 		}
 	}
 	return

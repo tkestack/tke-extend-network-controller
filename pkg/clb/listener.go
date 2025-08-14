@@ -69,6 +69,22 @@ func GetListenerByIdOrPort(ctx context.Context, region, lbId string, listenerId 
 	return
 }
 
+func GetAllListeners(ctx context.Context, region, lbId string) (allLis []*Listener, err error) {
+	res, err := ApiCall(ctx, false, "DescribeListeners", region, func(ctx context.Context, client *clb.Client) (req *clb.DescribeListenersRequest, res *clb.DescribeListenersResponse, err error) {
+		req = clb.NewDescribeListenersRequest()
+		req.LoadBalancerId = &lbId
+		res, err = client.DescribeListenersWithContext(ctx, req)
+		return
+	})
+	if err != nil {
+		return nil, errors.WithStack(err)
+	}
+	for _, lis := range res.Response.Listeners {
+		allLis = append(allLis, convertListener(lis))
+	}
+	return
+}
+
 func GetListenerByPort(ctx context.Context, region, lbId string, port int64, protocol string) (lis *Listener, err error) {
 	res, err := ApiCall(ctx, false, "DescribeListeners", region, func(ctx context.Context, client *clb.Client) (req *clb.DescribeListenersRequest, res *clb.DescribeListenersResponse, err error) {
 		req = clb.NewDescribeListenersRequest()
@@ -88,7 +104,38 @@ func GetListenerByPort(ctx context.Context, region, lbId string, port int64, pro
 	return
 }
 
-const TkePodListenerName = "TKE-DEDICATED-POD"
+// 预创建监听器场景下批量创建监听器
+func BatchCreateListener(ctx context.Context, region, lbId, protocol string, ports, endports []int64) (lisIds []string, err error) {
+	res, err := ApiCall(context.Background(), true, "CreateListener", region, func(ctx context.Context, client *clb.Client) (req *clb.CreateListenerRequest, res *clb.CreateListenerResponse, err error) {
+		req = clb.NewCreateListenerRequest()
+		req.LoadBalancerId = &lbId
+		req.HealthCheck = &clb.HealthCheck{
+			HealthSwitch: common.Int64Ptr(0),
+			SourceIpType: common.Int64Ptr(1),
+		}
+		req.Protocol = &protocol
+		for _, port := range ports {
+			req.Ports = append(req.Ports, common.Int64Ptr(port))
+			req.ListenerNames = append(req.ListenerNames, common.StringPtr(TkeListenerName))
+		}
+		for _, endPort := range endports {
+			req.EndPort = common.Uint64Ptr(uint64(endPort))
+		}
+		res, err = client.CreateListener(req)
+		return
+	})
+	if err != nil {
+		err = errors.WithStack(err)
+		return
+	}
+	if len(res.Response.ListenerIds) != len(ports) {
+		return nil, fmt.Errorf("expected %d listeners created, but found %d", len(ports), len(res.Response.ListenerIds))
+	}
+	for _, lis := range res.Response.ListenerIds {
+		lisIds = append(lisIds, *lis)
+	}
+	return lisIds, nil
+}
 
 func CreateListenerTryBatch(ctx context.Context, region, lbId string, port, endPort int64, protocol string, certId *string, extensiveParameters string) (id string, err error) {
 	cid := ""

@@ -67,7 +67,6 @@ func doBatchCreateListener(apiName, region, lbId, protocol, certId, extensivePar
 				return
 			}
 		}
-		req.LoadBalancerId = &lbId
 		req.Protocol = &protocol
 		for _, task := range tasks {
 			req.Ports = append(req.Ports, common.Int64Ptr(task.Port))

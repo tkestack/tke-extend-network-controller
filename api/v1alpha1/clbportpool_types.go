@@ -38,6 +38,9 @@ type CLBPortPoolSpec struct {
 	// +kubebuilder:validation:XValidation:rule="self == oldSelf", message="Value is immutable"
 	ListenerQuota *uint16 `json:"listenerQuota,omitempty"`
 	// 监听器预创建，预先为 lb 创建一些固定的监听器，不销毁，用于加快扩缩容时 CLB 的绑定和解绑速度。
+	//
+	// 注意：预创建监听器的端口池只支持 TCP 和 UDP 协议（不支持 TCP_SSL 和 QUIC）。
+	// +kubebuilder:validation:XValidation:rule="self == oldSelf", message="Value is immutable"
 	ListenerPrecreate *ListenerPrecreateConfig `json:"listenerPrecreate,omitempty"`
 	// +kubebuilder:validation:XValidation:rule="self == oldSelf", message="Value is immutable"
 	// 端口段的长度
@@ -91,13 +94,11 @@ type ListenerPrecreateConfig struct {
 	// +kubebuilder:validation:XValidation:rule="self == oldSelf", message="Value is immutable"
 	Enabled bool `json:"enabled"`
 	// TCP 监听器预创建数量
+	// +kubebuilder:validation:XValidation:rule="self == oldSelf", message="Value is immutable"
 	TCP *uint16 `json:"tcp,omitempty"`
 	// UDP 监听器预创建数量
+	// +kubebuilder:validation:XValidation:rule="self == oldSelf", message="Value is immutable"
 	UDP *uint16 `json:"udp,omitempty"`
-	// TCP_SSL 监听器预创建数量
-	TcpSsl *uint16 `json:"tcpSsl,omitempty"`
-	// QUIC 监听器预创建数量
-	Quic *uint16 `json:"quic,omitempty"`
 }
 
 // CreateLBParameters 定义创建负载均衡器的参数
