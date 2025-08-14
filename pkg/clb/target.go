@@ -51,53 +51,6 @@ type BatchTarget struct {
 	Target
 }
 
-// func BatchDeregisterTargets(ctx context.Context, region, lbId string, targets ...BatchTarget) (err error) {
-// 	type listenerKey struct {
-// 		protocol string
-// 		port     int64
-// 	}
-// 	var allError []error
-// 	listenerIds := make(map[listenerKey]string)
-// 	var batchTargets []*clb.BatchTarget
-// 	for _, target := range targets {
-// 		k := listenerKey{port: target.ListenerPort, protocol: target.ListenerProtocol}
-// 		id, ok := listenerIds[k]
-// 		if !ok {
-// 			id, err = GetListenerId(ctx, region, lbId, target.ListenerPort, target.ListenerProtocol)
-// 			if err != nil {
-// 				return
-// 			}
-// 			listenerIds[k] = id
-// 		}
-// 		if id == "" {
-// 			allError = append(allError, fmt.Errorf("listener not found: %d/%s", target.ListenerPort, target.ListenerProtocol))
-// 			continue
-// 		}
-// 		batchTargets = append(batchTargets, &clb.BatchTarget{
-// 			ListenerId: &id,
-// 			Port:       &target.ListenerPort,
-// 			EniIp:      &target.TargetIP,
-// 		})
-// 	}
-// 	if len(batchTargets) > 0 {
-// 		req := clb.NewBatchDeregisterTargetsRequest()
-// 		req.LoadBalancerId = &lbId
-// 		req.Targets = batchTargets
-// 		client := GetClient(region)
-// 		resp, err := client.BatchDeregisterTargetsWithContext(ctx, req)
-// 		if err != nil {
-// 			allError = append(allError, err)
-// 		}
-// 		if failedIds := resp.Response.FailListenerIdSet; len(failedIds) > 0 {
-// 			allError = append(allError, fmt.Errorf("batch deregister targets failed: %v", util.ConvertStringPointSlice(failedIds)))
-// 		}
-// 	}
-// 	if len(allError) > 0 {
-// 		err = errors.Join(allError...)
-// 	}
-// 	return
-// }
-
 type Target struct {
 	TargetIP   string
 	TargetPort int64
@@ -113,7 +66,7 @@ func DeregisterAllTargetsTryBatch(ctx context.Context, region, lbId, listenerId 
 		return errors.WithStack(err)
 	}
 	if len(targets) > 0 {
-		err = DeregisterTargetsForListenerTryBatch(ctx, region, lbId, listenerId, targets...)
+		err = DeregisterTargetsForListener(ctx, region, lbId, listenerId, targets...)
 		if err != nil {
 			return errors.WithStack(err)
 		}
@@ -121,33 +74,7 @@ func DeregisterAllTargetsTryBatch(ctx context.Context, region, lbId, listenerId 
 	return nil
 }
 
-func DeregisterAllTargets(ctx context.Context, region, lbId, listenerId string) error {
-	queryReq := clb.NewDescribeTargetsRequest()
-	queryReq.LoadBalancerId = &lbId
-	queryReq.ListenerIds = []*string{&listenerId}
-	client := GetClient(region)
-	resp, err := client.DescribeTargetsWithContext(ctx, queryReq)
-	if err != nil {
-		return err
-	}
-	var targets []Target
-	for _, lis := range resp.Response.Listeners {
-		if listenerId != *lis.ListenerId {
-			return fmt.Errorf("found targets not belong to listener %s/%s targets when deregister", lbId, listenerId)
-		}
-		for _, target := range lis.Targets {
-			for _, ip := range target.PrivateIpAddresses {
-				targets = append(targets, Target{TargetIP: *ip, TargetPort: int64(*target.Port)})
-			}
-		}
-	}
-	if len(targets) > 0 {
-		return DeregisterTargetsForListener(ctx, region, lbId, listenerId, targets...)
-	}
-	return nil
-}
-
-func DeregisterTargetsForListenerTryBatch(ctx context.Context, region, lbId, listenerId string, targets ...*Target) error {
+func DeregisterTargetsForListener(ctx context.Context, region, lbId, listenerId string, targets ...*Target) error {
 	task := &DeregisterTargetsTask{
 		Ctx:        ctx,
 		Region:     region,
@@ -162,26 +89,6 @@ func DeregisterTargetsForListenerTryBatch(ctx context.Context, region, lbId, lis
 		return errors.WithStack(err)
 	}
 	return nil
-}
-
-func DeregisterTargetsForListener(ctx context.Context, region, lbId, listenerId string, targets ...Target) error {
-	mu := getLbLock(lbId)
-	mu.Lock()
-	defer mu.Unlock()
-	clbTargets := getClbTargets(targets)
-	req := clb.NewDeregisterTargetsRequest()
-	req.LoadBalancerId = &lbId
-	req.ListenerId = &listenerId
-	req.Targets = clbTargets
-	client := GetClient(region)
-	before := time.Now()
-	resp, err := client.DeregisterTargetsWithContext(ctx, req)
-	LogAPI(ctx, true, "DeregisterTargets", req, resp, time.Since(before), err)
-	if err != nil {
-		return err
-	}
-	_, err = Wait(ctx, region, *resp.Response.RequestId, "DeregisterTargets", DefaultWaitInterval)
-	return err
 }
 
 func getClbTargets(targets []Target) (clbTargets []*clb.Target) {

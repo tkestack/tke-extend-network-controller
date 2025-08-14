@@ -293,7 +293,7 @@ func (r *CLBPortPoolReconciler) ensureListenerPrecreate(ctx context.Context, poo
 		var ports, endPorts []int64
 		for i := uint16(0); i < num; i++ {
 			port := startPort + i
-			if lis, err := clb.GetListener(ctx, lbId, pool.GetRegion(), port, protocol); err != nil {
+			if lis, err := clb.GetListener(ctx, lbId, pool.GetRegion(), port, protocol, true); err != nil {
 				return errors.WithStack(err)
 			} else {
 				if lis == nil { // 监听器不存在，创建

@@ -19,3 +19,7 @@ func IsRequestLimitExceededError(err error) bool {
 func IsPortCheckFailedError(err error) bool {
 	return strings.Contains(err.Error(), "InvalidParameter.PortCheckFailed")
 }
+
+func IsListenerNotFound(err error) bool {
+	return strings.Contains(err.Error(), "InvalidParameter") && strings.Contains(err.Error(), "some ListenerId") && strings.Contains(err.Error(), "not found")
+}

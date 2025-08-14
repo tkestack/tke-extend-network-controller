@@ -11,6 +11,12 @@ var cacheLock sync.Mutex
 
 var cache map[LBKey]*ListenerCache = make(map[LBKey]*ListenerCache)
 
+func DeleteListenerCache(lbKey LBKey) {
+	cacheLock.Lock()
+	defer cacheLock.Unlock()
+	delete(cache, lbKey)
+}
+
 func GetListenerCache(lbKey LBKey) *ListenerCache {
 	cacheLock.Lock()
 	defer cacheLock.Unlock()
@@ -22,13 +28,13 @@ func GetListenerCache(lbKey LBKey) *ListenerCache {
 	return lisCache
 }
 
-func GetListener(ctx context.Context, lbId, region string, port uint16, protocol string) (*Listener, error) {
+func GetListener(ctx context.Context, lbId, region string, port uint16, protocol string, cacheOnly bool) (*Listener, error) {
 	lbKey := LBKey{
 		LbId:   lbId,
 		Region: region,
 	}
 	lisCache := GetListenerCache(lbKey)
-	lis, err := lisCache.Get(ctx, port, protocol)
+	lis, err := lisCache.Get(ctx, port, protocol, cacheOnly)
 	if err != nil {
 		return nil, errors.WithStack(err)
 	}
@@ -71,7 +77,20 @@ func (c *ListenerCache) Set(lis *Listener) {
 	c.Listeners[portKey] = lis
 }
 
-func (c *ListenerCache) Get(ctx context.Context, port uint16, protocol string) (*Listener, error) {
+func (c *ListenerCache) EnsureRemoved(ctx context.Context, port uint16, protocol string) {
+	portKey := PortKey{
+		Port:     port,
+		Protocol: protocol,
+	}
+	c.mux.Lock()
+	defer c.mux.Unlock()
+	_, ok := c.Listeners[portKey]
+	if ok {
+		delete(c.Listeners, portKey)
+	}
+}
+
+func (c *ListenerCache) Get(ctx context.Context, port uint16, protocol string, cacheOnly bool) (*Listener, error) {
 	portKey := PortKey{
 		Port:     port,
 		Protocol: protocol,
@@ -81,6 +100,9 @@ func (c *ListenerCache) Get(ctx context.Context, port uint16, protocol string) (
 	c.mux.Unlock()
 	if ok {
 		return lis, nil
+	}
+	if cacheOnly {
+		return nil, nil
 	}
 	// 本地缓存中没有，尝试调 API 获取
 	lis, err := GetListenerByPort(ctx, c.Region, c.LbId, int64(port), protocol)
