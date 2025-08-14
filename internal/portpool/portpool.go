@@ -146,6 +146,10 @@ type PortPool struct {
 	lbList      []LBKey
 }
 
+func (pp *PortPool) IsPrecreateListenerEnabled() bool {
+	return pp.maxPort != nil
+}
+
 func (pp *PortPool) getCache() iter.Seq2[LBKey, map[ProtocolPort]struct{}] {
 	return func(yield func(LBKey, map[ProtocolPort]struct{}) bool) {
 		switch pp.LbPolicy {

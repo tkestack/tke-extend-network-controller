@@ -299,7 +299,7 @@ func (r *CLBBindingReconciler[T]) ensureListener(ctx context.Context, bd clbbind
 		log.Info("remove allocated clbbinding due to " + removeMsg)
 		r.Recorder.Eventf(bd.GetObject(), corev1.EventTypeWarning, removeReason, "%s (%s/%s/%d/%s)", removeMsg, binding.Pool, binding.LoadbalancerId, binding.LoadbalancerPort, binding.Protocol)
 		// 确保监听器被清理
-		if err := r.cleanupPortBinding(ctx, binding, log); err != nil {
+		if err := r.cleanupPortBinding(ctx, binding, log, pool.IsPrecreateListenerEnabled()); err != nil {
 			return binding, errors.WithStack(err)
 		}
 		if portpool.Allocator.ReleaseBinding(binding) {
@@ -878,7 +878,11 @@ func (r *CLBBindingReconciler[T]) cleanup(ctx context.Context, bd T) (result ctr
 	controllerutil.ContainsFinalizer(bd.GetObject(), constant.Finalizer)
 	for _, binding := range status.PortBindings {
 		go func(binding *networkingv1alpha1.PortBindingStatus) {
-			if err := r.cleanupPortBinding(ctx, binding, log); err != nil {
+			isListenerPrecreated := false
+			if pool := portpool.Allocator.GetPool(binding.Pool); pool != nil && pool.IsPrecreateListenerEnabled() {
+				isListenerPrecreated = true
+			}
+			if err := r.cleanupPortBinding(ctx, binding, log, isListenerPrecreated); err != nil {
 				ch <- err
 			} else {
 				ch <- nil
@@ -927,22 +931,20 @@ func (r *CLBBindingReconciler[T]) cleanup(ctx context.Context, bd T) (result ctr
 	return result, nil
 }
 
-func (r *CLBBindingReconciler[T]) cleanupPortBinding(ctx context.Context, binding *networkingv1alpha1.PortBindingStatus, log logr.Logger) error {
-	log.V(5).Info("cleanupPortBinding")
-	lis, err := clb.GetListenerByIdOrPort(ctx, binding.Region, binding.LoadbalancerId, binding.ListenerId, int64(binding.LoadbalancerPort), binding.Protocol)
-	if err != nil {
-		if clb.IsLoadBalancerNotExistsError(err) { // 忽略 lbid 不存在的错误，就当清理成功
-			log.V(1).Info("ignore cleanup due to lb not exists")
-			return nil
+// 解绑：
+// 1）预创建监听器场景：解绑 rs
+// 2）其它：删除监听器
+func (r *CLBBindingReconciler[T]) cleanupPortBinding(ctx context.Context, binding *networkingv1alpha1.PortBindingStatus, log logr.Logger, isListenerPrecreated bool) error {
+	log.V(2).Info("cleanupPortBinding")
+	if isListenerPrecreated { // 预创建监听器，仅解绑 rs
+		if binding.ListenerId != "" {
+			clb.DeregisterAllTargetsTryBatch(ctx, binding.Region, binding.LoadbalancerId, binding.ListenerId)
 		}
-		return errors.WithStack(err)
-	}
-	if lis == nil { // 监听器已删除，忽略
-		log.V(1).Info("ignore cleanup due to listener already deleted")
 		return nil
 	}
-	// 清理监听器
-	err = clb.DeleteListenerByIdOrPort(ctx, binding.Region, binding.LoadbalancerId, binding.ListenerId, int64(binding.LoadbalancerPort), binding.Protocol)
+	// 非预创建监听器，直接删除监听器并清理缓存
+	clb.GetListenerCache(clb.LBKey{Region: binding.Region, LbId: binding.LoadbalancerId}).EnsureRemoved(ctx, binding.LoadbalancerPort, binding.Protocol)
+	err := clb.DeleteListenerByIdOrPort(ctx, binding.Region, binding.LoadbalancerId, binding.ListenerId, int64(binding.LoadbalancerPort), binding.Protocol)
 	if err != nil {
 		errCause := errors.Cause(err)
 		switch errCause {

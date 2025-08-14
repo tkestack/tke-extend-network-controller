@@ -106,6 +106,9 @@ func GetListenerByPort(ctx context.Context, region, lbId string, port int64, pro
 
 // 预创建监听器场景下批量创建监听器
 func BatchCreateListener(ctx context.Context, region, lbId, protocol string, ports, endports []int64) (lisIds []string, err error) {
+	mu := getLbLock(lbId)
+	mu.Lock()
+	defer mu.Unlock()
 	res, err := ApiCall(context.Background(), true, "CreateListener", region, func(ctx context.Context, client *clb.Client) (req *clb.CreateListenerRequest, res *clb.CreateListenerResponse, err error) {
 		req = clb.NewCreateListenerRequest()
 		req.LoadBalancerId = &lbId
@@ -130,6 +133,11 @@ func BatchCreateListener(ctx context.Context, region, lbId, protocol string, por
 	}
 	if len(res.Response.ListenerIds) != len(ports) {
 		return nil, fmt.Errorf("expected %d listeners created, but found %d", len(ports), len(res.Response.ListenerIds))
+	}
+	_, err = Wait(ctx, region, *res.Response.RequestId, "CreateListener", DefaultWaitInterval)
+	if err != nil {
+		err = errors.WithStack(err)
+		return
 	}
 	for _, lis := range res.Response.ListenerIds {
 		lisIds = append(lisIds, *lis)
