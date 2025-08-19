@@ -282,7 +282,7 @@ annotations:
 
 根据需求 [提工单](https://console.cloud.tencent.com/workorder/category?level1_id=6&level2_id=163&source=14&data_title=%E8%B4%9F%E8%BD%BD%E5%9D%87%E8%A1%A1&step=1) 申请提升 CLB `一个实例可添加的监听器数量` 的配额限制（调整方法参考 FAQ 中的 [如何提升 CLB 的监听器数量配额？](#如何提升-clb-的监听器数量配额))。
 
-配额调整分为账号维度和实例维度，如果希望调整到很大（比如 2000），通常只能在实例维度调整。如果在实例维度调整，在定义端口池时只能添加已有 CLB 实例的方式（不能启用自动创建），且需要手动指定下 `listenerQuota` 的值，与申请到的配额需一致：
+配额调整分为账号维度和实例维度，具体能调到多少需让 CLB 研发评估。如果在实例维度调整，在定义端口池时只能添加已有 CLB 实例的方式，不能启用自动创建，且需要手动指定下 `listenerQuota` 的值，与申请到的配额需一致：
 
 ```yaml
 apiVersion: networking.cloud.tencent.com/v1alpha1
