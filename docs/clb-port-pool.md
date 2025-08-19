@@ -292,7 +292,7 @@ metadata:
 spec:
   startPort: 30000
   exsistedLoadBalancerIDs: [lb-cxxc6xup, lb-mq3rs6h9] # 指定已申请调整配额的 CLB 实例
-  listenerQuota: 2000 # 指定调整后的配额值
+  listenerQuota: 500 # 指定调整后的配额值
 ```
 
 另外需要注意的是，用多端口池映射时（多线接入场景），每个端口池配置的 `listenerQuota` 值必须一致。
