@@ -226,7 +226,7 @@ func (r *CLBPortPoolReconciler) ensureLbStatus(ctx context.Context, pool *networ
 
 func (r *CLBPortPoolReconciler) createCLB(ctx context.Context, pool *networkingv1alpha1.CLBPortPool, status *networkingv1alpha1.CLBPortPoolStatus) (err error) {
 	r.Recorder.Event(pool, corev1.EventTypeNormal, "CreateLoadBalancer", "try to create clb")
-	lbId, err := clb.CreateCLB(ctx, pool.GetRegion(), clb.ConvertCreateLoadBalancerRequest(pool.Spec.AutoCreate.Parameters))
+	lbId, err := clb.CreateCLB(ctx, pool.GetRegion(), clb.ConvertCreateLoadBalancerRequest(pool.Spec.AutoCreate.Parameters, pool.Name))
 	if err != nil { // 创建失败，记录 event，回滚 state
 		r.Recorder.Eventf(pool, corev1.EventTypeWarning, "CreateLoadBalancer", "create clb failed: %s", err.Error())
 		if e := r.ensureState(ctx, pool, networkingv1alpha1.CLBPortPoolStateActive); e != nil {
