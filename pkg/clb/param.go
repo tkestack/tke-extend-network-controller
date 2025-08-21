@@ -4,6 +4,7 @@ import (
 	clb "github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/clb/v20180317"
 	"github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common"
 	networkingv1alpha1 "github.com/tkestack/tke-extend-network-controller/api/v1alpha1"
+	"github.com/tkestack/tke-extend-network-controller/internal/constant"
 	"github.com/tkestack/tke-extend-network-controller/pkg/clusterinfo"
 	"github.com/tkestack/tke-extend-network-controller/pkg/util"
 )
@@ -101,13 +102,13 @@ func ConvertCreateLoadBalancerRequest(p *networkingv1alpha1.CreateLBParameters, 
 	// 1. 记录集群ID 和自动创建的标识到CLB标签，以便在删除集群勾选清理 CLB 时可以将 CLB 清理掉
 	// 2. 记录端口池名称，便于对账时反查是否有当前端口池自动创建但又没记录上的 CLB，避免泄露
 	req.Tags = append(req.Tags, &clb.TagInfo{
-		TagKey:   common.StringPtr("tke-clusterId"),
+		TagKey:   common.StringPtr(constant.TkeClusterIDTagKey),
 		TagValue: common.StringPtr(clusterinfo.ClusterId),
 	}, &clb.TagInfo{
-		TagKey:   common.StringPtr("tke-createdBy-flag"),
-		TagValue: common.StringPtr("yes"),
+		TagKey:   common.StringPtr(constant.TkeCreatedFlagTagKey),
+		TagValue: common.StringPtr(constant.TkeCreatedFlagYesValue),
 	}, &clb.TagInfo{
-		TagKey:   common.StringPtr("clbportpool"),
+		TagKey:   common.StringPtr(constant.CLBPortPoolTagKey),
 		TagValue: common.StringPtr(poolName),
 	})
 	return req

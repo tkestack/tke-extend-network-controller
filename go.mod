@@ -14,8 +14,10 @@ require (
 	github.com/spf13/cobra v1.8.1
 	github.com/spf13/pflag v1.0.5
 	github.com/spf13/viper v1.19.0
+	github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/cam v1.1.3
 	github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/clb v1.0.1120
-	github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common v1.0.1161
+	github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common v1.1.3
+	github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/tag v1.1.0
 	github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/vpc v1.0.1161
 	go.uber.org/multierr v1.11.0
 	golang.org/x/time v0.9.0

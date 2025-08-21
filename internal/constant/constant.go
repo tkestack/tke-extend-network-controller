@@ -23,5 +23,9 @@ const (
 	// 按固定顺序分配
 	LbPolicyInOrder = "InOrder"
 	// 随机分配策略，每次随机找一个 lb 来分配端口
-	LbPolicyRandom = "Random"
+	LbPolicyRandom         = "Random"
+	CLBPortPoolTagKey      = "clbportpool"
+	TkeClusterIDTagKey     = "tke-clusterId"
+	TkeCreatedFlagTagKey   = "tke-createdBy-flag"
+	TkeCreatedFlagYesValue = "yes"
 )

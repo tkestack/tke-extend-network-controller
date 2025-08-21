@@ -1,6 +1,9 @@
 package util
 
 func ConvertPtrSlice[T any](ptrSlice []*T) []T {
+	if len(ptrSlice) == 0 {
+		return nil
+	}
 	valueSlice := make([]T, len(ptrSlice))
 	for i, ptr := range ptrSlice {
 		if ptr != nil {

@@ -35,8 +35,10 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
 	networkingv1alpha1 "github.com/tkestack/tke-extend-network-controller/api/v1alpha1"
+	"github.com/tkestack/tke-extend-network-controller/internal/constant"
 	"github.com/tkestack/tke-extend-network-controller/internal/portpool"
 	"github.com/tkestack/tke-extend-network-controller/pkg/clb"
+	"github.com/tkestack/tke-extend-network-controller/pkg/clusterinfo"
 	"github.com/tkestack/tke-extend-network-controller/pkg/eventsource"
 	"github.com/tkestack/tke-extend-network-controller/pkg/util"
 )
@@ -172,7 +174,47 @@ func (r *CLBPortPoolReconciler) ensureLbStatus(ctx context.Context, pool *networ
 		existedLbIds[lbId] = struct{}{}
 	}
 
-	// 构造当前 lb status 列表
+	// 反查未记录的自动创建 CLB，并补充记录
+	autoCreatedCLBs, err := clb.ListCLBsByTags(ctx, pool.GetRegion(), map[string]string{
+		constant.TkeClusterIDTagKey:     clusterinfo.ClusterId,
+		constant.CLBPortPoolTagKey:      pool.Name,
+		constant.TkeCreatedFlagYesValue: constant.TkeCreatedFlagYesValue,
+	})
+	if err != nil {
+		return errors.WithStack(err)
+	}
+	recordedLbIds := make(map[string]struct{})
+	for _, lbStatus := range status.LoadbalancerStatuses {
+		recordedLbIds[lbStatus.LoadbalancerID] = struct{}{}
+	}
+	for _, lb := range autoCreatedCLBs {
+		lbId := *lb.LoadBalancerId
+		if _, exists := recordedLbIds[lbId]; !exists {
+			// 发现未记录的自动创建 CLB，补充记录
+			lbStatus := networkingv1alpha1.LoadBalancerStatus{
+				LoadbalancerID:   lbId,
+				LoadbalancerName: *lb.LoadBalancerName,
+				AutoCreated:      util.GetPtr(true),
+				State:            networkingv1alpha1.LoadBalancerStateRunning,
+			}
+			if util.GetValue(lb.LoadBalancerDomain) != "" {
+				lbStatus.Hostname = lb.LoadBalancerDomain
+			} else {
+				lbStatus.Ips = util.ConvertPtrSlice(lb.LoadBalancerVips)
+			}
+			lbStatuses = append(lbStatuses, lbStatus)
+			r.Recorder.Eventf(pool, corev1.EventTypeNormal, "EnsureAutoCreatedCLB", "found auto-created CLB %s missing in status, add it to status", lbId)
+		}
+	}
+
+	// 1. 确保自动创建的 CLB 有正确的标签
+	// 2. 多余的 lb 也自动移除
+	// 3. 更新 lb 信息与状态
+	expectedTags := map[string]string{
+		constant.CLBPortPoolTagKey:    pool.Name,
+		constant.TkeClusterIDTagKey:   clusterinfo.ClusterId,
+		constant.TkeCreatedFlagTagKey: constant.TkeCreatedFlagYesValue,
+	}
 	for _, lbStatus := range status.LoadbalancerStatuses {
 		lbId := lbStatus.LoadbalancerID
 		if info, ok := lbInfos[lbId]; ok { // clb 存在，更新lb相关信息
@@ -185,8 +227,21 @@ func (r *CLBPortPoolReconciler) ensureLbStatus(ctx context.Context, pool *networ
 			if insufficientPorts && status.Quota-lbStatus.Allocated > 2 {
 				insufficientPorts = false
 			}
-			if util.GetValue(lbStatus.AutoCreated) {
+			if util.GetValue(lbStatus.AutoCreated) { // 自动创建的 lb，确保标签正确，计算数量（用于自动创建最大clb数量限制的校验）
 				autoCreatedLbNum++
+				missingTags := make(map[string]string)
+				if lbInfo, ok := lbInfos[lbId]; ok {
+					for k, v := range expectedTags {
+						if lbInfo.Tags[k] != v {
+							missingTags[k] = v
+						}
+					}
+				}
+				if len(missingTags) > 0 {
+					if err := clb.EnsureCLBTags(ctx, pool.GetRegion(), lbStatus.LoadbalancerID, missingTags); err != nil {
+						r.Recorder.Eventf(pool, corev1.EventTypeWarning, "EnsureCLBTags", "failed to ensure tags for CLB %s: %s", lbStatus.LoadbalancerID, err.Error())
+					}
+				}
 			} else { // 已有的 lb，如果被手动移除，可能是 lb 有误（比如错误的 vpc），也将其从status和分配器中移除
 				if _, exists := existedLbIds[lbId]; !exists {
 					if portpool.Allocator.RemoveLB(pool.Name, portpool.NewLBKey(lbId, pool.GetRegion())) {

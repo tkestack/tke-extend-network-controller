@@ -11,6 +11,7 @@ import (
 	"github.com/tkestack/tke-extend-network-controller/pkg/clusterinfo"
 	"github.com/tkestack/tke-extend-network-controller/pkg/kube"
 	"github.com/tkestack/tke-extend-network-controller/pkg/manager"
+	"github.com/tkestack/tke-extend-network-controller/pkg/userinfo"
 	"github.com/tkestack/tke-extend-network-controller/pkg/util"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
@@ -55,6 +56,10 @@ func runManager() {
 	_, err := clb.Quota.Get(context.Background(), region)
 	if err != nil {
 		setupLog.Error(err, "failed to get clb quota")
+		os.Exit(1)
+	}
+	if err := userinfo.Init(); err != nil {
+		setupLog.Error(err, "failed to init user info")
 		os.Exit(1)
 	}
 

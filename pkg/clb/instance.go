@@ -2,7 +2,6 @@ package clb
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"time"
 
@@ -10,8 +9,11 @@ import (
 
 	clb "github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/clb/v20180317"
 	"github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common"
+	"github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common/profile"
+	tag "github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/tag/v20180813"
 	vpc "github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/vpc/v20170312"
-	"github.com/tkestack/tke-extend-network-controller/pkg/clusterinfo"
+	"github.com/tkestack/tke-extend-network-controller/pkg/cloudapi"
+	"github.com/tkestack/tke-extend-network-controller/pkg/userinfo"
 	"github.com/tkestack/tke-extend-network-controller/pkg/util"
 	vpcpkg "github.com/tkestack/tke-extend-network-controller/pkg/vpc"
 	"sigs.k8s.io/controller-runtime/pkg/log"
@@ -54,62 +56,67 @@ func GetClb(ctx context.Context, lbId, region string) (instance *clb.LoadBalance
 	return
 }
 
-func Create(ctx context.Context, region, vpcId, extensiveParameters string, num int) (ids []string, err error) {
-	if vpcId == "" {
-		vpcId = clusterinfo.VpcId
-	}
-	req := clb.NewCreateLoadBalancerRequest()
-	req.LoadBalancerType = common.StringPtr("OPEN")
-	req.VpcId = &vpcId
-	req.Number = common.Uint64Ptr(uint64(num))
-	req.Tags = append(req.Tags,
-		&clb.TagInfo{
-			TagKey:   common.StringPtr("tke-clusterId"), // 与集群关联
-			TagValue: common.StringPtr(clusterinfo.ClusterId),
-		},
-		&clb.TagInfo{
-			TagKey:   common.StringPtr("tke-createdBy-flag"), // 用于删除集群时自动清理集群关联的自动创建的 CLB
-			TagValue: common.StringPtr("yes"),
-		},
-	)
-	if extensiveParameters != "" {
-		err = json.Unmarshal([]byte(extensiveParameters), req)
-		if err != nil {
-			return
-		}
-	}
+// ListCLBsByTags lists CLBs by tags filter
+func ListCLBsByTags(ctx context.Context, region string, tags map[string]string) ([]*clb.LoadBalancer, error) {
 	client := GetClient(region)
-	before := time.Now()
-	resp, err := client.CreateLoadBalancerWithContext(ctx, req)
-	LogAPI(ctx, true, "CreateLoadBalancer", req, resp, time.Since(before), err)
-	if err != nil {
-		return
+	req := clb.NewDescribeLoadBalancersRequest()
+
+	filters := []*clb.Filter{}
+	for k, v := range tags {
+		filters = append(filters, &clb.Filter{
+			Name:   common.StringPtr("tag:" + k),
+			Values: []*string{common.StringPtr(v)},
+		})
 	}
-	ids = util.ConvertPtrSlice(resp.Response.LoadBalancerIds)
-	if len(ids) == 0 {
-		ids, err = Wait(ctx, region, *resp.Response.RequestId, "CreateLoadBalancer", LongWaitInterval)
+	req.Filters = filters
+
+	var lbs []*clb.LoadBalancer
+	var offset int64 = 0
+	var limit int64 = 100
+
+	for {
+		req.Offset = common.Int64Ptr(offset)
+		req.Limit = common.Int64Ptr(limit)
+
+		before := time.Now()
+		resp, err := client.DescribeLoadBalancersWithContext(ctx, req)
+		LogAPI(ctx, false, "DescribeLoadBalancers", req, resp, time.Since(before), err)
 		if err != nil {
-			return nil, err
+			return nil, errors.WithStack(err)
 		}
-	}
-	if len(ids) == 0 {
-		return nil, fmt.Errorf("no loadbalancer created")
-	}
-	for _, lbId := range ids {
-		for {
-			lb, err := GetClb(ctx, lbId, region)
-			if err != nil {
-				return nil, err
-			}
-			if *lb.Status == 0 { // 创建中，等待一下
-				log.FromContext(ctx).V(1).Info("lb is still creating", "lbId", lbId)
-				time.Sleep(time.Second * 3)
-				continue
-			}
+
+		lbs = append(lbs, resp.Response.LoadBalancerSet...)
+
+		if len(resp.Response.LoadBalancerSet) < int(limit) {
 			break
 		}
+		offset += limit
 	}
-	return
+
+	return lbs, nil
+}
+
+// EnsureCLBTags ensures CLB has the specified tags
+func EnsureCLBTags(ctx context.Context, region, lbId string, tags map[string]string) error {
+	client, err := tag.NewClient(cloudapi.GetCredential(), "", profile.NewClientProfile())
+	if err != nil {
+		return errors.WithStack(err)
+	}
+	req := tag.NewTagResourcesRequest()
+	req.ResourceList = []*string{common.StringPtr(fmt.Sprintf("qcs::clb:%s:uin/%s:clb/%s", region, userinfo.OwnerUin, lbId))}
+	for k, v := range tags {
+		req.Tags = append(req.Tags, &tag.Tag{
+			TagKey:   common.StringPtr(k),
+			TagValue: common.StringPtr(v),
+		})
+	}
+	before := time.Now()
+	resp, err := client.TagResources(req)
+	LogAPI(ctx, true, "TagResources", req, resp, time.Since(before), err)
+	if err != nil {
+		return errors.WithStack(err)
+	}
+	return nil
 }
 
 func Delete(ctx context.Context, region string, lbIds ...string) error {
@@ -168,6 +175,15 @@ type CLBInfo struct {
 	LoadbalancerName string
 	Ips              []string
 	Hostname         *string
+	Tags             map[string]string
+}
+
+func getTagsMap(tags []*clb.TagInfo) map[string]string {
+	m := make(map[string]string)
+	for _, tag := range tags {
+		m[*tag.TagKey] = *tag.TagValue
+	}
+	return m
 }
 
 func BatchGetClbInfo(ctx context.Context, lbIds []string, region string) (info map[string]*CLBInfo, err error) {
@@ -197,14 +213,12 @@ func BatchGetClbInfo(ctx context.Context, lbIds []string, region string) (info m
 			lbInfo := &CLBInfo{
 				LoadbalancerID:   *ins.LoadBalancerId,
 				LoadbalancerName: *ins.LoadBalancerName,
+				Tags:             getTagsMap(ins.Tags),
 			}
-			if !util.IsZero(ins.Domain) {
+			if util.GetValue(ins.Domain) != "" {
 				lbInfo.Hostname = ins.Domain
 			} else {
-				vips := util.ConvertPtrSlice(ins.LoadBalancerVips)
-				if len(vips) > 0 {
-					lbInfo.Ips = vips
-				}
+				lbInfo.Ips = util.ConvertPtrSlice(ins.LoadBalancerVips)
 			}
 			info[*ins.LoadBalancerId] = lbInfo
 			insIds = append(insIds, ins.LoadBalancerId)

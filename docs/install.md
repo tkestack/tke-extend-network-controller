@@ -29,7 +29,9 @@
                     "clb:DescribeQuota",
                     "clb:DescribeTaskStatus",
                     "vpc:DescribeAddresses",
-                    "cvm:DescribeAddresses"
+                    "cvm:DescribeAddresses",
+                    "tag:TagResources",
+                    "cam:GetUserAppId"
                 ],
                 "resource": [
                     "*"
