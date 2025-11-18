@@ -1,5 +1,13 @@
 # Image URL to use all building/pushing image targets
-IMG ?= imroc/tke-extend-network-controller:2.3.7
+IMG_REPO ?= imroc/tke-extend-network-controller
+
+# Get current git tag, remove 'v' prefix if exists, fallback to commit hash if no tag
+IMG_TAG := $(shell git describe --tags --exact-match 2>/dev/null | sed 's/^v//')
+ifeq ($(IMG_TAG),)
+	IMG_TAG := $(shell git rev-parse --short HEAD)
+endif
+
+IMG ?= $(IMG_REPO):$(IMG_TAG)
 # ENVTEST_K8S_VERSION refers to the version of kubebuilder assets to be downloaded by envtest binary.
 ENVTEST_K8S_VERSION = 1.30.0
 
