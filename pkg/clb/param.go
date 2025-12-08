@@ -14,8 +14,8 @@ func ConvertCreateLoadBalancerRequest(p *networkingv1alpha1.CreateLBParameters, 
 	req.LoadBalancerType = util.GetPtr("OPEN") // 默认使用公网 CLB
 	req.VpcId = &clusterinfo.VpcId
 
-	if p == nil { // 没指定参数，直接返回请求
-		return req
+	if p == nil {
+		p = &networkingv1alpha1.CreateLBParameters{}
 	}
 
 	// 直接映射相同字段
