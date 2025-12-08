@@ -3,43 +3,42 @@
 ## 前提条件
 
 安装 `tke-extend-network-controller` 前请确保满足以下前提条件：
+
 1. 确保腾讯云账号是带宽上移账号，参考 [账户类型说明](https://cloud.tencent.com/document/product/1199/49090) 进行判断或升级账号类型（如果账号创建的时间很早，有可能是传统账号）。
 2. 创建了 [TKE](https://cloud.tencent.com/product/tke) 集群，且集群版本大于等于 1.26。
 3. 集群中安装了 [cert-manager](https://cert-manager.io/docs/installation/) (webhook 依赖证书)，可通过 [TKE 应用市场](https://console.cloud.tencent.com/tke2/helm/market) 安装。
 4. 需要一个腾讯云子账号的访问密钥(SecretID、SecretKey)，参考[子账号访问密钥管理](https://cloud.tencent.com/document/product/598/37140)，要求账号至少具有以下权限：
-    ```json
-    {
-        "version": "2.0",
-        "statement": [
-            {
-                "effect": "allow",
-                "action": [
-                    "clb:CreateLoadBalancer",
-                    "clb:DeleteLoadBalancer",
-                    "clb:DescribeLoadBalancers",
-                    "clb:CreateListener",
-                    "clb:DeleteListener",
-                    "clb:DeleteLoadBalancerListeners",
-                    "clb:DescribeListeners",
-                    "clb:RegisterTargets",
-                    "clb:BatchRegisterTargets",
-                    "clb:DeregisterTargets",
-                    "clb:BatchDeregisterTargets",
-                    "clb:DescribeTargets",
-                    "clb:DescribeQuota",
-                    "clb:DescribeTaskStatus",
-                    "vpc:DescribeAddresses",
-                    "cvm:DescribeAddresses",
-                    "tag:TagResources",
-                    "cam:GetUserAppId"
-                ],
-                "resource": [
-                    "*"
-                ]
-            }
-        ]
-    }
-    ```
+   ```json
+   {
+     "version": "2.0",
+     "statement": [
+       {
+         "effect": "allow",
+         "action": [
+           "clb:CreateLoadBalancer",
+           "clb:DeleteLoadBalancer",
+           "clb:DescribeLoadBalancers",
+           "clb:CreateListener",
+           "clb:DeleteListener",
+           "clb:DeleteLoadBalancerListeners",
+           "clb:DescribeListeners",
+           "clb:RegisterTargets",
+           "clb:BatchRegisterTargets",
+           "clb:DeregisterTargets",
+           "clb:BatchDeregisterTargets",
+           "clb:DescribeTargets",
+           "clb:DescribeQuota",
+           "clb:DescribeTaskStatus",
+           "vpc:DescribeAddresses",
+           "cvm:DescribeAddresses",
+           "tag:TagResources",
+           "cam:GetUserAppId"
+         ],
+         "resource": ["*"]
+       }
+     ]
+   }
+   ```
 
 ## 安装方法
 
@@ -67,5 +66,14 @@ helm upgrade --install --namespace kube-system -f values.yaml \
 
 ## ‼️注意事项
 
-1. 如需升级，确保升级前后的 release 所在命名空间一致，比如之前安装在 `tke-extend-network-controller` 命名空间，那么后续升级时也需要指定 `--namespace tke-extend-network-controller` 而不要指定成 `--namespace kube-system` 或者其它。
-2. 升级时也不要执行 `helm uninstall` 的卸载操作，除非你清楚后果。这个很危险，因为卸载时也会删除 CRD 本身（CRD 是 chart 的 template 的一部分）。
+### 从 2.3.x 升级到 2.4.x
+
+2.4.x 新增了 `tag:TagResources` 和 `cam:GetUserAppId` 这两个 CAM 权限，从 2.3.x 升级到 2.4.x 时，确保这两个 CAM 权限被正确添加，否则会导致无法正常工作。
+
+### 升级前后需确保 namespace 一致
+
+如需升级，确保升级前后的 release 所在命名空间一致，比如之前安装在 `tke-extend-network-controller` 命名空间，那么后续升级时也需要指定 `--namespace tke-extend-network-controller` 而不要指定成 `--namespace kube-system` 或者其它。
+
+### 升级时不要执行 uninstall 操作
+
+升级时也不要执行 `helm uninstall` 来彻底卸载的操作，除非你清楚后果。这个很危险，因为卸载时也会删除 CRD 本身（CRD 是 chart 的 template 的一部分），如果有存量的端口池，也会被清理。

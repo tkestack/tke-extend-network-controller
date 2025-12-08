@@ -5,6 +5,7 @@
 使用 CLB 为 Pod 分配公网地址映射，首先需要定义 CLB 端口池。
 
 端口池的设计：
+
 1. 每个端口池使用一组相同属性的 CLB，用于为 Pod 分配端口映射。
 2. 可以动态追加已有 CLB 实例 ID，也可以在端口不足时自动创建新的 CLB，自动新建的 CLB 的属性可以自定义。
 3. 同一个 Pod 的同一个端口可以同时被不同的端口池映射，比如同时被多个单线 IP 的端口池映射来实现多线接入。
@@ -26,6 +27,10 @@ spec:
   lbPolicy: Random # 可选，CLB 分配策略，单个端口池中有多个可分配 CLB ，分配端口时 CLB 的挑选策略。可选值：Uniform（均匀分配）、InOrder（顺序分配）、Random（随机分配）。默认值为 Random。若希望减小 DDoS 攻击的影响，建议使用 Uniform 策略，避免业务使用的 IP 过于集中；若希望提高CLB 的利用率，建议使用 InOrder 策略。
   lbBlacklist: [] # 可选，CLB 黑名单，负载均衡实例 ID 的数组，用于禁止某些 CLB 实例被分配端口，可动态追加和移除。如果发现某个 CLB 被 DDoS 攻击或其他原因导致不可用，可将该 CLB 的实例 ID 加入到黑名单中，避免后续端口分配使用该 CLB。
   listenerQuota: 50 # 可选，监听器数量配额。仅用在单独调整了指定 CLB 实例监听器数量配额的场景（TOTAL_LISTENER_QUOTA），控制器默认会获取账号维度的监听器数量配额作为端口分配的依据，如果 listenerQuota 不为空，将以它的值作为该端口池中所有 CLB 监听器数量配额覆盖账号维度的监听器数量配额。注意：如果指定了 listenerQuota，不支持启用 CLB 自动创建，且需自行保证该端口池中所有 CLB 实例的监听器数量配额均等于 listenerQuota 的值。
+  listenerPrecreate: # 可选，预创监听器的配置，用于提前创建好监听器，加快映射端口的速度（预创监听器端口池与非预创监听器端口池不能相互转换）。
+    enabled: false #  是否启用端口池预创监听器监听器，启用后将自动创建好所有 CLB 监听器，后续为 Pod 映射端口时将直接使用创建好的监听器而不会动态创建监听器。
+    tcp: 25 # 预创监听器中 TCP 监听器的数量（需确保 TCP + UDP 的监听器数量等于 CLB 监听器数量上限的配额）。
+    udp: 25 # 预创监听器中 UDP 监听器的数量（需确保 TCP + UDP 的监听器数量等于 CLB 监听器数量上限的配额）。
   region: ap-guangzhou # 可选，CLB 说在地域的地域代码，如 ap-chengdu，默认使用 TKE 集群说在地域。
   autoCreate: # 可选，自动创建 CLB 的配置，如果不配置，则不会自动创建 CLB
     enabled: true # 是否启用自动创建，如果启用将会在 CLB 端口不足时自动创建 CLB
@@ -51,7 +56,7 @@ spec:
       # clb.c4.large：超强型3规格
       # clb.c4.xlarge：超强型4规格
       # 若需要创建共享型实例，则无需填写此参数。
-      slaType: clb.c4.xlarge # 
+      slaType: clb.c4.xlarge
       # 负载均衡实例计费类型，取值：POSTPAID_BY_HOUR，PREPAID，默认是POSTPAID_BY_HOUR。
       lbChargeType: POSTPAID_BY_HOUR
       # 仅适用于公网负载均衡。负载均衡的网络计费模式。
@@ -129,7 +134,7 @@ spec:
     parameters:
       slaType: clb.c4.xlarge #  clb.c4.xlarge：超强型4规格
       internetAccessible:
-        internetChargeType: TRAFFIC_POSTPAID_BY_HOUR  # 按流量按小时后计费
+        internetChargeType: TRAFFIC_POSTPAID_BY_HOUR # 按流量按小时后计费
         internetMaxBandwidthOut: 61440 # 最大出带宽 60 Gbps（不同规格的 CLB 的最大出带宽上限不一样，参考 https://cloud.tencent.com/document/product/214/84689）
 ```
 
@@ -153,11 +158,13 @@ spec:
 ## 使用注解为 Pod 分配 CLB 映射公网地址
 
 在 Pod Template 中指定注解，声明从 CLB 端口池为 Pod 分配公网地址映射，可以是任意类型的工作负载，比如：
+
 1. Kubernetes 自带的 Deployment、Statusfulset。
 2. OpenKruise 的 Advanced Deployment 或 Advanced Statusfulset。
 3. 开源的游戏专用工作负载，如 OpenKruiseGame 的 GameServerSet、Agones 的 Fleet。
 
 Pod 注解配置方法：
+
 1. 指定注解 `networking.cloud.tencent.com/enable-clb-port-mapping` 为 `true` 开启使用 CLB 端口池为 Pod 映射公网地址。
 2. 指定注解 `networking.cloud.tencent.com/clb-port-mapping` 配置映射规则，比如 `8000 UDP pool-test`，其中 `8000` 表示 Pod 监听的端口号，`UDP` 表示端口协议（支持 TCP、UDP、TCP_SSL、QUIC 和 TCPUDP，其中 TCPUDP 表示该端口同时监听了 TCP 和 UDP），`pool-test` 表示 CLB 端口池名称，可指定多行来配置多个端口映射。
 
@@ -247,8 +254,8 @@ spec:
 
 ```yaml
 annotations:
-    networking.cloud.tencent.com/clb-port-mapping: |-
-      8000 TCPUDP pool-test
+  networking.cloud.tencent.com/clb-port-mapping: |-
+    8000 TCPUDP pool-test
 ```
 
 映射效果如下：
@@ -261,10 +268,9 @@ annotations:
 
 ```yaml
 annotations:
-    networking.cloud.tencent.com/clb-port-mapping-result: '[{"port":8000,"protocol":"TCP","pool":"pool-test","region":"ap-chengdu","loadbalancerId":"lb-04iq85jh","loadbalancerPort":30170,"loadbalancerEndPort":30179,"listenerId":"lbl-bjoyr92j","endPort":8009,"hostname":"lb-04iq85jh-w49ru3xpmdynoigk.clb.cd-tencentclb.work"},{"port":8000,"protocol":"UDP","pool":"pool-test","region":"ap-chengdu","loadbalancerId":"lb-04iq85jh","loadbalancerPort":30170,"loadbalancerEndPort":30179,"listenerId":"lbl-6dg9wfs5","endPort":8009,"hostname":"lb-04iq85jh-w49ru3xpmdynoigk.clb.cd-tencentclb.work"}]'
-    networking.cloud.tencent.com/clb-port-mapping-status: Ready
+  networking.cloud.tencent.com/clb-port-mapping-result: '[{"port":8000,"protocol":"TCP","pool":"pool-test","region":"ap-chengdu","loadbalancerId":"lb-04iq85jh","loadbalancerPort":30170,"loadbalancerEndPort":30179,"listenerId":"lbl-bjoyr92j","endPort":8009,"hostname":"lb-04iq85jh-w49ru3xpmdynoigk.clb.cd-tencentclb.work"},{"port":8000,"protocol":"UDP","pool":"pool-test","region":"ap-chengdu","loadbalancerId":"lb-04iq85jh","loadbalancerPort":30170,"loadbalancerEndPort":30179,"listenerId":"lbl-6dg9wfs5","endPort":8009,"hostname":"lb-04iq85jh-w49ru3xpmdynoigk.clb.cd-tencentclb.work"}]'
+  networking.cloud.tencent.com/clb-port-mapping-status: Ready
 ```
-
 
 ## 大规模场景下的端口映射
 
@@ -339,6 +345,7 @@ networking.cloud.tencent.com/clb-port-mapping: |-
 ### 方案三：HostPort + CLB 端口段
 
 使用方案二在一定程度上可以解决大规模场景 CLB 监听器不够用的问题，但存在以下限制：
+
 1. 需游戏开发自行实现在单个 Pod 内管理多个 DS 进程，每个 DS 监听器一个端口，且端口需连续。
 2. 通常单个 Pod 内能运行的 DS 进程数量不会太多（比如 10 个以内），如果在规模非常大的情况下（比如上万个 DS），仍然需要消耗大量的 CLB 监听器数量。
 
@@ -353,6 +360,7 @@ networking.cloud.tencent.com/clb-port-mapping: |-
 3. Pod 调度到节点，插件根据 Pod 所调度到的节点被 CLB 端口段监听器的绑定情况和 Pod 被分配的 HostPort，自动计算出 Pod 在 CLB 中对外映射的端口号，完成映射。
 
 相比之下，方案二是 1 个端口段监听器映射 1 个 Pod 中所有 DS 监听器端口，而方案三则是 1 个端口段监听器映射 1 个节点中所有 Pod 的 DS 监听的端口，因此在使用相同监听器数量的情况下可映射的 Pod 数量方案三远大于方案二，不过也会带来一些限制：
+
 1. **必须**使用**原生节点**调度 Pod（需使用 HostPort，而超级节点是虚拟节点，没有 HostPort）。
 2. **必须**使用支持 HostPort 动态分配的工作负载类型（Agones 的 Fleet 和 OpenKruiseGame 的 GameServerSet）。
 3. 如果需要实现 Pod 的端口同时用 TCP 和 UDP 协议对外暴露且保持端口号相同，还依赖动态分配 HostPort 的工作负载类型支持分配 TCP 和 UDP 相同端口号的 HostPort，目前已知 Agones 支持（定义 port 的 protocol 时指定 `TCPUDP`，参考 [`#1532`](https://github.com/googleforgames/agones/issues/1523)），OpenKruiseGame 在 `v1.0` 之后支持（也是在定义 port 的 protocol 时指定 `TCPUDP`，参考 [`#244`](https://github.com/openkruise/kruise-game/pull/244)）。
@@ -391,58 +399,58 @@ networking.cloud.tencent.com/clb-port-mapping: "7000 TCPUDP pool-test2"
 > 端口号为与工作负载分配 HostPort 范围的最小端口号，Agones 默认是 7000，OpenKruiseGame 默认是 8000。
 
 4. 使用选择的工作负载类型来部署游戏服，声明需要的端口和协议配置，并为 Pod 指定注解 `networking.cloud.tencent.com/enable-clb-hostport-mapping: "true"` 以启用根据 Pod 所在节点 HostPort 被映射的 CLB 地址自动回写到 Pod 注解。
-    - 如果是 Agones 的 Fleet，需声明监听的端口（假设同时监听了 TCP 和 UDP）：
-      ```yaml
-      apiVersion: agones.dev/v1
-      kind: Fleet
-      metadata:
-        name: simple-game-server
-      spec:
-        replicas: 5
-        template:
-          spec:
-            ports:
-              protocol: TCPUDP # 指定 TCPUDP 可保证分配的 TCP 和 UDP 两个 HostPort 端口号相同
-              containerPort: 7654
-            template:
-              metadata:
-                annotations:
-                  networking.cloud.tencent.com/enable-clb-hostport-mapping: "true"
-              spec:
-                containers:
-                - name: gameserver
-                  image: docker.io/imroc/simple-game-server:0.36
-      ```
-    - 如果是 OpenKruiseGame 的 GameServerSet，需声明使用 `Kubernetes-HostPort` 网络插件，并在 `ContainerPorts` 参数中声明要分配 HostPort 的容器端口和协议（假设同时监听了 TCP 和 UDP）：
-      ```yaml
-      apiVersion: game.kruise.io/v1alpha1
-      kind: GameServerSet
-      metadata:
-        name: nginx
-      spec:
-        replicas: 5
-        updateStrategy:
-          rollingUpdate:
-            podUpdatePolicy: InPlaceIfPossible
-        network:
-          networkType: Kubernetes-HostPort
-          networkConf:
-          - name: ContainerPorts
-            value: "nginx:80/TCP,80/UDP"
-        gameServerTemplate:
-          metadata:
-            annotations:
-              networking.cloud.tencent.com/enable-clb-hostport-mapping: "true"
-          spec:
-            containers:
-            - image: nginx:latest
-              name: nginx
-              ports:
-              - containerPort: 80
-                protocol: UDP
-              - containerPort: 80
-                protocol: TCP
-      ```
+   - 如果是 Agones 的 Fleet，需声明监听的端口（假设同时监听了 TCP 和 UDP）：
+     ```yaml
+     apiVersion: agones.dev/v1
+     kind: Fleet
+     metadata:
+       name: simple-game-server
+     spec:
+       replicas: 5
+       template:
+         spec:
+           ports:
+             protocol: TCPUDP # 指定 TCPUDP 可保证分配的 TCP 和 UDP 两个 HostPort 端口号相同
+             containerPort: 7654
+           template:
+             metadata:
+               annotations:
+                 networking.cloud.tencent.com/enable-clb-hostport-mapping: "true"
+             spec:
+               containers:
+               - name: gameserver
+                 image: docker.io/imroc/simple-game-server:0.36
+     ```
+   - 如果是 OpenKruiseGame 的 GameServerSet，需声明使用 `Kubernetes-HostPort` 网络插件，并在 `ContainerPorts` 参数中声明要分配 HostPort 的容器端口和协议（假设同时监听了 TCP 和 UDP）：
+     ```yaml
+     apiVersion: game.kruise.io/v1alpha1
+     kind: GameServerSet
+     metadata:
+       name: nginx
+     spec:
+       replicas: 5
+       updateStrategy:
+         rollingUpdate:
+           podUpdatePolicy: InPlaceIfPossible
+       network:
+         networkType: Kubernetes-HostPort
+         networkConf:
+         - name: ContainerPorts
+           value: "nginx:80/TCP,80/UDP"
+       gameServerTemplate:
+         metadata:
+           annotations:
+             networking.cloud.tencent.com/enable-clb-hostport-mapping: "true"
+         spec:
+           containers:
+           - image: nginx:latest
+             name: nginx
+             ports:
+             - containerPort: 80
+               protocol: UDP
+             - containerPort: 80
+               protocol: TCP
+     ```
 
 5. 最后，在 Pod 注解 `networking.cloud.tencent.com/clb-hostport-mapping-result` 可以看到被映射的 CLB 地址（容器内获取可通过 Downward API 挂载）：
 
@@ -556,91 +564,95 @@ metadata:
 以下是配置方法：
 
 1. 创建多个端口池，与前面 **多线接入场景的配置方法** 中的方法基本相同，唯一不同的是要指定 `segmentLength`，表示分配 CLB 监听器时使用端口段监听器，且端口段大小为 1001：
-  ```yaml
-  apiVersion: networking.cloud.tencent.com/v1alpha1
-  kind: CLBPortPool
-  metadata:
-    name: pool-ctcc # 电信 CLB 端口池
-  spec:
-    startPort: 30000
-    segmentLength: 10001
-    exsistedLoadBalancerIDs: [lb-04i895jh, lb-04i87jjk] # 指定已有的电信 CLB 实例 ID，可动态追加
-    autoCreate:
-      enabled: true # 电信 CLB 端口不足时自动创建电信 CLB
-      parameters: # 指定电信 CLB 创建参数
-        vipIsp: CTCC # 指定运营商为电信
-        bandwidthPackageId: bwp-40ykow69 # 指定电信带宽包 ID
-  ---
-  apiVersion: networking.cloud.tencent.com/v1alpha1
-  kind: CLBPortPool
-  metadata:
-    name: pool-cmcc # 移动 CLB 端口池
-  spec:
-    startPort: 30000
-    segmentLength: 10001
-    exsistedLoadBalancerIDs: [lb-jjgsqldb, lb-08jk7hh] # 指定已有的移动 CLB 实例 ID，可动态追加
-    autoCreate:
-      enabled: true # 移动 CLB 端口不足时自动创建电信 CLB
-      parameters: # 指定移动 CLB 创建参数
-        vipIsp: CMCC # 指定运营商为移动
-        bandwidthPackageId: bwp-97yjlal5 # 指定移动带宽包 ID
-  ---
-  apiVersion: networking.cloud.tencent.com/v1alpha1
-  kind: CLBPortPool
-  metadata:
-    name: pool-cucc # 联通 CLB 端口池
-  spec:
-    startPort: 30000
-    segmentLength: 10001
-    exsistedLoadBalancerIDs: [lb-cxxc6xup, lb-mq3rs6h9] # 指定已有的联通 CLB 实例 ID，可动态追加
-    autoCreate:
-      enabled: true # 联通 CLB 端口不足时自动创建电信 CLB
-      parameters: # 指定联通 CLB 创建参数
-        vipIsp: CUCC # 指定运营商为联通
-        bandwidthPackageId: bwp-97yjlal5 # 指定联通带宽包 ID
-  ---
-  apiVersion: networking.cloud.tencent.com/v1alpha1
-  kind: CLBPortPool
-  metadata:
-    name: pool-bgp # BGP CLB 端口池
-  spec:
-    startPort: 30000
-    segmentLength: 10001
-    exsistedLoadBalancerIDs: [lb-cx8c6xxa, lb-mq8rs9hk] # 指定已有的 BGP CLB 实例 ID，可动态追加
-    autoCreate:
-      enabled: true # 不指定运营商，默认创建 BGP 类型的 CLB
-  ```
+
+```yaml
+apiVersion: networking.cloud.tencent.com/v1alpha1
+kind: CLBPortPool
+metadata:
+  name: pool-ctcc # 电信 CLB 端口池
+spec:
+  startPort: 30000
+  segmentLength: 10001
+  exsistedLoadBalancerIDs: [lb-04i895jh, lb-04i87jjk] # 指定已有的电信 CLB 实例 ID，可动态追加
+  autoCreate:
+    enabled: true # 电信 CLB 端口不足时自动创建电信 CLB
+    parameters: # 指定电信 CLB 创建参数
+      vipIsp: CTCC # 指定运营商为电信
+      bandwidthPackageId: bwp-40ykow69 # 指定电信带宽包 ID
+---
+apiVersion: networking.cloud.tencent.com/v1alpha1
+kind: CLBPortPool
+metadata:
+  name: pool-cmcc # 移动 CLB 端口池
+spec:
+  startPort: 30000
+  segmentLength: 10001
+  exsistedLoadBalancerIDs: [lb-jjgsqldb, lb-08jk7hh] # 指定已有的移动 CLB 实例 ID，可动态追加
+  autoCreate:
+    enabled: true # 移动 CLB 端口不足时自动创建电信 CLB
+    parameters: # 指定移动 CLB 创建参数
+      vipIsp: CMCC # 指定运营商为移动
+      bandwidthPackageId: bwp-97yjlal5 # 指定移动带宽包 ID
+---
+apiVersion: networking.cloud.tencent.com/v1alpha1
+kind: CLBPortPool
+metadata:
+  name: pool-cucc # 联通 CLB 端口池
+spec:
+  startPort: 30000
+  segmentLength: 10001
+  exsistedLoadBalancerIDs: [lb-cxxc6xup, lb-mq3rs6h9] # 指定已有的联通 CLB 实例 ID，可动态追加
+  autoCreate:
+    enabled: true # 联通 CLB 端口不足时自动创建电信 CLB
+    parameters: # 指定联通 CLB 创建参数
+      vipIsp: CUCC # 指定运营商为联通
+      bandwidthPackageId: bwp-97yjlal5 # 指定联通带宽包 ID
+---
+apiVersion: networking.cloud.tencent.com/v1alpha1
+kind: CLBPortPool
+metadata:
+  name: pool-bgp # BGP CLB 端口池
+spec:
+  startPort: 30000
+  segmentLength: 10001
+  exsistedLoadBalancerIDs: [lb-cx8c6xxa, lb-mq8rs9hk] # 指定已有的 BGP CLB 实例 ID，可动态追加
+  autoCreate:
+    enabled: true # 不指定运营商，默认创建 BGP 类型的 CLB
+```
+
 3. 使用原生节点池，为节点配置以下注解 (Agones 分配的 HostPort 默认区间是7000-8000，所以这里要绑定的 Node 端口是 7000，结合端口池中配置的 segmentLength 为 1001 可覆盖 7000-8000 范围的 HostPort 映射)：
-  ```yaml
-  networking.cloud.tencent.com/enable-clb-port-mapping: "true"
-  networking.cloud.tencent.com/clb-port-mapping: "7000 TCPUDP pool-ctcc,pool-cmcc,pool-cucc,pool-bgp useSamePortAcrossPools"
-  ```
+
+```yaml
+networking.cloud.tencent.com/enable-clb-port-mapping: "true"
+networking.cloud.tencent.com/clb-port-mapping: "7000 TCPUDP pool-ctcc,pool-cmcc,pool-cucc,pool-bgp useSamePortAcrossPools"
+```
+
 3. 使用 Agones Fleet 部署 GameServer，声明端口时，协议指定 `TCPUDP` 以便让 Agones 分配同端口号的 TCP 和 UDP 两个 HostPort 端口号；并加 Pod 注解 `networking.cloud.tencent.com/enable-clb-hostport-mapping: "true"` 声明开启 CLB + HostPort 端口映射：
-  ```yaml
-  apiVersion: agones.dev/v1
-  kind: Fleet
-  metadata:
-    name: simple-game-server
-  spec:
-    replicas: 5
-    scheduling: Packed
-    template:
-      spec:
-        ports:
-        - containerPort: 7654
-          protocol: TCPUDP # 指定 TCPUDP 可保证分配的 TCP 和 UDP 两个 HostPort 端口号相同
-        template:
-          metadata:
-            annotations:
-              networking.cloud.tencent.com/enable-clb-hostport-mapping: "true" # 开启 CLB + HostPort 端口映射
-          spec:
-            containers:
-            - image: docker.io/imroc/simple-game-server:0.36
-              name: gameserver
-  ```
+
+```yaml
+apiVersion: agones.dev/v1
+kind: Fleet
+metadata:
+  name: simple-game-server
+spec:
+  replicas: 5
+  scheduling: Packed
+  template:
+    spec:
+      ports:
+      - containerPort: 7654
+        protocol: TCPUDP # 指定 TCPUDP 可保证分配的 TCP 和 UDP 两个 HostPort 端口号相同
+      template:
+        metadata:
+          annotations:
+            networking.cloud.tencent.com/enable-clb-hostport-mapping: "true" # 开启 CLB + HostPort 端口映射
+        spec:
+          containers:
+          - image: docker.io/imroc/simple-game-server:0.36
+            name: gameserver
+```
 
 以下是操作演示：
-
 
 [![](https://image-host-1251893006.cos.ap-chengdu.myqcloud.com/videos/agones-clb-hostport-mapping.png)](https://image-host-1251893006.cos.ap-chengdu.myqcloud.com/videos/agones-clb-hostport-mapping.mp4)
 
@@ -659,7 +671,7 @@ metadata:
   name: pool-eip
 spec:
   startPort: 30000
-  exsistedLoadBalancerIDs:  # 将绑定了 EIP 的内网 CLB 实例 ID 添加到这里，可动态追加
+  exsistedLoadBalancerIDs: # 将绑定了 EIP 的内网 CLB 实例 ID 添加到这里，可动态追加
   - lb-04iq85jh
 ```
 
@@ -693,6 +705,31 @@ networking.cloud.tencent.com/clb-port-mapping: |-
 ```
 
 > `certSecret` 选项表示要挂载的证书 Secret 名称，Secret 中必须包含 `qcloud_cert_id` 字段，值为证书 ID。
+
+## 使用预创监听器加速端口映射
+
+在 tke-extend-network-controller 2.4.0 版本引入了端口池的预创监听器功能，启用后，会自动为端口池中的 CLB 预创建所有 CLB 监听器，在为 Pod 映射端口时，将不再动态根据端口协议动态创建对应的 CLB 监听器，而是直接复用预创建好的 CLB 监听器来映射端口，从而大幅提升端口映射的性能。
+
+下面是启用预创监听器的示例：
+
+```yaml
+apiVersion: networking.cloud.tencent.com/v1alpha1
+kind: CLBPortPool
+metadata:
+  name: pool-precreate
+spec:
+  startPort: 30000
+  exsistedLoadBalancerIDs: [lb-04iq85jh]
+  listenerPrecreate:
+    enabled: true # 启用预创监听器
+    tcp: 25 # 预创监听器中 TCP 监听器的数量（需确保 TCP + UDP 的监听器数量等于 CLB 监听器数量上限的配额）。
+    udp: 25 # 预创监听器中 UDP 监听器的数量（需确保 TCP + UDP 的监听器数量等于 CLB 监听器数量上限的配额）。
+```
+
+> **注意**：
+>
+> 1. 需确保预创的 TCP 和 UDP 监听器数量加起来等于 CLB 监听器数量上限的配额，如果业务监听的端口都同时提供 TCP 和 UDP 两种协议，配置预创监听器时可以 TCP 和 UDP 各一半；如果只监听单一的协议，预创监听器可只配置这一种协议。
+> 2. 存量非预创监听器不能直接转换为预创监听器，可新建预创监听器端口池，增量 Pod 的端口映射使用新的端口池来逐渐迁移到预创监听器端口池；同理，预创监听器也不能直接转换为非预创监听器，可使用类似方法来逐步迁移。
 
 ## 通过 Downward API 获取 Pod 映射公网地址
 
@@ -795,12 +832,12 @@ spec:
     - mountPath: /etc/podinfo
       name: podinfo
   volumes:
-    - name: podinfo
-      downwardAPI:
-        items:
-          - path: "clb-mapping"
-            fieldRef:
-              fieldPath: metadata.annotations['networking.cloud.tencent.com/clb-port-mapping-result']
+  - name: podinfo
+    downwardAPI:
+      items:
+      - path: "clb-mapping"
+        fieldRef:
+          fieldPath: metadata.annotations['networking.cloud.tencent.com/clb-port-mapping-result']
 ```
 
 ## FAQ
@@ -811,8 +848,9 @@ spec:
 2. **问题类型** 选 **配额/白名单**。
 3. 点击 **创建工单**。
 4. **问题描述** 中填写：
-  - 如果是调整账号维度的配额，内容填写：`申请调整负载均衡"一个实例可添加的监听器数量"的配额到 XX`（XX 为期望的监听器数量，可预估一个期望值，然后 CLB 侧会评估是否可以调整）。
-  - 如果是调整实例维度的配额，内容填写：`申请调整以下 CLB 实例的"一个实例可添加的监听器数量"的配额到 XX：lb-xxx lb-yyy`（同理，XX 为期望的监听器数量，可预估一个期望值，实例维度的配额更容易调整，相比账号维度的配额能够调到更高；最后附上需要调整配额的实例 ID 列表）。
+   - 如果是调整账号维度的配额，内容填写：`申请调整负载均衡"一个实例可添加的监听器数量"的配额到 XX`（XX 为期望的监听器数量，可预估一个期望值，然后 CLB 侧会评估是否可以调整）。
+   - 如果是调整实例维度的配额，内容填写：`申请调整以下 CLB 实例的"一个实例可添加的监听器数量"的配额到 XX：lb-xxx lb-yyy`（同理，XX 为期望的监听器数量，可预估一个期望值，实例维度的配额更容易调整，相比账号维度的配额能够调到更高；最后附上需要调整配额的实例 ID 列表）。
+
 5. 提交工单。
 
 如果本身有腾讯云工作人员对接您，也可以直接联系他们进行调整。
