@@ -47,9 +47,6 @@ type listenerKey struct {
 const TkeListenerName = "TKE-LISTENER"
 
 func doBatchCreateListener(apiName, region, lbId, protocol, certId, extensiveParameters string, tasks []*CreateListenerTask) (listenerIds []string, err error) {
-	mu := getLbLock(lbId)
-	mu.Lock()
-	defer mu.Unlock()
 	res, err := ApiCall(context.Background(), true, apiName, region, func(ctx context.Context, client *clb.Client) (req *clb.CreateListenerRequest, res *clb.CreateListenerResponse, err error) {
 		req = clb.NewCreateListenerRequest()
 		req.LoadBalancerId = &lbId
