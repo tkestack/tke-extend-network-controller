@@ -176,9 +176,9 @@ func (r *CLBPortPoolReconciler) ensureLbStatus(ctx context.Context, pool *networ
 
 	// 反查未记录的自动创建 CLB，并补充记录
 	autoCreatedCLBs, err := clb.ListCLBsByTags(ctx, pool.GetRegion(), map[string]string{
-		constant.TkeClusterIDTagKey:     clusterinfo.ClusterId,
-		constant.CLBPortPoolTagKey:      pool.Name,
-		constant.TkeCreatedFlagYesValue: constant.TkeCreatedFlagYesValue,
+		constant.TkeClusterIDTagKey:   clusterinfo.ClusterId,
+		constant.CLBPortPoolTagKey:    pool.Name,
+		constant.TkeCreatedFlagTagKey: constant.TkeCreatedFlagYesValue,
 	})
 	if err != nil {
 		return errors.WithStack(err)
