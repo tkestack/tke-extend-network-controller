@@ -203,6 +203,8 @@ func (r *CLBPortPoolReconciler) ensureLbStatus(ctx context.Context, pool *networ
 				lbStatus.Ips = util.ConvertPtrSlice(lb.LoadBalancerVips)
 			}
 			lbStatuses = append(lbStatuses, lbStatus)
+			lbKey := portpool.NewLBKey(lbId, pool.GetRegion())
+			allocatableLBs = append(allocatableLBs, lbKey)
 			r.Recorder.Eventf(pool, corev1.EventTypeNormal, "EnsureAutoCreatedCLB", "found auto-created CLB %s missing in status, add it to status", lbId)
 		}
 	}
