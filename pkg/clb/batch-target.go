@@ -183,7 +183,6 @@ func startDeregisterTargetsProccessor(concurrent int) {
 			}
 			return
 		}
-		// 解绑失败
 		_, err = Wait(context.Background(), region, *res.Response.RequestId, apiName, DefaultWaitInterval)
 		if err != nil {
 			for _, task := range tasks {
