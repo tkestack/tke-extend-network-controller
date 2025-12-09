@@ -48,6 +48,13 @@ func startRegisterTargetsProccessor(concurrent int) {
 			}
 			return
 		}
+		_, err = Wait(context.Background(), region, *res.Response.RequestId, apiName, DefaultWaitInterval)
+		if err != nil {
+			for _, task := range tasks {
+				task.Result <- err
+			}
+			return
+		}
 		if len(res.Response.FailListenerIdSet) > 0 {
 			failedMap := make(map[string]bool)
 			for _, listenerId := range res.Response.FailListenerIdSet {
