@@ -46,6 +46,10 @@ type listenerKey struct {
 
 const TkeListenerName = "TKE-LISTENER"
 
+// CreateListener API 的 Ports 数组最大长度限制
+// 腾讯云 API 限制：Length of .Ports should be less than 50
+const maxPortsPerCreateListenerRequest = 49
+
 func doBatchCreateListener(apiName, region, lbId, protocol, certId, extensiveParameters string, tasks []*CreateListenerTask) (listenerIds []string, err error) {
 	res, err := ApiCall(context.Background(), true, apiName, region, func(ctx context.Context, client *clb.Client) (req *clb.CreateListenerRequest, res *clb.CreateListenerResponse, err error) {
 		req = clb.NewCreateListenerRequest()
@@ -103,23 +107,30 @@ func startCreateListenerProccessor(concurrent int) {
 			groupTask[key] = append(groupTask[key], task)
 		}
 		for lis, tasks := range groupTask {
-			listenerIds, err := doBatchCreateListener(apiName, region, lbId, lis.Protocol, lis.CertId, lis.ExtensiveParameters, tasks)
-			if err != nil {
-				clbLog.Error(
-					err, "batch create listener failed",
-					"lbId", lbId,
-					"protocol", lis.Protocol,
-					"listenerNum", len(tasks),
-				)
-				for _, task := range tasks {
-					task.Result <- &ListenerResult{
-						Err: err,
+			// 分批处理，确保每批 Ports 数量不超过 API 限制
+			for len(tasks) > 0 {
+				batchSize := min(len(tasks), maxPortsPerCreateListenerRequest)
+				batch := tasks[:batchSize]
+				tasks = tasks[batchSize:]
+
+				listenerIds, err := doBatchCreateListener(apiName, region, lbId, lis.Protocol, lis.CertId, lis.ExtensiveParameters, batch)
+				if err != nil {
+					clbLog.Error(
+						err, "batch create listener failed",
+						"lbId", lbId,
+						"protocol", lis.Protocol,
+						"listenerNum", len(batch),
+					)
+					for _, task := range batch {
+						task.Result <- &ListenerResult{
+							Err: err,
+						}
 					}
-				}
-			} else {
-				for i, task := range tasks {
-					task.Result <- &ListenerResult{
-						ListenerId: listenerIds[i],
+				} else {
+					for i, task := range batch {
+						task.Result <- &ListenerResult{
+							ListenerId: listenerIds[i],
+						}
 					}
 				}
 			}
