@@ -34,6 +34,17 @@ func (pa *PortAllocator) GetPool(name string) *PortPool {
 	return nil
 }
 
+// CanAllocate 检查指定端口池是否还能分配出至少一个 TCPUDP 端口（dry run）
+func (pa *PortAllocator) CanAllocate(name string, startPort, endPort, quota, segmentLength uint16) bool {
+	pa.mu.RLock()
+	pool, exists := pa.pools[name]
+	pa.mu.RUnlock()
+	if !exists {
+		return false
+	}
+	return pool.CanAllocate(startPort, endPort, quota, segmentLength)
+}
+
 func (pa *PortAllocator) AllocatedPorts(name string, lbKey LBKey) uint16 {
 	pa.mu.Lock()
 	pool, exists := pa.pools[name]

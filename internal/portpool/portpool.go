@@ -216,6 +216,56 @@ func (pp *PortPool) AllocatePortFromRange(ctx context.Context, startPort, endPor
 	return nil, quotaExceeded
 }
 
+// CanAllocate 检查是否还能从端口池中分配出至少一个 TCPUDP 端口（dry run，不实际分配）。
+// 使用 TCPUDP 协议检查，因为这是最严格的条件（同一端口号需要同时分配 TCP 和 UDP）。
+// 如果 TCPUDP 无法分配，说明端口已真正耗尽，需要扩容。
+func (pp *PortPool) CanAllocate(startPort, endPort, quota, segmentLength uint16) bool {
+	pp.mu.Lock()
+	defer pp.mu.Unlock()
+	if len(pp.cache) == 0 {
+		return false
+	}
+	portNum := 2 // TCPUDP 需要同时分配 TCP 和 UDP
+	for _, allocated := range pp.getCache() {
+		if uint16(len(allocated)+portNum) > quota { // 监听器数量已满，换下个 lb
+			continue
+		}
+		for port := startPort; port <= endPort; port += segmentLength {
+			ep := uint16(0)
+			if segmentLength > 1 {
+				ep = port + segmentLength - 1
+			}
+			if pp.canAllocateFromLb(allocated, port, ep) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+// canAllocateFromLb 检查指定 lb 上是否能分配指定端口的 TCPUDP（只读检查，不修改 cache）
+func (pp *PortPool) canAllocateFromLb(allocated map[ProtocolPort]struct{}, port, endPort uint16) bool {
+	ports := portsToAllocate(port, endPort, constant.ProtocolTCPUDP)
+	for _, p := range ports {
+		if _, exists := allocated[p.Key()]; exists {
+			return false
+		}
+		if pp.maxPort != nil {
+			switch p.Protocol {
+			case "TCP":
+				if pp.maxPort.Tcp > 0 && p.Port > pp.maxPort.Tcp {
+					return false
+				}
+			case "UDP":
+				if pp.maxPort.Udp > 0 && p.Port > pp.maxPort.Udp {
+					return false
+				}
+			}
+		}
+	}
+	return true
+}
+
 // 尝试从 lb 中分配端口
 func (pp *PortPool) tryAllocateFromLb(lbKey LBKey, allocated map[ProtocolPort]struct{}, port, endPort uint16, protocol string) []PortAllocation {
 	ports := portsToAllocate(port, endPort, protocol)

@@ -166,7 +166,6 @@ func (r *CLBPortPoolReconciler) ensureExistedLB(pool *networkingv1alpha1.CLBPort
 func (r *CLBPortPoolReconciler) ensureLbStatus(ctx context.Context, pool *networkingv1alpha1.CLBPortPool, lbInfos map[string]*clb.CLBInfo, status *networkingv1alpha1.CLBPortPoolStatus) error {
 	lbStatuses := []networkingv1alpha1.LoadBalancerStatus{}
 	allocatableLBs := []portpool.LBKey{}
-	insufficientPorts := true
 	autoCreatedLbNum := uint16(0)
 
 	existedLbIds := make(map[string]struct{})
@@ -226,9 +225,6 @@ func (r *CLBPortPoolReconciler) ensureLbStatus(ctx context.Context, pool *networ
 			lbStatus.Hostname = info.Hostname
 			lbStatus.LoadbalancerName = info.LoadbalancerName
 			lbStatus.Allocated = portpool.Allocator.AllocatedPorts(pool.Name, lbKey)
-			if insufficientPorts && status.Quota-lbStatus.Allocated > 2 {
-				insufficientPorts = false
-			}
 			if util.GetValue(lbStatus.AutoCreated) { // 自动创建的 lb，确保标签正确，计算数量（用于自动创建最大clb数量限制的校验）
 				autoCreatedLbNum++
 				missingTags := make(map[string]string)
@@ -268,6 +264,17 @@ func (r *CLBPortPoolReconciler) ensureLbStatus(ctx context.Context, pool *networ
 	if err := portpool.Allocator.EnsureLbIds(pool.Name, allocatableLBs); err != nil {
 		return errors.WithStack(err)
 	}
+
+	// 通过 dry run 检查端口池是否还能分配出端口（使用 TCPUDP 协议作为最严格条件）
+	endPort := uint16(65535)
+	if pool.Spec.EndPort != nil {
+		endPort = *pool.Spec.EndPort
+	}
+	segmentLength := uint16(1)
+	if pool.Spec.SegmentLength != nil {
+		segmentLength = *pool.Spec.SegmentLength
+	}
+	insufficientPorts := !portpool.Allocator.CanAllocate(pool.Name, pool.Spec.StartPort, endPort, status.Quota, segmentLength)
 
 	if insufficientPorts { // 可分配端口不足，尝试扩容 clb
 		if pool.Spec.AutoCreate != nil && pool.Spec.AutoCreate.Enabled { // 必须启用了 clb 自动创建
