@@ -1,7 +1,3 @@
-# CLAUDE.md
-
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
-
 ## 项目概述
 
 TKE Extend Network Controller 是一个 TKE (腾讯云 Kubernetes) 集群的网络控制器，主要用于游戏房间、会议等房间类场景，为每个 Pod/Node 分配独立的公网地址映射（通过 CLB 端口池实现）。
@@ -55,11 +51,11 @@ make undeploy           # 卸载控制器
 
 ### 核心 CRD (api/v1alpha1/)
 
-| CRD | 简称 | 作用域 | 用途 |
-|-----|------|--------|------|
-| CLBPortPool | cpp | Cluster | 定义 CLB 端口池，管理可分配的公网端口资源 |
-| CLBPodBinding | cpb | Namespaced | 为 Pod 分配 CLB 端口映射 |
-| CLBNodeBinding | cnb | Cluster | 为 Node (HostPort) 分配 CLB 端口映射 |
+| CRD            | 简称 | 作用域     | 用途                                      |
+| -------------- | ---- | ---------- | ----------------------------------------- |
+| CLBPortPool    | cpp  | Cluster    | 定义 CLB 端口池，管理可分配的公网端口资源 |
+| CLBPodBinding  | cpb  | Namespaced | 为 Pod 分配 CLB 端口映射                  |
+| CLBNodeBinding | cnb  | Cluster    | 为 Node (HostPort) 分配 CLB 端口映射      |
 
 ### 控制器 (internal/controller/)
 
