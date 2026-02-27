@@ -818,9 +818,10 @@ LOOP_PORT:
 			}
 			allocatedPorts = append(allocatedPorts, allocated...)
 		} else { // 只要有一个端口分配失败就认为失败
-			releasePorts()                               // 为保证事务性，释放已分配的端口
-			for poolName := range poolsShouldReconcile { // 通知关联的端口池对账，如果启用自动创建 clb，可触发 lb 扩容
-				notifyPortPoolReconcile(poolName)
+			releasePorts() // 为保证事务性，释放已分配的端口
+			// 尝试请求端口池扩容
+			for _, poolName := range port.Pools {
+				r.tryRequestScaleUp(ctx, poolName)
 			}
 			return portpool.ErrNoPortAvailable
 		}
@@ -843,6 +844,40 @@ LOOP_PORT:
 		}
 	}
 	return nil
+}
+
+// tryRequestScaleUp 尝试请求端口池扩容，检查 CLBPortPool 是否启用了自动创建且未达到上限，
+// 使用 CAS 保证并发安全，只有第一个请求成功的才通知 CLBPortPool reconcile。
+func (r *CLBBindingReconciler[T]) tryRequestScaleUp(ctx context.Context, poolName string) {
+	// CAS 设标记，如果已有请求在先则跳过
+	if !portpool.Allocator.RequestScaleUp(poolName) {
+		return
+	}
+	// 检查 CLBPortPool 是否可以扩容
+	cpp := &networkingv1alpha1.CLBPortPool{}
+	if err := r.Client.Get(ctx, client.ObjectKey{Name: poolName}, cpp); err != nil {
+		log.FromContext(ctx).Error(err, "failed to get CLBPortPool for scale-up check", "pool", poolName)
+		portpool.Allocator.ResetScaleUpRequest(poolName) // 获取失败，重置标记
+		return
+	}
+	if cpp.Spec.AutoCreate == nil || !cpp.Spec.AutoCreate.Enabled {
+		portpool.Allocator.ResetScaleUpRequest(poolName) // 未启用自动创建，重置标记
+		return
+	}
+	if cpp.Spec.AutoCreate.MaxLoadBalancers != nil {
+		autoCreatedNum := uint16(0)
+		for _, lbStatus := range cpp.Status.LoadbalancerStatuses {
+			if util.GetValue(lbStatus.AutoCreated) {
+				autoCreatedNum++
+			}
+		}
+		if autoCreatedNum >= *cpp.Spec.AutoCreate.MaxLoadBalancers {
+			portpool.Allocator.ResetScaleUpRequest(poolName) // 已达到最大 CLB 数量限制，重置标记
+			return
+		}
+	}
+	// 满足扩容条件，通知 CLBPortPool reconcile
+	notifyPortPoolReconcile(poolName)
 }
 
 func (r *CLBBindingReconciler[T]) ensureState(ctx context.Context, bd clbbinding.CLBBinding, state networkingv1alpha1.CLBBindingState) error {

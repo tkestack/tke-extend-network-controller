@@ -265,18 +265,8 @@ func (r *CLBPortPoolReconciler) ensureLbStatus(ctx context.Context, pool *networ
 		return errors.WithStack(err)
 	}
 
-	// 通过 dry run 检查端口池是否还能分配出端口（使用 TCPUDP 协议作为最严格条件）
-	endPort := uint16(65535)
-	if pool.Spec.EndPort != nil {
-		endPort = *pool.Spec.EndPort
-	}
-	segmentLength := uint16(1)
-	if pool.Spec.SegmentLength != nil {
-		segmentLength = *pool.Spec.SegmentLength
-	}
-	insufficientPorts := !portpool.Allocator.CanAllocate(pool.Name, pool.Spec.StartPort, endPort, status.Quota, segmentLength)
-
-	if insufficientPorts { // 可分配端口不足，尝试扩容 clb
+	// 检查是否有 Binding 分配失败触发的扩容请求
+	if portpool.Allocator.ResetScaleUpRequest(pool.Name) {
 		if pool.Spec.AutoCreate != nil && pool.Spec.AutoCreate.Enabled { // 必须启用了 clb 自动创建
 			if pool.Spec.AutoCreate.MaxLoadBalancers == nil || autoCreatedLbNum < *pool.Spec.AutoCreate.MaxLoadBalancers { // 满足可以自动创建clb的条件：没有限制自动创建的 clb 数量，或者自动创建的 clb 数量未达到限制
 				if err := r.createCLB(ctx, pool, status); err != nil { // 创建 clb
