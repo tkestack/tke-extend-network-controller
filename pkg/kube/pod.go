@@ -7,6 +7,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/tkestack/tke-extend-network-controller/internal/constant"
 	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
@@ -51,6 +52,9 @@ func RemovePodFinalizer(ctx context.Context, pod client.Object, finalizerName st
 func updatePodFinalizer(ctx context.Context, cachedPod client.Object, finalizerName string, add bool) error {
 	pod := &corev1.Pod{}
 	if err := apiReader.Get(ctx, client.ObjectKeyFromObject(cachedPod), pod); err != nil {
+		if apierrors.IsNotFound(err) && !add { // 删除 finalizer 时 Pod 已不存在，无需处理
+			return nil
+		}
 		return err
 	}
 	if add { // 添加 finalizer
@@ -62,6 +66,9 @@ func updatePodFinalizer(ctx context.Context, cachedPod client.Object, finalizerN
 	} else { // 删除 finalizer
 		if controllerutil.RemoveFinalizer(pod, finalizerName) {
 			if err := apiClient.Update(ctx, pod); err != nil {
+				if apierrors.IsNotFound(err) { // Pod 已被删除，无需更新
+					return nil
+				}
 				return err
 			}
 		}

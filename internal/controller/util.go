@@ -79,6 +79,9 @@ func ReconcileWithFinalizer[T client.Object](ctx context.Context, req ctrl.Reque
 			// 移除 finalizer，让资源最终被删除
 			if controllerutil.RemoveFinalizer(obj, constant.Finalizer) {
 				if err = apiClient.Update(ctx, obj); err != nil {
+					if apierrors.IsNotFound(err) { // 资源已被删除，无需更新
+						return result, nil
+					}
 					return result, errors.WithStack(err)
 				}
 			}
