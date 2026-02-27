@@ -3,7 +3,6 @@ package portpool
 import (
 	"sync"
 	"testing"
-	"time"
 )
 
 func TestRequestScaleUp(t *testing.T) {
@@ -60,28 +59,33 @@ func TestRequestScaleUp(t *testing.T) {
 		}
 	})
 
-	t.Run("冷却期内请求被拒绝", func(t *testing.T) {
+	t.Run("扩容刚完成时RequestScaleUp被吸收一轮", func(t *testing.T) {
 		pp := &PortPool{Name: "test-pool"}
-		pp.SetScaleUpCooldown(1 * time.Second)
+		pp.MarkScaleUpCompleted()
 		if pp.RequestScaleUp() {
-			t.Error("冷却期内 RequestScaleUp() 应返回 false")
+			t.Error("扩容刚完成后首次 RequestScaleUp() 应返回 false（被吸收）")
 		}
-		time.Sleep(1100 * time.Millisecond) // 等待冷却期过
+		// 标记已被消耗，下次请求应该成功
 		if !pp.RequestScaleUp() {
-			t.Error("冷却期过后 RequestScaleUp() 应返回 true")
+			t.Error("吸收一轮后 RequestScaleUp() 应返回 true")
 		}
 	})
 
-	t.Run("冷却期内HasScaleUpRequest也返回false", func(t *testing.T) {
+	t.Run("扩容刚完成时HasScaleUpRequest返回false并清除请求标记", func(t *testing.T) {
 		pp := &PortPool{Name: "test-pool"}
 		pp.scaleUpRequested.Store(true) // 直接设置标记
-		pp.SetScaleUpCooldown(1 * time.Second)
+		pp.MarkScaleUpCompleted()
 		if pp.HasScaleUpRequest() {
-			t.Error("冷却期内 HasScaleUpRequest() 应返回 false")
+			t.Error("扩容刚完成后 HasScaleUpRequest() 应返回 false")
 		}
-		time.Sleep(1100 * time.Millisecond) // 等待冷却期过
+		// scaleUpRequested 也应该被清除
+		if pp.scaleUpRequested.Load() {
+			t.Error("扩容刚完成后 scaleUpRequested 应被清除")
+		}
+		// 标记已被消耗，后续正常工作
+		pp.scaleUpRequested.Store(true)
 		if !pp.HasScaleUpRequest() {
-			t.Error("冷却期过后 HasScaleUpRequest() 应返回 true")
+			t.Error("标记消耗后 HasScaleUpRequest() 应正常返回 true")
 		}
 	})
 }

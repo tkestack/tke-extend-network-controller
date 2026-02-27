@@ -8,7 +8,6 @@ import (
 	"slices"
 	"sync"
 	"sync/atomic"
-	"time"
 
 	networkingv1alpha1 "github.com/tkestack/tke-extend-network-controller/api/v1alpha1"
 	"github.com/tkestack/tke-extend-network-controller/internal/constant"
@@ -138,16 +137,16 @@ func NewLBKeyFromBinding(binding *networkingv1alpha1.PortBindingStatus) LBKey {
 
 // PortPool 管理单个端口池的状态
 type PortPool struct {
-	Name              string
-	LbPolicy          string
-	LbBlacklist       map[LBKey]struct{}
-	lbBlacklist       []string
-	maxPort           *MaxPort
-	scaleUpRequested  atomic.Bool // 是否有扩容请求
-	scaleUpCooldown   atomic.Int64 // 扩容冷却截止时间（UnixNano），冷却期内不接受新的扩容请求
-	mu                sync.Mutex
-	cache             map[LBKey]map[ProtocolPort]struct{}
-	lbList            []LBKey
+	Name                  string
+	LbPolicy              string
+	LbBlacklist           map[LBKey]struct{}
+	lbBlacklist           []string
+	maxPort               *MaxPort
+	scaleUpRequested      atomic.Bool // 是否有扩容请求
+	scaleUpJustCompleted  atomic.Bool // 是否刚完成扩容（用于吸收一轮分配失败）
+	mu                    sync.Mutex
+	cache                 map[LBKey]map[ProtocolPort]struct{}
+	lbList                []LBKey
 }
 
 func (pp *PortPool) IsPrecreateListenerEnabled() bool {
@@ -221,24 +220,21 @@ func (pp *PortPool) AllocatePortFromRange(ctx context.Context, startPort, endPor
 }
 
 // RequestScaleUp 请求扩容，使用 CAS 保证并发安全，只有第一个请求成功。
-// 返回 true 表示本次请求设标记成功（应通知 CLBPortPool reconcile），false 表示已有其他请求在先或在冷却期内。
+// 返回 true 表示本次请求设标记成功（应通知 CLBPortPool reconcile），false 表示已有其他请求在先或刚完成扩容。
 func (pp *PortPool) RequestScaleUp() bool {
-	// 检查是否在冷却期内（刚创建过 CLB，等待 Binding 使用新 CLB）
-	if cooldownUntil := pp.scaleUpCooldown.Load(); cooldownUntil > 0 {
-		if time.Now().UnixNano() < cooldownUntil {
-			return false
-		}
+	// 如果刚完成扩容，用 CAS 清除标记并跳过本次请求（给新 CLB 一次机会被使用）
+	if pp.scaleUpJustCompleted.CompareAndSwap(true, false) {
+		return false
 	}
 	return pp.scaleUpRequested.CompareAndSwap(false, true)
 }
 
 // HasScaleUpRequest 检查是否有扩容请求（只读，不重置标记）。
-// 冷却期内即使标记为 true 也返回 false，避免刚创建 CLB 后立即再次触发扩容。
+// 如果刚完成扩容，返回 false 并清除标记，避免刚创建 CLB 后立即再次触发扩容。
 func (pp *PortPool) HasScaleUpRequest() bool {
-	if cooldownUntil := pp.scaleUpCooldown.Load(); cooldownUntil > 0 {
-		if time.Now().UnixNano() < cooldownUntil {
-			return false
-		}
+	if pp.scaleUpJustCompleted.CompareAndSwap(true, false) {
+		pp.scaleUpRequested.Store(false) // 同时清除扩容请求标记
+		return false
 	}
 	return pp.scaleUpRequested.Load()
 }
@@ -248,9 +244,9 @@ func (pp *PortPool) ResetScaleUpRequest() {
 	pp.scaleUpRequested.Store(false)
 }
 
-// SetScaleUpCooldown 设置扩容冷却期，在冷却期内 RequestScaleUp 会返回 false
-func (pp *PortPool) SetScaleUpCooldown(d time.Duration) {
-	pp.scaleUpCooldown.Store(time.Now().Add(d).UnixNano())
+// MarkScaleUpCompleted 标记扩容刚完成，下一次 RequestScaleUp/HasScaleUpRequest 会返回 false（只吸收一轮）
+func (pp *PortPool) MarkScaleUpCompleted() {
+	pp.scaleUpJustCompleted.Store(true)
 }
 
 // 尝试从 lb 中分配端口
