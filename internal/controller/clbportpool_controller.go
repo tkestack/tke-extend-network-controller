@@ -266,7 +266,7 @@ func (r *CLBPortPoolReconciler) ensureLbStatus(ctx context.Context, pool *networ
 	}
 
 	// 检查是否有 Binding 分配失败触发的扩容请求
-	if portpool.Allocator.ResetScaleUpRequest(pool.Name) {
+	if portpool.Allocator.HasScaleUpRequest(pool.Name) {
 		if pool.Spec.AutoCreate != nil && pool.Spec.AutoCreate.Enabled { // 必须启用了 clb 自动创建
 			if pool.Spec.AutoCreate.MaxLoadBalancers == nil || autoCreatedLbNum < *pool.Spec.AutoCreate.MaxLoadBalancers { // 满足可以自动创建clb的条件：没有限制自动创建的 clb 数量，或者自动创建的 clb 数量未达到限制
 				if err := r.createCLB(ctx, pool, status); err != nil { // 创建 clb
@@ -274,6 +274,7 @@ func (r *CLBPortPoolReconciler) ensureLbStatus(ctx context.Context, pool *networ
 				}
 			}
 		}
+		portpool.Allocator.ResetScaleUpRequest(pool.Name) // CLB 创建成功后才重置标记，避免创建期间 Binding 重复设标记导致多次扩容
 	}
 	return nil
 }

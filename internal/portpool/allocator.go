@@ -45,15 +45,26 @@ func (pa *PortAllocator) RequestScaleUp(name string) bool {
 	return pool.RequestScaleUp()
 }
 
-// ResetScaleUpRequest 重置指定端口池的扩容请求标记，返回重置前的值
-func (pa *PortAllocator) ResetScaleUpRequest(name string) bool {
+// HasScaleUpRequest 检查指定端口池是否有扩容请求（只读，不重置标记）
+func (pa *PortAllocator) HasScaleUpRequest(name string) bool {
 	pa.mu.RLock()
 	pool, exists := pa.pools[name]
 	pa.mu.RUnlock()
 	if !exists {
 		return false
 	}
-	return pool.ResetScaleUpRequest()
+	return pool.HasScaleUpRequest()
+}
+
+// ResetScaleUpRequest 重置指定端口池的扩容请求标记
+func (pa *PortAllocator) ResetScaleUpRequest(name string) {
+	pa.mu.RLock()
+	pool, exists := pa.pools[name]
+	pa.mu.RUnlock()
+	if !exists {
+		return
+	}
+	pool.ResetScaleUpRequest()
 }
 
 func (pa *PortAllocator) AllocatedPorts(name string, lbKey LBKey) uint16 {

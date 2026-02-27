@@ -224,10 +224,14 @@ func (pp *PortPool) RequestScaleUp() bool {
 	return pp.scaleUpRequested.CompareAndSwap(false, true)
 }
 
-// ResetScaleUpRequest 重置扩容请求标记，返回重置前的值。
-// 返回 true 表示之前有扩容请求需要处理，false 表示没有。
-func (pp *PortPool) ResetScaleUpRequest() bool {
-	return pp.scaleUpRequested.Swap(false)
+// HasScaleUpRequest 检查是否有扩容请求（只读，不重置标记）
+func (pp *PortPool) HasScaleUpRequest() bool {
+	return pp.scaleUpRequested.Load()
+}
+
+// ResetScaleUpRequest 重置扩容请求标记
+func (pp *PortPool) ResetScaleUpRequest() {
+	pp.scaleUpRequested.Store(false)
 }
 
 // 尝试从 lb 中分配端口

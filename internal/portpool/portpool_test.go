@@ -24,11 +24,12 @@ func TestRequestScaleUp(t *testing.T) {
 	t.Run("重置后可以再次请求", func(t *testing.T) {
 		pp := &PortPool{Name: "test-pool"}
 		pp.RequestScaleUp()
-		if !pp.ResetScaleUpRequest() {
-			t.Error("ResetScaleUpRequest() 应返回 true（之前有请求）")
+		if !pp.HasScaleUpRequest() {
+			t.Error("HasScaleUpRequest() 应返回 true（有请求）")
 		}
-		if pp.ResetScaleUpRequest() {
-			t.Error("再次 ResetScaleUpRequest() 应返回 false（已重置）")
+		pp.ResetScaleUpRequest()
+		if pp.HasScaleUpRequest() {
+			t.Error("重置后 HasScaleUpRequest() 应返回 false")
 		}
 		if !pp.RequestScaleUp() {
 			t.Error("重置后 RequestScaleUp() 应返回 true")
