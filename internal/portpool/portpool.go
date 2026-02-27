@@ -8,6 +8,7 @@ import (
 	"slices"
 	"sync"
 	"sync/atomic"
+	"time"
 
 	networkingv1alpha1 "github.com/tkestack/tke-extend-network-controller/api/v1alpha1"
 	"github.com/tkestack/tke-extend-network-controller/internal/constant"
@@ -143,6 +144,7 @@ type PortPool struct {
 	lbBlacklist       []string
 	maxPort           *MaxPort
 	scaleUpRequested  atomic.Bool // 是否有扩容请求
+	scaleUpCooldown   atomic.Int64 // 扩容冷却截止时间（UnixNano），冷却期内不接受新的扩容请求
 	mu                sync.Mutex
 	cache             map[LBKey]map[ProtocolPort]struct{}
 	lbList            []LBKey
@@ -219,19 +221,36 @@ func (pp *PortPool) AllocatePortFromRange(ctx context.Context, startPort, endPor
 }
 
 // RequestScaleUp 请求扩容，使用 CAS 保证并发安全，只有第一个请求成功。
-// 返回 true 表示本次请求设标记成功（应通知 CLBPortPool reconcile），false 表示已有其他请求在先。
+// 返回 true 表示本次请求设标记成功（应通知 CLBPortPool reconcile），false 表示已有其他请求在先或在冷却期内。
 func (pp *PortPool) RequestScaleUp() bool {
+	// 检查是否在冷却期内（刚创建过 CLB，等待 Binding 使用新 CLB）
+	if cooldownUntil := pp.scaleUpCooldown.Load(); cooldownUntil > 0 {
+		if time.Now().UnixNano() < cooldownUntil {
+			return false
+		}
+	}
 	return pp.scaleUpRequested.CompareAndSwap(false, true)
 }
 
-// HasScaleUpRequest 检查是否有扩容请求（只读，不重置标记）
+// HasScaleUpRequest 检查是否有扩容请求（只读，不重置标记）。
+// 冷却期内即使标记为 true 也返回 false，避免刚创建 CLB 后立即再次触发扩容。
 func (pp *PortPool) HasScaleUpRequest() bool {
+	if cooldownUntil := pp.scaleUpCooldown.Load(); cooldownUntil > 0 {
+		if time.Now().UnixNano() < cooldownUntil {
+			return false
+		}
+	}
 	return pp.scaleUpRequested.Load()
 }
 
 // ResetScaleUpRequest 重置扩容请求标记
 func (pp *PortPool) ResetScaleUpRequest() {
 	pp.scaleUpRequested.Store(false)
+}
+
+// SetScaleUpCooldown 设置扩容冷却期，在冷却期内 RequestScaleUp 会返回 false
+func (pp *PortPool) SetScaleUpCooldown(d time.Duration) {
+	pp.scaleUpCooldown.Store(time.Now().Add(d).UnixNano())
 }
 
 // 尝试从 lb 中分配端口

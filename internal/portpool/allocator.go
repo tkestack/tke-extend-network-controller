@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"reflect"
 	"sync"
+	"time"
 
 	"github.com/pkg/errors"
 	networkingv1alpha1 "github.com/tkestack/tke-extend-network-controller/api/v1alpha1"
@@ -65,6 +66,17 @@ func (pa *PortAllocator) ResetScaleUpRequest(name string) {
 		return
 	}
 	pool.ResetScaleUpRequest()
+}
+
+// SetScaleUpCooldown 设置指定端口池的扩容冷却期
+func (pa *PortAllocator) SetScaleUpCooldown(name string, d time.Duration) {
+	pa.mu.RLock()
+	pool, exists := pa.pools[name]
+	pa.mu.RUnlock()
+	if !exists {
+		return
+	}
+	pool.SetScaleUpCooldown(d)
 }
 
 func (pa *PortAllocator) AllocatedPorts(name string, lbKey LBKey) uint16 {

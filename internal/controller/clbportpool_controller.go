@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"reflect"
 	"strings"
+	"time"
 
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
@@ -272,6 +273,16 @@ func (r *CLBPortPoolReconciler) ensureLbStatus(ctx context.Context, pool *networ
 				if err := r.createCLB(ctx, pool, status); err != nil { // 创建 clb
 					return errors.WithStack(err)
 				}
+				// 将新创建的 CLB 立即加入端口分配器缓存，确保 Binding 能立刻从新 CLB 分配端口，
+				// 避免重置扩容标记后 Binding 仍分配失败而重复触发扩容
+				newLbId := status.LoadbalancerStatuses[len(status.LoadbalancerStatuses)-1].LoadbalancerID
+				newLbKey := portpool.NewLBKey(newLbId, pool.GetRegion())
+				allocatableLBs = append(allocatableLBs, newLbKey)
+				if err := portpool.Allocator.EnsureLbIds(pool.Name, allocatableLBs); err != nil {
+					return errors.WithStack(err)
+				}
+				// 设置扩容冷却期，避免新 CLB 加入缓存后、Binding 尚未成功分配前的竞态窗口内再次触发扩容
+				portpool.Allocator.SetScaleUpCooldown(pool.Name, 30*time.Second)
 			}
 		}
 		portpool.Allocator.ResetScaleUpRequest(pool.Name) // CLB 创建成功后才重置标记，避免创建期间 Binding 重复设标记导致多次扩容
