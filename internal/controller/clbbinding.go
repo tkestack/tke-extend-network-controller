@@ -274,6 +274,13 @@ func (r *CLBBindingReconciler[T]) ensureListener(ctx context.Context, bd clbbind
 	if bd.GetStatus().State != networkingv1alpha1.CLBBindingStateBound && !portpool.Allocator.IsLbExists(binding.Pool, portpool.NewLBKeyFromBinding(binding)) {
 		log.Info("remove allocated clbbinding due to lb not exists")
 		r.Recorder.Eventf(bd.GetObject(), corev1.EventTypeNormal, "PortBindingRemoved", "lb %q not exists, remove port binding (lbPort:%s protocol:%s)", binding.LoadbalancerId, binding.LoadbalancerPort, binding.Protocol)
+		// 确保监听器被清理（pool 可能已被删除，无法获取预创建状态，传 false 直接删除监听器）
+		if err := r.cleanupPortBinding(ctx, binding, log, false); err != nil {
+			return binding, errors.WithStack(err)
+		}
+		if portpool.Allocator.ReleaseBinding(binding) {
+			notifyPortPoolReconcile(binding.Pool)
+		}
 		return nil, nil
 	}
 
