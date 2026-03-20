@@ -1,306 +1,326 @@
-# Architecture
+# 架构设计
 
-**Analysis Date:** 2025-03-20
+**分析日期:** 2025-03-20
 
-## Pattern Overview
+## 模式概览
 
-**Overall:** Kubernetes Operator using controller-runtime with multi-layer reconciliation pattern
+**总体模式:** Kubernetes Operator（控制器运算符）+ 管理层架构
 
-**Key Characteristics:**
-- Multiple specialized reconcilers managing different Kubernetes resources and CRDs
-- Unified binding abstraction for CLBPodBinding and CLBNodeBinding (generic CLBBindingReconciler)
-- Global port allocator singleton managing distributed port assignment across multiple CLB instances
-- Taints and Finalizer-based graceful deletion for all custom resources
-- Event-driven reconciliation with field indexing for efficient lookups
+**核心特点:**
+- 基于 controller-runtime 框架的多控制器并行协调
+- 声明式 Kubernetes API 资源驱动的网络配置管理
+- 三层分离：CRD 定义层（API）→ 控制层（Reconciler）→ 实现层（端口池 + CLB SDK 封装）
+- 专门化的端口分配器单例管理全局端口资源
+- 通过 Webhook 进行验证和变更默认值
 
-## Layers
+## 分层结构
 
-**Entry Point / Command Layer:**
-- Purpose: Bootstrap the manager, parse flags, initialize cloud credentials and cluster info
-- Location: `cmd/main.go`, `cmd/app/cmd.go`, `cmd/app/manager.go`
-- Contains: Cobra CLI setup, Viper configuration binding, environment variable handling
-- Depends on: All other layers through manager setup
-- Used by: Container entrypoint
+**API 层 (`api/v1alpha1/`):**
+- 作用：定义 Kubernetes 自定义资源的 API 规范
+- 位置：`api/v1alpha1/`
+- 包含：
+  - `CLBPortPool` - 集群范围端口池资源，定义可分配的公网端口段
+  - `CLBPodBinding` - 命名空间范围资源，为 Pod 声明式绑定 CLB 端口映射
+  - `CLBNodeBinding` - 集群范围资源，为 Node HostPort 场景分配 CLB 端口映射
+- 依赖于：Kubernetes API machinery
+- 被依赖：所有控制器、Webhook、绑定实现
 
-**Manager Setup / Initialization Layer:**
-- Purpose: Initialize controller-runtime Manager, setup webhooks, configure schemes, register all controllers
-- Location: `cmd/app/setup_manager.go`, `cmd/app/setup_controller.go`, `cmd/app/setup_webhook.go`
-- Contains: Manager options, controller registration, webhook setup, discovery of optional schemes (e.g., Agones)
-- Depends on: controller-runtime, API types, cloud API clients
-- Used by: runManager() function
+**控制层 (`internal/controller/`):**
+- 作用：驱动期望状态向实际状态收敛的核心协调逻辑
+- 位置：`internal/controller/`
+- 包含六个 Reconciler：
+  - `CLBPortPoolReconciler` - 管理端口池生命周期、CLB 实例维护、扩缩容
+  - `CLBPodBindingReconciler` - 处理 Pod 端口绑定请求的直接调用
+  - `CLBNodeBindingReconciler` - 处理 Node HostPort 绑定请求
+  - `PodReconciler` - 监听 Pod 对象变化，自动创建/更新对应的 CLBPodBinding
+  - `NodeReconciler` - 监听 Node 对象变化，处理 HostPort 场景的 CLBNodeBinding
+  - `GameServerSetReconciler` - 可选，支持 OpenKruiseGame 的 GameServerSet 绑定
+- 依赖于：Kubernetes client、端口分配器、CLB SDK、绑定实现
+- 使用 Finalizer 实现安全的资源删除
 
-**API / CRD Definition Layer:**
-- Purpose: Define Kubernetes custom resource types with validation rules
-- Location: `api/v1alpha1/`
-- Contains: 
-  - `clbportpool_types.go`: CLBPortPool (cluster-scoped) - port pool configuration and status
-  - `clbpodbinding_types.go`: CLBPodBinding (namespaced) - Pod CLB port mapping
-  - `clbnodebinding_types.go`: CLBNodeBinding (cluster-scoped) - Node/HostPort CLB port mapping
-  - `clbbinding_types.go`: Shared spec/status types for unified binding behavior
-  - `api.go`: Client initialization
-- Key validation: Immutability constraints on most spec fields, state machine validation
-- Used by: All reconcilers and webhook validators
+**绑定实现层 (`internal/clbbinding/`):**
+- 作用：抽象 Pod 和 Node 后端的端口绑定通用逻辑
+- 位置：`internal/clbbinding/`
+- 核心抽象：`CLBBinding` 接口，支持泛型实现
+  - `CLBPodBinding` - Pod 后端绑定实现（包装 `networkingv1alpha1.CLBPodBinding`）
+  - `CLBNodeBinding` - Node 后端绑定实现（包装 `networkingv1alpha1.CLBNodeBinding`）
+- 绑定流程：端口分配 → CLB 监听器创建 → 后端绑定 → 状态写回
+- 依赖于：端口分配器、CLB SDK、Kubernetes API
+- 被依赖：Pod/Node Reconciler
 
-**Reconciliation / Control Logic Layer:**
-- Purpose: Implement the core reconciliation logic - watching resources and driving desired state
-- Location: `internal/controller/`
-- Contains: 
-  - `clbportpool_controller.go` (CLBPortPoolReconciler): Manages CLB instances, auto-creates CLBs, pre-creates listeners, scales pool capacity
-  - `clbpodbinding_controller.go` (CLBPodBindingReconciler): Reconciles Pod CLB bindings
-  - `clbnodebinding_controller.go` (CLBNodeBindingReconciler): Reconciles Node/HostPort CLB bindings
-  - `pod_controller.go` (PodReconciler): Watches Pods, auto-creates CLBPodBindings based on annotations
-  - `node_controller.go` (NodeReconciler): Watches Nodes, manages CLBNodeBindings for HostPort scenarios
-  - `gameserverset_controller.go` (GameServerSetReconciler): Optional controller for OpenKruiseGame integration
-  - `clbbinding.go` (CLBBindingReconciler[T]): Generic reconciliation logic for all CLB binding types
-  - `util.go`: Shared reconciliation helpers (finalizers, state transitions, error handling)
-- Depends on: Port allocator, CLB SDK, binding abstractions
-- Used by: Kubernetes API watch/cache
+**端口分配层 (`internal/portpool/`):**
+- 作用：管理全局端口资源分配，支持多种 LB 挑选策略
+- 位置：`internal/portpool/`
+- 核心类型：
+  - `PortAllocator` - 全局单例，管理所有端口池
+  - `PortPool` - 单个端口池实例，管理分配状态和 LB 缓存
+  - `LBKey` - 标识 CLB 实例的元组（LoadBalancer ID + Region）
+- 支持三种 LB 挑选策略：
+  - `Uniform` - 均匀分配（减小 DDoS 风险，IP 分散）
+  - `InOrder` - 顺序分配（提高单 CLB 利用率）
+  - `Random` - 随机分配（默认）
+- 端口分配流程：获取端口池 → 选择 LB → 占用端口 → 返回 (LB, Port) 对
+- 依赖于：CLBPortPool 对象模型
+- 被依赖：CLB 绑定实现
 
-**Binding Abstraction Layer:**
-- Purpose: Provide unified interface for CLBPodBinding and CLBNodeBinding handling
-- Location: `internal/clbbinding/`
-- Contains:
-  - `clbbinding.go`: CLBBinding interface and Backend interface defining shared contract
-  - `clbpodbinding.go`: Pod-specific binding wrapper implementing CLBBinding
-  - `clbnodebinding.go`: Node-specific binding wrapper implementing CLBBinding
-  - `sort.go`: Comparison logic for binding ordering
-- Pattern: Wraps API types and provides polymorphic behavior through interfaces
-- Depends on: API types
-- Used by: CLBBindingReconciler, Pod/Node controllers
+**CLB SDK 封装层 (`pkg/clb/`):**
+- 作用：对腾讯云 CLB 服务的统一封装，提供高阶操作
+- 位置：`pkg/clb/`
+- 核心能力：
+  - `instance.go` - CLB 实例的查询、创建、删除
+  - `listener.go` - 监听器的创建、查询，包含配额管理
+  - `target.go` - 后端绑定的配置、删除
+  - `batch-listener.go` - 批量创建监听器优化
+  - `batch-target.go` - 批量配置后端
+  - `cache.go` - 监听器信息缓存减少 API 调用
+  - `rate-limit.go` - 限速控制（支持突发，避免频率限制）
+  - `quota.go` - 账号维度和 CLB 维度配额查询与管理
+- 错误重试和幂等性保证
+- 依赖于：腾讯云 CLB SDK（`tencentcloud-sdk-go`）、凭证管理
+- 被依赖：CLB 绑定实现、CLBPortPool Reconciler
 
-**Port Allocation Layer:**
-- Purpose: Manage global port assignment state and policies across all port pools
-- Location: `internal/portpool/`
-- Contains:
-  - `allocator.go` (PortAllocator): Global singleton managing multiple port pools
-  - `portpool.go` (PortPool): Single pool state - tracks allocated ports, implements allocation strategies (Uniform, InOrder, Random), manages per-CLB port state
-  - `portpools.go`: Container type for multiple pools
-  - `error.go`: Pool-specific error types
-- Key abstractions:
-  - ProtocolPort: (Port, EndPort, Protocol) tuple identifying unique port
-  - LBPort: Port + CLB instance ID
-  - PortAllocation: Tuple of (ProtocolPort, PoolName, LBKey) representing a lease
-- Strategies: Uniform (spread across CLBs), InOrder (fill sequentially), Random (random selection)
-- Depends on: API types
-- Used by: CLBBindingReconciler when allocating ports
+**基础设施层 (`pkg/`):**
+- `cloudapi/` - 腾讯云 API 凭证初始化和管理
+- `clusterinfo/` - 全局集群信息（ID、VPC ID、Region、OKG 支持标志）
+- `kube/` - Kubernetes 集群交互工具
+- `userinfo/` - 用户信息初始化（OpenKruiseGame 支持检测）
+- `util/` - 通用工具函数
+- `eventsource/` - 事件源，用于在 CLB 变化时触发 Controller Reconcile
 
-**CLB SDK Wrapper Layer:**
-- Purpose: Encapsulate Tencent Cloud CLB API interactions with caching, batching, retry, and rate limiting
-- Location: `pkg/clb/`
-- Contains:
-  - `clb.go`: Client factory with region-based caching
-  - `api.go`: Thin wrapper for direct API calls
-  - `listener.go`: Listener creation/deletion operations
-  - `target.go`: Backend target registration/deregistration
-  - `batch-listener.go`: Batch listener creation optimizations
-  - `batch-target.go`: Batch target operations
-  - `instance.go`: CLB instance management (create, delete, query)
-  - `cache.go`: Listener information caching to reduce API calls
-  - `quota.go`: Listener quota tracking and management
-  - `param.go`: Parameter validation for CLB operations
-  - `wait.go`: Polling operations for async CLB tasks
-  - `rate-limit.go`: Request throttling (20 qps default)
-  - `lock.go`: Distributed locking for concurrent operations
-  - `error.go`: Cloud API error classification
-- Depends on: tencentcloud-sdk-go, cloud API credentials
-- Used by: Reconcilers when managing CLB resources
+## 数据流
 
-**Cloud Infrastructure Layer:**
-- Purpose: Manage cloud provider credentials, cluster metadata, VPC information
-- Location: `pkg/cloudapi/`, `pkg/clusterinfo/`, `pkg/vpc/`, `pkg/userinfo/`
-- Contains:
-  - `pkg/cloudapi/cloudapi.go`: Credential initialization and management
-  - `pkg/clusterinfo/clusterinfo.go`: Cluster ID, VPC ID, Region constants
-  - `pkg/vpc/client.go`: VPC SDK client wrapper
-  - `pkg/userinfo/userinfo.go`: User account information
-- Used by: CLB SDK, controller initialization
+**Pod 端口绑定流程:**
 
-**Utility / Helper Layer:**
-- Purpose: Provide common functions for pod operations, environment handling, retry logic, patching
-- Location: `pkg/util/`, `pkg/kube/`
-- Contains:
-  - `pkg/util/`: Pointer helpers, slice operations, map utilities, retry logic, environment parsing, region detection
-  - `pkg/kube/`: Pod finalizer operations, Pod IP lookup, patching, stripping managed fields, secret operations
-- Used by: Controllers, CLB operations
+```
+1. [触发] Pod 创建/更新 或 用户创建 CLBPodBinding
+   ↓
+2. [监听] PodReconciler 或 CLBPodBindingReconciler 收到事件
+   ↓
+3. [绑定实现] CLBPodBinding.Reconcile() 执行：
+   - 检查 Pod 是否有 annotation: "cloud.tencent.com/enable-clb-port-mappings"
+   - 从 CLBPodBinding Spec 中读取端口池名称和需求的端口
+   ↓
+4. [分配端口] PortAllocator.AllocatePorts() 执行：
+   - 从指定端口池获取 PortPool 实例
+   - 根据 LB 挑选策略选择 CLB 实例
+   - 在该 CLB 中占用端口
+   - 返回 [(LB_ID, Port, Protocol), ...]
+   ↓
+5. [创建监听器] 若监听器不存在，调用 clb.CreateListener()：
+   - 向 CLB 实例添加监听器
+   - 缓存监听器信息
+   ↓
+6. [绑定后端] clb.ConfigureTarget() 执行：
+   - 将 Pod IP 作为后端绑定到监听器
+   - 记录绑定关系
+   ↓
+7. [更新状态] CLBPodBinding Status 写入绑定结果：
+   - status.state = "Bound"
+   - status.allocations = [(ip, port, protocol), ...]
+   - 记录到 Pod Annotation
+```
 
-**Webhook Validation Layer:**
-- Purpose: Validate CRD mutations and enforce immutability constraints
-- Location: `internal/webhook/v1alpha1/`
-- Contains: `clbportpool_webhook.go` - validates CLBPortPool immutable fields
-- Used by: Kubernetes API server during resource mutation
+**端口池扩缩容流程:**
 
-**Event Source / Trigger Layer:**
-- Purpose: Integrate external event triggers into controller reconciliation
-- Location: `pkg/eventsource/eventsource.go`
-- Contains: Generic event source for triggering controller-runtime reconciliations
-- Used by: Controllers to signal upstream events needing reconciliation
+```
+1. [监听扩容请求] 当端口不足时，CLB 绑定实现调用 PortAllocator.RequestScaleUp()
+   ↓
+2. [标记扩容] PortPool 内部状态标记需要扩容（带一轮吸收机制）
+   ↓
+3. [触发 Reconcile] CLBPortPool Reconciler 检测到扩容标记
+   ↓
+4. [扩容决策] 若启用 AutoCreate 配置，且未达上限：
+   - 检查当前 CLB 实例数
+   - 验证创建新 CLB 是否超过上限
+   ↓
+5. [创建 CLB] clb.CreateLoadBalancer() 执行：
+   - 创建新的负载均衡器实例
+   - 预创建固定数量的监听器（若配置启用）
+   ↓
+6. [更新状态] CLBPortPool Status 记录新的 LB 信息：
+   - status.loadbalancerStatuses 追加新 LB
+   - 标记 AutoCreated = true
+   ↓
+7. [更新分配器] PortAllocator 内存缓存同步新增的 LB
+   ↓
+8. [清除标记] ResetScaleUpRequest() 清除扩容标记，继续服务新请求
+```
 
-## Data Flow
+**资源删除流程:**
 
-**Pod CLB Binding Flow:**
+```
+1. [删除触发] 用户删除 CLBPodBinding / CLBNodeBinding / CLBPortPool
+   ↓
+2. [Finalizer 保护] Reconciler 检测到 DeletionTimestamp 不为空
+   ↓
+3. [资源清理] 调用 cleanup() 方法：
+   - CLBPodBinding/CLBNodeBinding: 解除后端绑定，释放端口，标记删除状态
+   - CLBPortPool: 从全局分配器缓存移除，删除自动创建的 CLB
+   ↓
+4. [移除 Finalizer] 清理完成后调用 controllerutil.RemoveFinalizer()
+   ↓
+5. [确认删除] Kubernetes API Server 完成对象删除
+```
 
-1. User creates/updates Pod with annotation (e.g., `networking.cloud.tencent.com/enable-clb: "true"`)
-2. PodReconciler watches Pod changes, detects annotation
-3. PodReconciler creates CLBPodBinding CRD (namespaced) specifying port pool and pod reference
-4. CLBPodBindingReconciler watches CLBPodBinding, delegates to generic CLBBindingReconciler[*CLBPodBinding]
-5. CLBBindingReconciler calls portpool.Allocator.AllocatePort() for each protocol/port requirement
-6. PortAllocator looks up PortPool by name, calls pool.Allocate() with policy (Uniform/InOrder/Random)
-7. PortPool selects CLB instance(s) and returns PortAllocation (CLB ID + port + protocol)
-8. CLBBindingReconciler calls clb.CreateListener() to create listener on selected CLB
-9. CLBBindingReconciler calls clb.RegisterTarget() to bind Pod IP to listener
-10. CLBBindingReconciler updates CLBPodBinding.Status with port mappings and state=Ready
+**状态机:**
 
-**Node HostPort Binding Flow:**
+```
+CLBBinding 状态转换：
+  Pending → Bound → Disabled (可选)
+              ↓
+         NoPortAvailable (端口不足)
+              ↓
+         PortPoolNotAllocatable (端口池不可用)
+              ↓
+         PortPoolNotFound (端口池不存在)
+         
+CLBPortPool 状态：
+  Active (运行中)
+     ↓
+  Deleting (删除进行中，资源清理中)
+```
 
-1. User creates Node with spec specifying HostPort requirements or applies CLBNodeBinding CRD
-2. NodeReconciler watches Node changes, creates CLBNodeBinding (cluster-scoped) if needed
-3. CLBNodeBindingReconciler delegates to generic CLBBindingReconciler[*CLBNodeBinding]
-4. Same as Pod flow but binds Node internal IP instead of Pod IP
+## 核心抽象
 
-**Port Pool Lifecycle:**
+**CLBBinding 接口 (`internal/clbbinding/clbbinding.go`):**
+- 目的：统一 Pod 和 Node 的端口绑定实现逻辑
+- 方法：
+  - `GetSpec()` - 获取绑定规范（端口需求、端口池选择）
+  - `GetStatus()` - 获取绑定状态（当前分配的端口）
+  - `GetObject()` - 获取底层 Kubernetes 对象
+  - `GetType()` - 返回绑定类型标识（"CLBPodBinding" / "CLBNodeBinding"）
+- 优势：CLBBindingReconciler 泛型实现可同时处理两种绑定
 
-1. User creates CLBPortPool CRD specifying:
-   - Port range (startPort, endPort)
-   - Existing CLBs (exsistedLoadBalancerIDs) or auto-create config
-   - Allocation policy (LbPolicy)
-2. CLBPortPoolReconciler watches creation
-3. CLBPortPoolReconciler calls clb.DescribeLoadBalancers() for each existing CLB
-4. CLBPortPoolReconciler creates PortPool object and adds to portpool.Allocator
-5. If autoCreate enabled and ports insufficient:
-   - CLBPortPoolReconciler calls clb.CreateLoadBalancer()
-   - Updates CLBPortPool.Status.LoadbalancerStatuses with new CLB ID
-   - Triggers listener pre-creation (if configured)
-6. portpool.Allocator.ResetScaleUpRequest() clears scale-up flag after CLB added
-7. On deletion:
-   - CLBPortPoolReconciler calls clb.Delete() for auto-created CLBs
-   - Removes pool from allocator cache
-   - Finalizer removed allowing resource deletion
+**Backend 接口系列（分别在 `clbbinding/clbpodbinding.go` 和 `clbbinding/clbnodebinding.go`）:**
+- `podBackend` - 封装 Pod 对象，提供获取 IP、Node 等能力
+- `nodeBackend` - 封装 Node 对象，提供获取 IP、HostPort 能力
+- 用途：解耦后端资源的获取和绑定逻辑
 
-**State Management:**
+**PortPool 抽象:**
+- 单个端口池的内存表示，包含：
+  - 端口范围和段长度信息
+  - LB 列表和对应的端口占用状态
+  - 扩容请求标记和一轮吸收计数器
+- 支持原子性的端口分配操作
 
-- CLBPortPool.Status.State: Creating → Ready → Deleting
-- CLBBinding.Status.State: Pending → Ready (or error states: Failed, NoPortAvailable, PortPoolNotFound, PortPoolNotAllocatable, Disabled)
-- PortPool tracks: available ports per CLB, allocated ports by binding ref, scale-up request flag
-- All state transitions validated in reconcilers before update
+**LB 挑选策略:**
+- 在 `internal/portpool/sort.go` 中实现
+- `Uniform` - 按 CLB 可用端口数排序，优先选择可用端口最少的（均衡负载）
+- `InOrder` - 按顺序遍历，选择第一个可分配的
+- `Random` - 随机选择可分配的 CLB
+- 策略选择通过 `CLBPortPool.Spec.lbPolicy` 字段配置
 
-## Key Abstractions
+## 入口点
 
-**CLBBinding Interface (polymorphism):**
-- Purpose: Allows CLBPodBinding and CLBNodeBinding to be handled uniformly
-- File: `internal/clbbinding/clbbinding.go`
-- Methods: GetSpec(), GetStatus(), GetAssociatedObject(), GetAssociatedObjectByIP(), GetObject(), GetType(), FetchObject()
-- Implementations: `CLBPodBinding`, `CLBNodeBinding`
-- Pattern: Wraps API type, provides contract for generic CLBBindingReconciler
+**二进制入口 (`cmd/main.go`):**
+- 位置：`cmd/main.go`
+- 触发：`./manager` 或 `make run`
+- 职责：初始化 rootCommand 并执行
 
-**PortAllocator Singleton:**
-- Purpose: Global coordinator for all port assignment decisions
-- File: `internal/portpool/allocator.go`
-- Instance: `portpool.Allocator` (initialized once at startup)
-- Key operations: GetPool(), RequestScaleUp(), AllocatePort(), ReleasePort()
-- Thread-safety: RWMutex protected
+**命令入口 (`cmd/app/cmd.go`):**
+- 位置：`cmd/app/cmd.go`
+- 职责：Cobra 命令定义，支持的标志：
+  - `--region` - 腾讯云地域代码
+  - `--cluster-id` - TKE 集群 ID
+  - `--vpc-id` - VPC ID
+  - `--secret-id` / `--secret-key` - 腾讯云 API 凭证
+  - `--metrics-bind-address` - 指标服务地址
+  - `--health-probe-bind-address` - 健康检查地址
+  - `--leader-elect` - 启用选举模式
+- 调用 `runManager()` 启动控制器
 
-**PortPool State Machine:**
-- Tracks per-CLB port availability
-- Supports fragmented port ranges (TCP/UDP, TCP_SSL/QUIC protocols)
-- Implements three LB selection strategies: Uniform (round-robin among CLBs), InOrder (fill first, then next), Random (random selection)
-- Ref tracking: maintains map of allocated ports → binding references for cleanup
+**Manager 初始化 (`cmd/app/manager.go`):**
+- 位置：`cmd/app/manager.go`
+- 触发：`runManager()` 中调用
+- 职责：
+  1. 初始化日志系统（Zap）
+  2. 获取和验证配置参数（region, cluster-id, vpc-id）
+  3. 初始化腾讯云 API 凭证（`cloudapi.Init`）
+  4. 验证 CLB 配额可用性
+  5. 初始化用户信息（OKG 支持检测）
+  6. 创建 controller-runtime Manager
+  7. 调用 `SetupManager()` 挂载各个组件
 
-**Reconcile Helpers (util.go):**
-- `Reconcile[T]()`: Base reconciliation loop - fetch object, call sync, return requeue on conflict
-- `ReconcileWithFinalizer[T]()`: Adds finalizer logic for graceful deletion - blocks deletion, calls cleanup before removal
-- Error handling: Custom error types for pool-specific errors (ErrPoolNotFound, ErrNoPortAvailable, ErrLBNotFoundInPool)
+**Manager 组件设置 (`cmd/app/setup_manager.go`):**
+- 位置：`cmd/app/setup_manager.go`
+- 职责：
+  1. 启动 `initCache` 组件进行启动初始化（需要选举领导权）
+     - 加载所有 CLBPortPool 对象到 PortAllocator
+     - 初始化 Pod 端口绑定缓存
+  2. 调用 `SetupControllers()` 注册所有 Reconciler
+  3. 调用 `SetupWebhooks()` 注册 Webhook
+  4. 配置健康检查端点
 
-**Event Recording:**
-- Each reconciler has EventRecorder injected from manager
-- Records state transitions, allocation failures, pool exhaustion as Kubernetes Events
-- Events appear in `kubectl describe` output for troubleshooting
+**Reconciler 注册 (`cmd/app/setup_controller.go`):**
+- 位置：`cmd/app/setup_controller.go`
+- 职责：创建并注册 6 个 Reconciler：
+  - CLBPortPoolReconciler
+  - CLBPodBindingReconciler
+  - CLBNodeBindingReconciler
+  - PodReconciler（带事件源过滤特定注解的 Pod）
+  - NodeReconciler（带事件源过滤）
+  - GameServerSetReconciler（条件注册）
+- 配置：
+  - 控制器工作线程数（通过环境变量 `WORKER_*_CONTROLLER` 配置）
+  - 事件记录器
+  - 索引器配置（Pod 按 `.status.podIP` 索引，Node 按 `.status.nodeIP` 索引）
 
-## Entry Points
+**Webhook 设置 (`cmd/app/setup_webhook.go`):**
+- 位置：`cmd/app/setup_webhook.go`
+- 职责：注册验证和变更 Webhook
+  - `CLBPortPool` ValidatingWebhook - 验证字段不可变性和配置合法性
 
-**Binary Entrypoint:**
-- Location: `cmd/main.go`
-- Triggers: Container startup
-- Responsibilities: Call app.RootCommand.Execute()
+## 错误处理
 
-**Manager Reconciliation Loop:**
-- Location: `cmd/app/manager.go` runManager()
-- Triggers: Manager.Start() in controller-runtime
-- Responsibilities:
-  1. Parse flags (region, cluster-id, vpc-id, secret credentials)
-  2. Initialize cloud API client, cluster info, user info
-  3. Create controller-runtime Manager
-  4. Register all controllers and webhooks
-  5. Start event loop watching Kubernetes resources
+**策略:** 分层错误处理 + 重试 + 状态反馈
 
-**Pod/Node Resource Watch:**
-- Location: `internal/controller/pod_controller.go`, `node_controller.go`
-- Triggers: Any Pod/Node creation/update/deletion
-- Watches: All Pods/Nodes cluster-wide
-- Field indexes: `status.podIP`, `status.nodeIP` for efficient lookups
+**模式:**
 
-**CLB Binding Reconciliation:**
-- Location: `internal/controller/clbpodbinding_controller.go`, `clbnodebinding_controller.go`
-- Triggers: Any CLBPodBinding/CLBNodeBinding creation/update/deletion
-- Queue: One queue per controller with configurable worker count (WORKER_CLB_POD_BINDING_CONTROLLER env var)
+1. **CLB API 错误** (`pkg/clb/error.go`):
+   - 区分临时错误（重试）和永久错误（返回错误）
+   - 常见错误映射：
+     - 监听器已存在 → 幂等性处理（忽略并继续）
+     - 配额不足 → 返回 ErrResourceSoldOut（触发扩容）
+     - 频率限制 → 指数退避重试
 
-**Port Pool Reconciliation:**
-- Location: `internal/controller/clbportpool_controller.go`
-- Triggers: Any CLBPortPool creation/update/deletion
-- Responsibilities: Manage CLB instances, handle auto-creation, pre-create listeners, scale capacity
+2. **端口分配错误** (`internal/portpool/error.go`):
+   - `ErrPortPoolNotAllocatable` - 端口池不可分配（标记 CLBBinding 状态为 PortPoolNotAllocatable）
+   - `ErrNoPortAvailable` - 端口不足（触发扩容请求并标记状态为 NoPortAvailable）
+   - `ErrPoolNotFound` - 端口池不存在（标记状态为 PortPoolNotFound）
 
-## Error Handling
+3. **Reconciler 错误处理** (`internal/controller/clbbinding.go` 的 `sync()` 方法):
+   - 捕获特定错误类型进行状态转换
+   - 分类处理：
+     - 临时错误（如 LB 未准备好）→ RequeueAfter（延迟重试）
+     - 配置错误（如端口池不存在）→ 状态标记 + Event + 不重试
+     - 资源错误（如端口不足）→ 状态标记 + 扩容请求
+   - 所有错误都用 `errors.WithStack()` 保留堆栈跟踪
 
-**Strategy:** Multi-layer error classification with specific recovery behaviors
+4. **Event 记录:**
+   - 重要事件通过 `record.EventRecorder` 写入 Kubernetes Event
+   - Pod/Node 无法找到时记录 Warning Event
 
-**Patterns:**
+## 跨模块关键点
 
-- **Pool not found:** Log and retry with 20μs delay (waiting for pool to sync to allocator)
-- **No port available:** Transition state to NoPortAvailable, emit warning event, don't retry
-- **Port pool not allocatable:** Transition to PortPoolNotAllocatable state
-- **Cloud API rate limit (RequestLimitExceeded):** Requeue after 1 second
-- **LB not found in pool status:** Requeue after 20μs (waiting for pool status update)
-- **LB ID not found on cloud (InvalidParameter.LBIdNotFound):** Log and stop retrying (LB deleted)
-- **Resource conflict (409 Conflict):** Requeue after 20ms (API server conflict)
-- **Other errors:** Record event, transition to Failed state, attempt partial cleanup, log for debugging
+**日志:** 
+- 基于 controller-runtime 的 logr 接口
+- 通过 Zap 后端实现
+- 各模块通过 `ctrl.Log.WithName()` 创建命名日志
+- CLB API 调用通过 `LogAPI()` 统一记录，支持不同详细级别
 
-**Error Types (pkg/clb/error.go):**
-- IsLbIdNotFoundError(): Check for InvalidParameter.LBIdNotFound
-- IsLoadBalancerNotExistsError(): Check for "LoadBalancer not exist" or "LB not exist"
-- IsRequestLimitExceededError(): Check for RequestLimitExceeded
-- IsPortCheckFailedError(): Check for InvalidParameter.PortCheckFailed
-- IsListenerNotFound(): Check for "some ListenerId...not found"
+**验证:**
+- CRD 层通过 `+kubebuilder:validation:XValidation` 实现字段不可变性验证
+- Webhook 阶段进行更深入的业务逻辑验证
 
-**Finalizer-based Cleanup:**
-- On deletion: Block deletion with finalizer until cleanup complete
-- Cleanup: Deregister all binding targets from CLB, release allocated ports
-- Remove finalizer: Allow Kubernetes to delete resource after cleanup succeeds
-- Pod special handling: Use custom finalizer addition/removal (kube.AddPodFinalizer, RemovePodFinalizer) to handle pod deletion during reconciliation
+**认证:**
+- 基于 RBAC 角色，配置在 `config/rbac/` 下的 YAML 文件
+- Reconciler 通过 kubebuilder 注解自动声明所需权限
 
-## Cross-Cutting Concerns
-
-**Logging:**
-- Framework: logr with controller-runtime zap integration
-- Verbosity: V(0)=Warnings/Errors, V(1)=API calls, V(2)+=Debug details
-- Context-aware: log.FromContext(ctx) carries request ID and resource info
-
-**Validation:**
-- Spec immutability: Enforced via kubebuilder XValidation rules on CRD types
-- Pod IP uniqueness: Field indexed for fast lookup
-- Node IP uniqueness: Field indexed for fast lookup
-- Port range validation: Done in PortPool.Allocate() before assignment
-
-**Authentication:**
-- Cloud provider: Tencent Cloud credentials (secret-id, secret-key) passed at startup
-- Kubernetes: In-cluster service account (KUBECONFIG or mounted token)
-- Both: Initialized before reconciliation starts (runManager)
-
-**Concurrency:**
-- Reconciler queues: One per controller type with per-controller worker count (e.g., WORKER_CLB_PORT_POOL_CONTROLLER=10)
-- PortAllocator: RWMutex protects pools map
-- PortPool: Mutex protects allocated ports and LB state
-- CLB operations: Rate-limited at 20 qps (pkg/clb/rate-limit.go)
-- Distributed locking: pkg/clb/lock.go supports optional distributed locks via Kubernetes ConfigMaps (experimental)
+**状态管理:**
+- 所有受控资源维护明确的 `.status` 子资源
+- 状态更新通过 `client.Status().Update()` 原子性执行
+- CLBBinding 状态包含分配的端口列表和当前状态
 
 ---
 
-*Architecture analysis: 2025-03-20*
+*架构分析日期: 2025-03-20*
