@@ -137,16 +137,16 @@ func NewLBKeyFromBinding(binding *networkingv1alpha1.PortBindingStatus) LBKey {
 
 // PortPool 管理单个端口池的状态
 type PortPool struct {
-	Name                  string
-	LbPolicy              string
-	LbBlacklist           map[LBKey]struct{}
-	lbBlacklist           []string
-	maxPort               *MaxPort
-	scaleUpRequested      atomic.Bool // 是否有扩容请求
-	scaleUpJustCompleted  atomic.Bool // 是否刚完成扩容（用于吸收一轮分配失败）
-	mu                    sync.Mutex
-	cache                 map[LBKey]map[ProtocolPort]struct{}
-	lbList                []LBKey
+	Name                 string
+	LbPolicy             string
+	LbBlacklist          map[LBKey]struct{}
+	lbBlacklist          []string
+	maxPort              *MaxPort
+	scaleUpRequested     atomic.Bool // 是否有扩容请求
+	scaleUpJustCompleted atomic.Bool // 是否刚完成扩容（用于吸收一轮分配失败）
+	mu                   sync.Mutex
+	cache                map[LBKey]map[ProtocolPort]struct{}
+	lbList               []LBKey
 }
 
 func (pp *PortPool) IsPrecreateListenerEnabled() bool {

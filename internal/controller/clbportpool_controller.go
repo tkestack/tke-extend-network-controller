@@ -69,16 +69,79 @@ func (r *CLBPortPoolReconciler) cleanup(ctx context.Context, pool *networkingv1a
 	}
 	// 从全局端口分配器缓存中移除该端口池
 	portpool.Allocator.RemovePool(pool.Name)
-	// 删除自动创建的 CLB
+
+	// 清理所有 CLB 上的监听器
+	errs := []error{}
 	for _, lb := range pool.Status.LoadbalancerStatuses {
-		if !util.GetValue(lb.AutoCreated) {
+		if lb.LoadbalancerID == "" {
 			continue
 		}
-		if err := clb.Delete(ctx, pool.GetRegion(), lb.LoadbalancerID); err != nil {
-			return result, errors.WithStack(err)
+
+		region := pool.GetRegion()
+		lbId := lb.LoadbalancerID
+		autoCreated := util.GetValue(lb.AutoCreated)
+
+		// 对于已有 CLB，清理其上由该端口池创建的监听器
+		if !autoCreated {
+			if err := r.cleanupExistedLBListeners(ctx, region, lbId, pool.Name); err != nil {
+				errs = append(errs, err)
+			}
+		}
+
+		// 删除自动创建的 CLB
+		if autoCreated {
+			if err := clb.Delete(ctx, region, lbId); err != nil {
+				errs = append(errs, errors.WithStack(err))
+			}
 		}
 	}
+
+	if len(errs) > 0 {
+		return result, multierr.Combine(errs...)
+	}
 	return
+}
+
+// 清理已有 CLB 上由该端口池创建的监听器
+func (r *CLBPortPoolReconciler) cleanupExistedLBListeners(ctx context.Context, region, lbId, poolName string) error {
+	// 获取 CLB 上所有监听器
+	listeners, err := clb.GetAllListeners(ctx, region, lbId)
+	if err != nil {
+		// 如果 CLB 不存在，忽略错误
+		if clb.IsLoadBalancerNotExistsError(errors.Cause(err)) {
+			return nil
+		}
+		return errors.WithStack(err)
+	}
+
+	// 遍历监听器，删除由 TKE 创建的监听器（名称为 TKE-LISTENER）
+	// 这些监听器由该端口池的 CLBPodBinding 创建
+	errs := []error{}
+	for _, listener := range listeners {
+		// 只删除 TKE 创建的监听器
+		if listener.ListenerName != clb.TkeListenerName {
+			continue
+		}
+
+		// 删除监听器
+		if err := clb.DeleteListener(ctx, region, lbId, listener.ListenerId); err != nil {
+			// 如果监听器不存在，忽略
+			errCause := errors.Cause(err)
+			if errCause == clb.ErrListenerNotFound {
+				continue
+			}
+			// 如果 CLB 不存在，忽略
+			if clb.IsLoadBalancerNotExistsError(errCause) {
+				continue
+			}
+			errs = append(errs, errors.WithStack(err))
+		}
+	}
+
+	if len(errs) > 0 {
+		return multierr.Combine(errs...)
+	}
+	return nil
 }
 
 func (r *CLBPortPoolReconciler) ensureState(ctx context.Context, pool *networkingv1alpha1.CLBPortPool, state networkingv1alpha1.CLBPortPoolState) error {
