@@ -105,42 +105,65 @@ func GetListenerByPort(ctx context.Context, region, lbId string, port int64, pro
 }
 
 // 预创建监听器场景下批量创建监听器
+//
+// 腾讯云 CLB CreateListener API 的 Ports 数组单次最多 50 个（报错
+// "Length of .Ports should be less than 50"），因此当预创建监听器数量
+// 超过 maxPortsPerCreateListenerRequest 时分批调用，合并所有批次的返回结果。
+// 返回的 lisIds 与传入 ports 一一对应（顺序一致），供调用方按端口回填缓存。
 func BatchCreateListener(ctx context.Context, region, lbId, protocol string, ports, endports []int64) (lisIds []string, err error) {
 	mu := getLbLock(lbId)
 	mu.Lock()
 	defer mu.Unlock()
-	res, err := ApiCall(context.Background(), true, "CreateListener", region, func(ctx context.Context, client *clb.Client) (req *clb.CreateListenerRequest, res *clb.CreateListenerResponse, err error) {
-		req = clb.NewCreateListenerRequest()
-		req.LoadBalancerId = &lbId
-		req.HealthCheck = &clb.HealthCheck{
-			HealthSwitch: common.Int64Ptr(0),
-			SourceIpType: common.Int64Ptr(1),
+	// 单次调用创建一批监听器（数量不超过 API 限制），返回本批创建的 ListenerIds
+	createOneBatch := func(batchPorts, batchEndPorts []int64) ([]string, error) {
+		res, err := ApiCall(context.Background(), true, "CreateListener", region, func(ctx context.Context, client *clb.Client) (req *clb.CreateListenerRequest, res *clb.CreateListenerResponse, err error) {
+			req = clb.NewCreateListenerRequest()
+			req.LoadBalancerId = &lbId
+			req.HealthCheck = &clb.HealthCheck{
+				HealthSwitch: common.Int64Ptr(0),
+				SourceIpType: common.Int64Ptr(1),
+			}
+			req.Protocol = &protocol
+			for _, port := range batchPorts {
+				req.Ports = append(req.Ports, common.Int64Ptr(port))
+				req.ListenerNames = append(req.ListenerNames, common.StringPtr(TkeListenerName))
+			}
+			for _, endPort := range batchEndPorts {
+				req.EndPort = common.Uint64Ptr(uint64(endPort))
+			}
+			res, err = client.CreateListener(req)
+			return
+		})
+		if err != nil {
+			return nil, errors.WithStack(err)
 		}
-		req.Protocol = &protocol
-		for _, port := range ports {
-			req.Ports = append(req.Ports, common.Int64Ptr(port))
-			req.ListenerNames = append(req.ListenerNames, common.StringPtr(TkeListenerName))
+		if len(res.Response.ListenerIds) != len(batchPorts) {
+			return nil, fmt.Errorf("expected %d listeners created, but found %d", len(batchPorts), len(res.Response.ListenerIds))
 		}
-		for _, endPort := range endports {
-			req.EndPort = common.Uint64Ptr(uint64(endPort))
+		if _, err = Wait(ctx, region, *res.Response.RequestId, "CreateListener", DefaultWaitInterval); err != nil {
+			return nil, errors.WithStack(err)
 		}
-		res, err = client.CreateListener(req)
-		return
-	})
-	if err != nil {
-		err = errors.WithStack(err)
-		return
+		ids := make([]string, 0, len(res.Response.ListenerIds))
+		for _, lis := range res.Response.ListenerIds {
+			ids = append(ids, *lis)
+		}
+		return ids, nil
 	}
-	if len(res.Response.ListenerIds) != len(ports) {
-		return nil, fmt.Errorf("expected %d listeners created, but found %d", len(ports), len(res.Response.ListenerIds))
-	}
-	_, err = Wait(ctx, region, *res.Response.RequestId, "CreateListener", DefaultWaitInterval)
-	if err != nil {
-		err = errors.WithStack(err)
-		return
-	}
-	for _, lis := range res.Response.ListenerIds {
-		lisIds = append(lisIds, *lis)
+	// 分批创建，每批不超过 maxPortsPerCreateListenerRequest 个端口
+	hasEndPorts := len(endports) > 0
+	for i := 0; i < len(ports); i += maxPortsPerCreateListenerRequest {
+		end := min(i+maxPortsPerCreateListenerRequest, len(ports))
+		batchPorts := ports[i:end]
+		var batchEndPorts []int64
+		if hasEndPorts {
+			batchEndPorts = endports[i:end]
+		}
+		ids, batchErr := createOneBatch(batchPorts, batchEndPorts)
+		if batchErr != nil {
+			err = errors.WithStack(batchErr)
+			return
+		}
+		lisIds = append(lisIds, ids...)
 	}
 	return lisIds, nil
 }
