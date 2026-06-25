@@ -131,6 +131,30 @@ build-installer: manifests generate kustomize ## Generate a consolidated YAML wi
 	cd config/manager && $(KUSTOMIZE) edit set image controller=${IMG}
 	$(KUSTOMIZE) build config/default > dist/install.yaml
 
+##@ Release
+
+# Release a new version. Requires VERSION env var in x.x.x format (e.g. VERSION=2.4.2).
+# Updates Chart.yaml (version & appVersion), tags the repo as v<VERSION>, builds and pushes the image.
+.PHONY: release
+release:
+	@if [ -z "$(VERSION)" ]; then \
+		echo "Error: VERSION env var is required (e.g. make release VERSION=2.4.2)"; \
+		exit 1; \
+	fi
+	@if ! echo "$(VERSION)" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$$'; then \
+		echo "Error: VERSION must be in x.x.x format (got: $(VERSION))"; \
+		exit 1; \
+	fi
+	@echo ">> Releasing v$(VERSION)"
+	@# Update Chart.yaml version & appVersion to match VERSION
+	sed -i.bak -E 's/^(version): .*/\1: $(VERSION)/; s/^(appVersion): .*/\1: $(VERSION)/' charts/tke-extend-network-controller/Chart.yaml && rm charts/tke-extend-network-controller/Chart.yaml.bak
+	@git add charts/tke-extend-network-controller/Chart.yaml
+	@git commit -m "release v$(VERSION)" || echo ">> nothing to commit for Chart.yaml (already at v$(VERSION))"
+	@git tag v$(VERSION)
+	@echo ">> tagged v$(VERSION), building and pushing image"
+	@$(MAKE) --no-print-directory docker-buildx IMG=$(IMG_REPO):v$(VERSION)
+	@echo ">> Released v$(VERSION). Remember to push: git push && git push origin v$(VERSION)"
+
 ##@ Deployment
 
 ifndef ignore-not-found
