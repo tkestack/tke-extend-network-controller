@@ -152,7 +152,7 @@ release:
 	@git commit -m "release v$(VERSION)" || echo ">> nothing to commit for Chart.yaml (already at v$(VERSION))"
 	@git tag v$(VERSION)
 	@echo ">> tagged v$(VERSION), building and pushing image"
-	@$(MAKE) --no-print-directory docker-buildx IMG=$(IMG_REPO):v$(VERSION)
+	@$(MAKE) --no-print-directory docker-buildx
 	@echo ">> Released v$(VERSION). Remember to push: git push && git push origin v$(VERSION)"
 
 ##@ Deployment
