@@ -326,6 +326,22 @@ func (r *CLBBindingReconciler[T]) ensureListener(ctx context.Context, bd clbbind
 	}
 
 	if binding.ListenerId == "" { // 还没创建过监听器，尝试创建
+		// 预创建模式下，绑定只能复用预创建的监听器，不能再动态创建。
+		// 若该协议未预创建监听器（如配了 tcp 但绑定时用了 udp），直接报明确错误，
+		// 避免走动态创建路径撞上 CLB 监听器配额上限，报难以定位的 LimitExceeded。
+		if pool.IsPrecreateListenerEnabled() && !pool.IsProtocolPrecreated(binding.Protocol) {
+			err := errors.Errorf(
+				"protocol %s is not precreated in port pool %s (listenerPrecreate config), "+
+					"precreate mode only allows reusing precreated listeners, "+
+					"check listenerPrecreate.tcp/udp config to cover the protocol",
+				binding.Protocol, binding.Pool,
+			)
+			log.Error(err, "protocol not precreated, skip creating listener")
+			r.Recorder.Eventf(bd.GetObject(), corev1.EventTypeWarning, "ProtocolNotPrecreated",
+				"protocol %s is not precreated in port pool %s, cannot create listener in precreate mode",
+				binding.Protocol, binding.Pool)
+			return binding, errors.WithStack(err)
+		}
 		log.V(1).Info("no listener id found, try to create listener")
 		binding, err := r.createListener(ctx, bd, binding, log)
 		if err != nil {
@@ -366,6 +382,19 @@ func (r *CLBBindingReconciler[T]) ensureListener(ctx context.Context, bd clbbind
 			}
 			return binding, nil
 		} else { // 如果不存在，直接尝试新建
+			if pool.IsPrecreateListenerEnabled() && !pool.IsProtocolPrecreated(binding.Protocol) {
+				err := errors.Errorf(
+					"protocol %s is not precreated in port pool %s (listenerPrecreate config), "+
+						"precreate mode only allows reusing precreated listeners, "+
+						"check listenerPrecreate.tcp/udp config to cover the protocol",
+					binding.Protocol, binding.Pool,
+				)
+				log.Error(err, "protocol not precreated, skip creating listener")
+				r.Recorder.Eventf(bd.GetObject(), corev1.EventTypeWarning, "ProtocolNotPrecreated",
+					"protocol %s is not precreated in port pool %s, cannot create listener in precreate mode",
+					binding.Protocol, binding.Pool)
+				return binding, errors.WithStack(err)
+			}
 			binding, err = r.createListener(ctx, bd, binding, log)
 			if err != nil {
 				return binding, errors.WithStack(err)
@@ -797,6 +826,24 @@ LOOP_PORT:
 			certId = &id
 		}
 		// 配置无误，执行分配
+		// 预创建模式下，绑定只能复用预创建的监听器。若该协议未预创建监听器，
+		// 直接报明确错误，不分配端口（避免分配后走动态创建撞 CLB 监听器配额上限）。
+		for _, poolName := range port.Pools {
+			pool := portpool.Allocator.GetPool(poolName)
+			if pool != nil && pool.IsPrecreateListenerEnabled() && !pool.IsProtocolPrecreated(port.Protocol) {
+				err := errors.Errorf(
+					"protocol %s is not precreated in port pool %s (listenerPrecreate config), "+
+						"precreate mode only allows reusing precreated listeners, "+
+						"check listenerPrecreate.tcp/udp config to cover the protocol",
+					port.Protocol, poolName,
+				)
+				releasePorts()
+				r.Recorder.Eventf(bd.GetObject(), corev1.EventTypeWarning, "ProtocolNotPrecreated",
+					"protocol %s is not precreated in port pool %s, cannot allocate port in precreate mode",
+					port.Protocol, poolName)
+				return errors.WithStack(err)
+			}
+		}
 		before := time.Now()
 		allocated, err := portpool.Allocator.Allocate(ctx, port.Pools, port.Protocol, util.GetValue(port.UseSamePortAcrossPools))
 		cost := time.Since(before)

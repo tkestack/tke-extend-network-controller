@@ -153,6 +153,25 @@ func (pp *PortPool) IsPrecreateListenerEnabled() bool {
 	return pp.maxPort != nil
 }
 
+// IsProtocolPrecreated 判断指定协议是否预创建了监听器。
+// 预创建模式下，绑定只能复用预创建的监听器，不能再动态创建。
+// TCPUDP 协议同时需要 TCP 和 UDP 监听器，两者都预创建了才算预创建。
+func (pp *PortPool) IsProtocolPrecreated(protocol string) bool {
+	if pp.maxPort == nil {
+		return true // 未启用预创建，不限制
+	}
+	switch protocol {
+	case constant.ProtocolTCP:
+		return pp.maxPort.Tcp > 0
+	case constant.ProtocolUDP:
+		return pp.maxPort.Udp > 0
+	case constant.ProtocolTCPUDP:
+		return pp.maxPort.Tcp > 0 && pp.maxPort.Udp > 0
+	default: // TCP_SSL / QUIC 等预创建不支持的协议
+		return false
+	}
+}
+
 func (pp *PortPool) getCache() iter.Seq2[LBKey, map[ProtocolPort]struct{}] {
 	return func(yield func(LBKey, map[ProtocolPort]struct{}) bool) {
 		switch pp.LbPolicy {
