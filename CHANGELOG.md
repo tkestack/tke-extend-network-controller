@@ -11,6 +11,7 @@
 - 增强：CLBPortPool 删除时兜底清理已有 CLB 上的监听器。异常场景（Pod force delete、控制器重启中断 cleanup、CLB API 暂时性失败等）下 CLBPodBinding 的 finalizer 可能未清理监听器，端口池删除时增加兜底逻辑，遍历已有 CLB 上名称为 `TKE-LISTENER` 的监听器并删除，避免监听器残留。
 - 修复：移除 finalizer 时忽略资源已删除的 NotFound 错误，避免资源已删除时报错。
 - 修复：将 CAM 的 API 域名加到 deployment 的 hostAliases 中，避免无公网环境启动 controller 失败。
+- 修复：支持 CVM 加成的原生节点（providerID 为 `tencentcloud://ins-` 前缀）。此前 `IsNativeNode` 用 `tencentcloud://kn-` 前缀强匹配判断原生节点，CVM 加成的原生节点被误判为非原生节点，导致其上的 Pod 无法完成 CLB 后端绑定，cpb 卡在 `NodeTypeNotSupported`。改为通过 Machine CR 的 `status.nodeRef.name` 确认原生节点身份。
 
 ## v2.4.1 (2025-12-09)
 

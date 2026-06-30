@@ -442,7 +442,7 @@ func (r *CLBBindingReconciler[T]) ensureBackendBindings(ctx context.Context, bd 
 	}
 
 	// rs 后端节点类型校验: 只支持原生节点和超级节点
-	if !util.IsNodeTypeSupported(node) {
+	if !util.IsNodeTypeSupported(ctx, r.Client, node) {
 		if status.State != networkingv1alpha1.CLBBindingStateNodeTypeNotSupported { // 节点类型不支持
 			msg := "current node type is not supported, please use super node or native node"
 			// 给自定义资源（CLBNodeBinding/CLBPodBinding) 和关联的 K8S 对象（Node/Pod）都发送 event 告知原因

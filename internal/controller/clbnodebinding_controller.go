@@ -47,6 +47,7 @@ type CLBNodeBindingReconciler struct {
 // +kubebuilder:rbac:groups=networking.cloud.tencent.com,resources=clbnodebindings/finalizers,verbs=update
 // +kubebuilder:rbac:groups=core,resources=secrets,verbs=get;list;watch
 // +kubebuilder:rbac:groups=core,resources=events,verbs=create;patch
+// +kubebuilder:rbac:groups=node.tke.cloud.tencent.com,resources=machines,verbs=get;list;watch
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
