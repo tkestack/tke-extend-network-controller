@@ -94,3 +94,12 @@ make undeploy           # 卸载控制器
 - CRD 定义中使用 `+kubebuilder:validation:XValidation` 实现字段不可变性校验
 - 修改 CRD 后需运行 `make manifests` 和 `make generate`
 - Helm Chart 位于 `charts/tke-extend-network-controller/`
+
+## 项目 Skills
+
+项目级 skill 源文件统一维护在 `.agents/skills/` 下（与全局 `~/.agents/skills/` 约定对称），各 AI 工具通过相对路径软链引用，实现多工具兼容：
+
+- `.claude/skills` → `../.agents/skills`（Claude Code）
+- `.codebuddy/skills` → `../.agents/skills`（CodeBuddy）
+
+新增 skill 直接在 `.agents/skills/<name>/SKILL.md` 创建。其他 AI 工具若需引用，将其 skills 目录软链到 `../.agents/skills` 即可。软链必须用相对路径，clone 仓库后即可生效。
