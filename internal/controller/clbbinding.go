@@ -726,14 +726,26 @@ func (r *CLBBindingReconciler[T]) ensurePortBound(ctx context.Context, bd clbbin
 	if len(targetToDelete) > 0 {
 		for _, target := range targetToDelete {
 			ip := target.TargetIP
-			backend, err := bd.GetAssociatedObjectByIP(ctx, r.Client, ip)
+			other, err := bd.GetAssociatedObjectByIP(ctx, r.Client, ip)
 			if err != nil {
 				return errors.WithStack(err)
 			}
-			if backend != nil {
-				msg := fmt.Sprintf("port conflict due to %s:%d/%s is already bound to %s", binding.LoadbalancerId, binding.LoadbalancerPort, binding.Protocol, backend.GetName())
-				r.Recorder.Event(bd.GetObject(), corev1.EventTypeWarning, "OtherTargetBound", msg)
-				return nil
+			if other != nil {
+				// IP 被另一个对象持有，判断是否通过其自己的 CLBBinding 合法占用了同一监听器
+				owned, err := bd.IsListenerOwnedByBackend(ctx, r.Client, other, binding.ListenerId)
+				if err != nil {
+					return errors.WithStack(err)
+				}
+				if owned {
+					// 真冲突：该 IP 被另一对象合法绑在同一监听器，保护，不动
+					msg := fmt.Sprintf("port conflict due to %s:%d/%s is already bound to %s", binding.LoadbalancerId, binding.LoadbalancerPort, binding.Protocol, other.GetName())
+					r.Recorder.Event(bd.GetObject(), corev1.EventTypeWarning, "OtherTargetBound", msg)
+					return nil
+				}
+				// 非合法占用（IP 被无关对象复用）：记一条事件，放行清理
+				r.Recorder.Eventf(bd.GetObject(), corev1.EventTypeNormal, "ReclaimStaleTarget",
+					"stale target %s is reused by %s but not bound to this listener, will deregister",
+					target.TargetIP, other.GetName())
 			}
 		}
 		r.Recorder.Eventf(bd.GetObject(), corev1.EventTypeNormal, "DeregisterTarget", "remove unexpected target: %v", targetToDelete)

@@ -7,6 +7,7 @@ import (
 	networkingv1alpha1 "github.com/tkestack/tke-extend-network-controller/api/v1alpha1"
 	"github.com/tkestack/tke-extend-network-controller/pkg/eventsource"
 	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/event"
 )
@@ -100,4 +101,22 @@ func (b *CLBNodeBinding) GetAssociatedObjectByIP(ctx context.Context, apiClient 
 		return nodeBackend{&nodeList.Items[0]}, nil
 	}
 	return nil, nil
+}
+
+func (b *CLBNodeBinding) IsListenerOwnedByBackend(ctx context.Context, c client.Client, other Backend, listenerId string) (bool, error) {
+	obj := other.GetObject()
+	cnb := &networkingv1alpha1.CLBNodeBinding{}
+	err := c.Get(ctx, client.ObjectKey{Name: obj.GetName()}, cnb)
+	if err != nil {
+		if apierrors.IsNotFound(err) {
+			return false, nil
+		}
+		return false, errors.WithStack(err)
+	}
+	for _, pb := range cnb.Status.PortBindings {
+		if pb.ListenerId == listenerId {
+			return true, nil
+		}
+	}
+	return false, nil
 }
