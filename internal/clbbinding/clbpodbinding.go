@@ -8,6 +8,7 @@ import (
 	networkingv1alpha1 "github.com/tkestack/tke-extend-network-controller/api/v1alpha1"
 	"github.com/tkestack/tke-extend-network-controller/pkg/eventsource"
 	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/event"
 )
@@ -112,4 +113,22 @@ func (b *CLBPodBinding) GetAssociatedObject(ctx context.Context, apiClient clien
 		return nil, errors.WithStack(err)
 	}
 	return podBackend{pod, apiClient}, nil
+}
+
+func (b *CLBPodBinding) IsListenerOwnedByBackend(ctx context.Context, c client.Client, other Backend, listenerId string) (bool, error) {
+	obj := other.GetObject()
+	cpb := &networkingv1alpha1.CLBPodBinding{}
+	err := c.Get(ctx, client.ObjectKey{Namespace: obj.GetNamespace(), Name: obj.GetName()}, cpb)
+	if err != nil {
+		if apierrors.IsNotFound(err) {
+			return false, nil // 该 Pod 没有 CLBPodBinding（如 fluent-bit）→ 非合法占用
+		}
+		return false, errors.WithStack(err)
+	}
+	for _, pb := range cpb.Status.PortBindings {
+		if pb.ListenerId == listenerId {
+			return true, nil // 该 Pod 确实经本组件占用了同一监听器 → 真冲突
+		}
+	}
+	return false, nil
 }
