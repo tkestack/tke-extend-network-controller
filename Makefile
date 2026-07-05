@@ -72,9 +72,32 @@ test: manifests generate fmt vet envtest ## Run tests.
 	KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) --bin-dir $(LOCALBIN) -p path)" go test $$(go list ./... | grep -v /e2e) -coverprofile cover.out
 
 # Utilize Kind or modify the e2e tests to load the image locally, enabling compatibility with other vendors.
+# 注意：test-e2e 是 kubebuilder 脚手架生成的原始 target（面向 Kind 集群），
+# 实际的端到端测试请使用下面的 `make e2e`（面向 KUBECONFIG 指向的真实 TKE 集群）。
 .PHONY: test-e2e  # Run the e2e tests against a Kind k8s instance that is spun up.
 test-e2e:
 	go test ./test/e2e/ -v -ginkgo.v
+
+# 在 KUBECONFIG 指向的真实 TKE 集群中运行 e2e 测试，覆盖 CLB 端口映射全流程。
+# 运行前需先部署 tke-extend-network-controller（make docker-build-push + helm install）。
+# 结果输出到 e2e-report.xml（JUnit 格式），终端也会打印每个用例的通过/失败状态。
+#
+# 必需环境变量：
+#   KUBECONFIG       - 指向已部署 controller 的 TKE 集群 kubeconfig
+#   E2E_SUBNET_ID    - 用于自动创建内网 CLB 的子网 ID
+#   E2E_VPC_ID       - 集群 VPC ID
+# 可选环境变量：
+#   E2E_LB_REGION    - CLB 所在地域（默认 ap-shanghai）
+#   E2E_EXISTED_LB_ID - 已有 CLB 实例 ID（用于测试已有 CLB 场景）
+#   E2E_SKIP_EXISTED_LB_TESTS=true - 跳过已有 CLB 相关测试
+#   E2E_SKIP_SEGMENT_TESTS=true  - 跳过端口段测试（需通过工单开通端口段特性）
+#   E2E_TEST_IMAGE   - 测试用容器镜像（默认 nginx:alpine）
+.PHONY: e2e ## Run e2e tests against the cluster pointed to by KUBECONFIG, output per-test results.
+e2e:
+	@test -n "$$KUBECONFIG" || { echo "Error: KUBECONFIG must be set"; exit 1; }
+	@test -n "$$E2E_SUBNET_ID" || { echo "Error: E2E_SUBNET_ID must be set (for auto-creating internal CLB)"; exit 1; }
+	@test -n "$$E2E_VPC_ID" || { echo "Error: E2E_VPC_ID must be set"; exit 1; }
+	go test ./test/e2e/ -v -ginkgo.v -ginkgo.junit-report=e2e-report.xml -timeout=30m
 
 .PHONY: lint
 lint: golangci-lint ## Run golangci-lint linter

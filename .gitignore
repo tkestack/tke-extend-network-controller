@@ -28,3 +28,4 @@ go.work
 
 # git worktrees
 .worktrees/
+e2e-report.xml
