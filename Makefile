@@ -90,7 +90,6 @@ test-e2e:
 #   E2E_LB_REGION    - CLB 所在地域（默认 ap-shanghai）
 #   E2E_EXISTED_LB_ID - 已有 CLB 实例 ID（用于测试已有 CLB 场景）
 #   E2E_SKIP_EXISTED_LB_TESTS=true - 跳过已有 CLB 相关测试
-#   E2E_SKIP_SEGMENT_TESTS=true  - 跳过端口段测试（需通过工单开通端口段特性）
 #   E2E_TEST_IMAGE   - 测试用容器镜像（默认 nginx:alpine）
 .PHONY: e2e ## Run e2e tests against the cluster pointed to by KUBECONFIG, output per-test results.
 e2e:

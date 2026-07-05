@@ -692,9 +692,6 @@ var _ = Describe("tke-extend-network-controller e2e", func() {
 	// 13. segmentLength（端口段）映射
 	Describe("端口段映射", func() {
 		It("应支持 segmentLength 端口段映射", func() {
-			if os.Getenv("E2E_SKIP_SEGMENT_TESTS") == "true" {
-				Skip("端口段特性需通过工单申请开通，跳过测试")
-			}
 			if subnetID == "" {
 				Skip("E2E_SUBNET_ID 未设置")
 			}
@@ -710,8 +707,40 @@ var _ = Describe("tke-extend-network-controller e2e", func() {
 			createDep(ctx, depName, mappingAnnotations(80, "TCP", poolName), 1, 80)
 			defer deleteDep(ctx, depName)
 
-			mappings := waitMappingReady(ctx, depName)
-			Expect(mappings).NotTo(BeEmpty())
+			// 端口段特性需要账号开通，如果未开通会返回 "uin not allow to create port range listener"
+			// 检测到该错误时跳过测试
+			var mappings []PortMappingResult
+			Eventually(func() interface{} {
+				pods := &corev1.PodList{}
+				_ = k8sClient.List(ctx, pods, client.InNamespace(testNamespace), client.MatchingLabels{"app": depName})
+				if len(pods.Items) == 0 {
+					return "waiting"
+				}
+				pod := pods.Items[0]
+				status := pod.Annotations[constant.CLBPortMappingStatuslKey]
+				if status == "Ready" {
+					result := pod.Annotations[constant.CLBPortMappingResultKey]
+					if result != "" {
+						_ = json.Unmarshal([]byte(result), &mappings)
+						return "ready"
+					}
+				}
+				// 检查 CLBPodBinding 的状态和消息
+				binding := &networkingv1alpha1.CLBPodBinding{}
+				if err := k8sClient.Get(ctx, types.NamespacedName{Name: pod.Name, Namespace: testNamespace}, binding); err == nil {
+					if strings.Contains(binding.Status.Message, "not allow to create port range listener") {
+						return "unsupported"
+					}
+				}
+				return "waiting"
+			}, 2*time.Minute, pollInterval).Should(SatisfyAny(
+				Equal("ready"),
+				Equal("unsupported"),
+			), "应该要么映射成功，要么账号不支持端口段")
+
+			if len(mappings) == 0 {
+				Skip("账号未开通端口段特性（uin not allow to create port range listener），跳过测试")
+			}
 			Expect(mappings[0].LoadbalancerEndPort).NotTo(BeNil(),
 				"端口段映射应该有 LoadbalancerEndPort")
 			endPort := *mappings[0].LoadbalancerEndPort
@@ -745,6 +774,15 @@ var _ = Describe("tke-extend-network-controller e2e", func() {
 			Expect(k8sClient.Get(ctx, types.NamespacedName{Name: poolName}, pool)).To(Succeed())
 			pool.Spec.LbBlacklist = []string{lbID}
 			Expect(k8sClient.Update(ctx, pool)).To(Succeed())
+
+			// 等待端口池 reconcile 完成，确保黑名单生效
+			Eventually(func() bool {
+				updated := &networkingv1alpha1.CLBPortPool{}
+				if err := k8sClient.Get(ctx, types.NamespacedName{Name: poolName}, updated); err != nil {
+					return false
+				}
+				return updated.Status.State == networkingv1alpha1.CLBPortPoolStateActive
+			}, maxWait, pollInterval).Should(BeTrue(), "黑名单更新后端口池应恢复 Active")
 
 			// 创建新 Pod，应该分配到不同的 CLB（自动创建新的）
 			depName2 := appPrefix + "blacklist-2"
