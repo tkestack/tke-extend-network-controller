@@ -84,8 +84,7 @@ test-e2e:
 #
 # 必需环境变量：
 #   KUBECONFIG       - 指向已部署 controller 的 TKE 集群 kubeconfig
-#   E2E_SUBNET_ID    - 用于自动创建内网 CLB 的子网 ID
-#   E2E_VPC_ID       - 集群 VPC ID
+#   E2E_VPC_ID       - 集群 VPC ID（用于自动创建公网 CLB）
 # 可选环境变量：
 #   E2E_LB_REGION    - CLB 所在地域（默认 ap-shanghai）
 #   E2E_EXISTED_LB_ID - 已有 CLB 实例 ID（用于测试已有 CLB 场景）
@@ -94,7 +93,6 @@ test-e2e:
 .PHONY: e2e ## Run e2e tests against the cluster pointed to by KUBECONFIG, output per-test results.
 e2e:
 	@test -n "$$KUBECONFIG" || { echo "Error: KUBECONFIG must be set"; exit 1; }
-	@test -n "$$E2E_SUBNET_ID" || { echo "Error: E2E_SUBNET_ID must be set (for auto-creating internal CLB)"; exit 1; }
 	@test -n "$$E2E_VPC_ID" || { echo "Error: E2E_VPC_ID must be set"; exit 1; }
 	go test ./test/e2e/ -v -ginkgo.v -ginkgo.junit-report=e2e-report.xml -timeout=30m
 

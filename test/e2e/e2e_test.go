@@ -54,7 +54,6 @@ const (
 var (
 	existedLBID        = os.Getenv("E2E_EXISTED_LB_ID")
 	lbRegion           = os.Getenv("E2E_LB_REGION")
-	subnetID           = os.Getenv("E2E_SUBNET_ID")
 	vpcID              = os.Getenv("E2E_VPC_ID")
 	skipExistedLBTests = os.Getenv("E2E_SKIP_EXISTED_LB_TESTS") == "true"
 	testImage          = os.Getenv("E2E_TEST_IMAGE")
@@ -128,16 +127,14 @@ func getImage() string {
 	return testImage
 }
 
-func internalLBSpec(startPort uint16) networkingv1alpha1.CLBPortPoolSpec {
+func autoCreateLBSpec(startPort uint16) networkingv1alpha1.CLBPortPoolSpec {
 	return networkingv1alpha1.CLBPortPoolSpec{
 		StartPort: startPort,
 		Region:    ptr(getDefaultRegion()),
 		AutoCreate: &networkingv1alpha1.AutoCreateConfig{
 			Enabled: true,
 			Parameters: &networkingv1alpha1.CreateLBParameters{
-				LoadBalancerType: ptr("INTERNAL"),
-				SubnetId:         ptr(subnetID),
-				VpcId:            ptr(vpcID),
+				VpcId: ptr(vpcID),
 			},
 		},
 	}
@@ -336,11 +333,11 @@ var _ = Describe("tke-extend-network-controller e2e", func() {
 	// 1. CLBPortPool 基本功能
 	Describe("CLBPortPool 基本功能", func() {
 		It("应能创建带自动创建 CLB 的端口池，分配端口时自动创建 CLB", func() {
-			if subnetID == "" {
+			if vpcID == "" {
 				Skip("E2E_SUBNET_ID 未设置")
 			}
 			poolName := poolPrefix + "auto-create"
-			createPool(ctx, poolName, internalLBSpec(30000))
+			createPool(ctx, poolName, autoCreateLBSpec(30000))
 			defer deletePool(ctx, poolName)
 
 			pool := waitPoolActive(ctx, poolName)
@@ -383,11 +380,11 @@ var _ = Describe("tke-extend-network-controller e2e", func() {
 	// 2. TCP 端口映射
 	Describe("Pod TCP 端口映射", func() {
 		It("应为 TCP Pod 分配 CLB 端口映射并写入注解", func() {
-			if subnetID == "" {
+			if vpcID == "" {
 				Skip("E2E_SUBNET_ID 未设置")
 			}
 			poolName := poolPrefix + "tcp"
-			createPool(ctx, poolName, internalLBSpec(30100))
+			createPool(ctx, poolName, autoCreateLBSpec(30100))
 			defer deletePool(ctx, poolName)
 			waitPoolActive(ctx, poolName)
 
@@ -409,11 +406,11 @@ var _ = Describe("tke-extend-network-controller e2e", func() {
 	// 3. UDP 端口映射
 	Describe("Pod UDP 端口映射", func() {
 		It("应为 UDP Pod 分配 CLB 端口映射", func() {
-			if subnetID == "" {
+			if vpcID == "" {
 				Skip("E2E_SUBNET_ID 未设置")
 			}
 			poolName := poolPrefix + "udp"
-			createPool(ctx, poolName, internalLBSpec(30200))
+			createPool(ctx, poolName, autoCreateLBSpec(30200))
 			defer deletePool(ctx, poolName)
 			waitPoolActive(ctx, poolName)
 
@@ -431,11 +428,11 @@ var _ = Describe("tke-extend-network-controller e2e", func() {
 	// 4. TCPUDP 协议
 	Describe("Pod TCPUDP 端口映射", func() {
 		It("应为 TCPUDP Pod 同时分配 TCP 和 UDP 映射，且端口号相同", func() {
-			if subnetID == "" {
+			if vpcID == "" {
 				Skip("E2E_SUBNET_ID 未设置")
 			}
 			poolName := poolPrefix + "tcpudp"
-			createPool(ctx, poolName, internalLBSpec(30300))
+			createPool(ctx, poolName, autoCreateLBSpec(30300))
 			defer deletePool(ctx, poolName)
 			waitPoolActive(ctx, poolName)
 
@@ -457,14 +454,14 @@ var _ = Describe("tke-extend-network-controller e2e", func() {
 	// 5. 多端口池映射
 	Describe("多端口池映射", func() {
 		It("应从多个端口池分别为 Pod 分配映射", func() {
-			if subnetID == "" {
+			if vpcID == "" {
 				Skip("E2E_SUBNET_ID 未设置")
 			}
 			pool1 := poolPrefix + "multi-1"
 			pool2 := poolPrefix + "multi-2"
-			createPool(ctx, pool1, internalLBSpec(30400))
+			createPool(ctx, pool1, autoCreateLBSpec(30400))
 			defer deletePool(ctx, pool1)
-			createPool(ctx, pool2, internalLBSpec(30500))
+			createPool(ctx, pool2, autoCreateLBSpec(30500))
 			defer deletePool(ctx, pool2)
 			waitPoolActive(ctx, pool1)
 			waitPoolActive(ctx, pool2)
@@ -484,14 +481,14 @@ var _ = Describe("tke-extend-network-controller e2e", func() {
 	// 6. useSamePortAcrossPools
 	Describe("useSamePortAcrossPools", func() {
 		It("跨端口池应分配相同的 CLB 端口号", func() {
-			if subnetID == "" {
+			if vpcID == "" {
 				Skip("E2E_SUBNET_ID 未设置")
 			}
 			pool1 := poolPrefix + "same-port-1"
 			pool2 := poolPrefix + "same-port-2"
-			createPool(ctx, pool1, internalLBSpec(30600))
+			createPool(ctx, pool1, autoCreateLBSpec(30600))
 			defer deletePool(ctx, pool1)
-			createPool(ctx, pool2, internalLBSpec(30700))
+			createPool(ctx, pool2, autoCreateLBSpec(30700))
 			defer deletePool(ctx, pool2)
 			waitPoolActive(ctx, pool1)
 			waitPoolActive(ctx, pool2)
@@ -510,11 +507,11 @@ var _ = Describe("tke-extend-network-controller e2e", func() {
 	// 7. 注解移除清理
 	Describe("注解移除清理", func() {
 		It("移除 enable 注解后 CLBPodBinding 应被删除", func() {
-			if subnetID == "" {
+			if vpcID == "" {
 				Skip("E2E_SUBNET_ID 未设置")
 			}
 			poolName := poolPrefix + "cleanup"
-			createPool(ctx, poolName, internalLBSpec(30800))
+			createPool(ctx, poolName, autoCreateLBSpec(30800))
 			defer deletePool(ctx, poolName)
 			waitPoolActive(ctx, poolName)
 
@@ -559,11 +556,11 @@ var _ = Describe("tke-extend-network-controller e2e", func() {
 	// 8. 禁用映射
 	Describe("禁用映射", func() {
 		It("设置 enable=false 后 CLBPodBinding 应处于 Disabled 状态", func() {
-			if subnetID == "" {
+			if vpcID == "" {
 				Skip("E2E_SUBNET_ID 未设置")
 			}
 			poolName := poolPrefix + "disable"
-			createPool(ctx, poolName, internalLBSpec(30900))
+			createPool(ctx, poolName, autoCreateLBSpec(30900))
 			defer deletePool(ctx, poolName)
 			waitPoolActive(ctx, poolName)
 
@@ -591,11 +588,11 @@ var _ = Describe("tke-extend-network-controller e2e", func() {
 	// 9. 多端口映射
 	Describe("多端口映射", func() {
 		It("应为 Pod 的多个端口分别分配映射", func() {
-			if subnetID == "" {
+			if vpcID == "" {
 				Skip("E2E_SUBNET_ID 未设置")
 			}
 			poolName := poolPrefix + "multi-port"
-			createPool(ctx, poolName, internalLBSpec(31000))
+			createPool(ctx, poolName, autoCreateLBSpec(31000))
 			defer deletePool(ctx, poolName)
 			waitPoolActive(ctx, poolName)
 
@@ -617,12 +614,12 @@ var _ = Describe("tke-extend-network-controller e2e", func() {
 	// 10. LB 分配策略
 	Describe("LB 分配策略", func() {
 		It("应支持 Uniform 分配策略", func() {
-			if subnetID == "" {
+			if vpcID == "" {
 				Skip("E2E_SUBNET_ID 未设置")
 			}
 			poolName := poolPrefix + "policy-uniform"
 			policy := "Uniform"
-			spec := internalLBSpec(31100)
+			spec := autoCreateLBSpec(31100)
 			spec.LbPolicy = &policy
 			createPool(ctx, poolName, spec)
 			defer deletePool(ctx, poolName)
@@ -660,11 +657,11 @@ var _ = Describe("tke-extend-network-controller e2e", func() {
 	// 12. 端口池自动扩容
 	Describe("端口池自动扩容", func() {
 		It("端口不足时应自动创建新 CLB", func() {
-			if subnetID == "" {
+			if vpcID == "" {
 				Skip("E2E_SUBNET_ID 未设置")
 			}
 			poolName := poolPrefix + "scaleup"
-			spec := internalLBSpec(31200)
+			spec := autoCreateLBSpec(31200)
 			// 限制端口范围，5 个 Pod x TCPUDP(2 listener) = 10 个监听器
 			// endPort=31209 意味着只有 10 个端口，1 个 CLB 配额 50 监听器足够
 			// 但 endPort 限制了可用端口范围，第一个 CLB 端口耗尽后会触发扩容
@@ -692,11 +689,11 @@ var _ = Describe("tke-extend-network-controller e2e", func() {
 	// 13. segmentLength（端口段）映射
 	Describe("端口段映射", func() {
 		It("应支持 segmentLength 端口段映射", func() {
-			if subnetID == "" {
-				Skip("E2E_SUBNET_ID 未设置")
+			if vpcID == "" {
+				Skip("E2E_VPC_ID 未设置")
 			}
 			poolName := poolPrefix + "segment"
-			spec := internalLBSpec(31300)
+			spec := autoCreateLBSpec(31300)
 			segLen := uint16(10)
 			spec.SegmentLength = &segLen
 			createPool(ctx, poolName, spec)
@@ -707,40 +704,8 @@ var _ = Describe("tke-extend-network-controller e2e", func() {
 			createDep(ctx, depName, mappingAnnotations(80, "TCP", poolName), 1, 80)
 			defer deleteDep(ctx, depName)
 
-			// 端口段特性需要账号开通，如果未开通会返回 "uin not allow to create port range listener"
-			// 检测到该错误时跳过测试
-			var mappings []PortMappingResult
-			Eventually(func() interface{} {
-				pods := &corev1.PodList{}
-				_ = k8sClient.List(ctx, pods, client.InNamespace(testNamespace), client.MatchingLabels{"app": depName})
-				if len(pods.Items) == 0 {
-					return "waiting"
-				}
-				pod := pods.Items[0]
-				status := pod.Annotations[constant.CLBPortMappingStatuslKey]
-				if status == "Ready" {
-					result := pod.Annotations[constant.CLBPortMappingResultKey]
-					if result != "" {
-						_ = json.Unmarshal([]byte(result), &mappings)
-						return "ready"
-					}
-				}
-				// 检查 CLBPodBinding 的状态和消息
-				binding := &networkingv1alpha1.CLBPodBinding{}
-				if err := k8sClient.Get(ctx, types.NamespacedName{Name: pod.Name, Namespace: testNamespace}, binding); err == nil {
-					if strings.Contains(binding.Status.Message, "not allow to create port range listener") {
-						return "unsupported"
-					}
-				}
-				return "waiting"
-			}, 2*time.Minute, pollInterval).Should(SatisfyAny(
-				Equal("ready"),
-				Equal("unsupported"),
-			), "应该要么映射成功，要么账号不支持端口段")
-
-			if len(mappings) == 0 {
-				Skip("账号未开通端口段特性（uin not allow to create port range listener），跳过测试")
-			}
+			mappings := waitMappingReady(ctx, depName)
+			Expect(mappings).NotTo(BeEmpty())
 			Expect(mappings[0].LoadbalancerEndPort).NotTo(BeNil(),
 				"端口段映射应该有 LoadbalancerEndPort")
 			endPort := *mappings[0].LoadbalancerEndPort
@@ -752,11 +717,11 @@ var _ = Describe("tke-extend-network-controller e2e", func() {
 	// 14. LB 黑名单
 	Describe("LB 黑名单", func() {
 		It("应支持 LB 黑名单功能", func() {
-			if subnetID == "" {
+			if vpcID == "" {
 				Skip("E2E_SUBNET_ID 未设置")
 			}
 			poolName := poolPrefix + "blacklist"
-			spec := internalLBSpec(31400)
+			spec := autoCreateLBSpec(31400)
 			// 先不设黑名单，创建一个 Pod 让控制器自动创建 CLB
 			createPool(ctx, poolName, spec)
 			defer deletePool(ctx, poolName)
@@ -798,12 +763,12 @@ var _ = Describe("tke-extend-network-controller e2e", func() {
 	// 15. InOrder 分配策略
 	Describe("InOrder 分配策略", func() {
 		It("应支持 InOrder 分配策略", func() {
-			if subnetID == "" {
+			if vpcID == "" {
 				Skip("E2E_SUBNET_ID 未设置")
 			}
 			poolName := poolPrefix + "policy-inorder"
 			policy := "InOrder"
-			spec := internalLBSpec(31500)
+			spec := autoCreateLBSpec(31500)
 			spec.LbPolicy = &policy
 			createPool(ctx, poolName, spec)
 			defer deletePool(ctx, poolName)
@@ -821,12 +786,12 @@ var _ = Describe("tke-extend-network-controller e2e", func() {
 	// 16. Random 分配策略
 	Describe("Random 分配策略", func() {
 		It("应支持 Random 分配策略", func() {
-			if subnetID == "" {
+			if vpcID == "" {
 				Skip("E2E_SUBNET_ID 未设置")
 			}
 			poolName := poolPrefix + "policy-random"
 			policy := "Random"
-			spec := internalLBSpec(31600)
+			spec := autoCreateLBSpec(31600)
 			spec.LbPolicy = &policy
 			createPool(ctx, poolName, spec)
 			defer deletePool(ctx, poolName)
