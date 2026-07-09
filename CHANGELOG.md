@@ -1,5 +1,10 @@
 # 版本说明
 
+## v2.4.3 (2026-07-09)
+
+- 修复：IP 复用导致 OtherTargetBound 死锁。VPC-CNI 非固定 IP 场景下，Pod 创建后 IP 变更，旧 IP 被其它 Pod 复用时，controller 想把 CLB 后端从旧 IP 更新为新 IP，但发现旧 IP 已属于另一个 Pod，OtherTargetBound 保护逻辑直接放弃纠正，导致端口永久指向错误 Pod，流量不可达。修复方式：收敛冲突判定，只有当持有旧 IP 的对象通过自己的 CLBBinding 合法占用了同一监听器时才保护（真冲突），否则视为历史残留，允许安全清理并替换为当前 Pod 真实 IP。CLBPodBinding 和 CLBNodeBinding 均适用。
+- 新增：端到端测试框架（`make e2e`），基于 Ginkgo 在真实 TKE 集群中验证 CLB 端口映射全流程，覆盖 15 个测试用例，包括多协议映射、端口段映射、LB 分配策略、黑名单、自动扩容等场景。
+
 ## v2.4.2 (2026-06-30)
 
 - 修复：预创建监听器模式下，绑定使用了未预创建的协议（如配置 `tcp` 但绑定用 `udp`）时报明确错误而非走动态创建路径。此前预创建监听器会占满 CLB 监听器配额，未预创建协议的绑定会动态创建监听器撞上配额上限，报难以定位的 `LimitExceeded`；现改为直接报 `protocol X is not precreated` 并提示检查 `listenerPrecreate` 配置，且在分配端口阶段即拦截，不占用端口。
