@@ -460,7 +460,8 @@ func (r *CLBBindingReconciler[T]) ensureBackendBindings(ctx context.Context, bd 
 	}
 
 	// 如果 rs 还没有分配到 IP，更新状态和 event
-	if backend.GetIP() == "" { // 等待 backend (Node/Pod) 分配 IP
+	// 双栈集群中 Pod/Node 可能只有 IPv4 或只有 IPv6，需要根据 CLB IP 版本判断
+	if !backendHasIP(backend, status.PortBindings) {
 		r.Recorder.Event(bd.GetObject(), corev1.EventTypeNormal, "WaitBackend", "wait backend network to be ready")
 		if err = r.ensureState(ctx, bd, networkingv1alpha1.CLBBindingStateWaitBackend); err != nil {
 			return errors.WithStack(err)
@@ -709,8 +710,18 @@ func (r *CLBBindingReconciler[T]) ensurePortBound(ctx context.Context, bd clbbin
 	if err != nil {
 		return errors.WithStack(err)
 	}
+	// 根据 CLB 的 IP 版本选择后端 IP 地址
+	backendIP := backend.GetIP() // 默认使用 IPv4
+	// 如果 binding 的 AddressIPVersion 为空（兼容旧数据），查询 CLB 的 IP 版本
+	addressIPVersion := binding.AddressIPVersion
+	if addressIPVersion == nil {
+		addressIPVersion = clb.GetLBAddressIPVersion(ctx, binding.LoadbalancerId, binding.Region)
+	}
+	if util.IsIPv6LB(addressIPVersion) && backend.GetIPv6() != "" {
+		backendIP = backend.GetIPv6()
+	}
 	backendTarget := clb.Target{
-		TargetIP:   backend.GetIP(),
+		TargetIP:   backendIP,
 		TargetPort: int64(binding.Port),
 	}
 	targetToDelete := []*clb.Target{}
@@ -767,6 +778,48 @@ var (
 	ErrCertIdNotFound = errors.New("no cert id found from secret")
 	ErrPoolNotReady   = errors.New("pool not ready")
 )
+
+// getLBAddressIPVersion 从端口池 status 中获取指定 CLB 的 IP 版本
+func (r *CLBBindingReconciler[T]) getLBAddressIPVersion(ctx context.Context, poolName, lbId string) *string {
+	pool := &networkingv1alpha1.CLBPortPool{}
+	if err := r.Client.Get(ctx, client.ObjectKey{Name: poolName}, pool); err != nil {
+		return nil
+	}
+	for _, lbStatus := range pool.Status.LoadbalancerStatuses {
+		if lbStatus.LoadbalancerID == lbId {
+			return lbStatus.AddressIPVersion
+		}
+	}
+	return nil
+}
+
+// backendHasIP 检查后端是否有所需版本的 IP 地址
+// 如果没有 AddressIPVersion 信息（旧 binding），检查 IPv4 地址
+// 如果 CLB 是 IPv6 类型，检查 IPv6 地址
+func backendHasIP(backend clbbinding.Backend, bindings []networkingv1alpha1.PortBindingStatus) bool {
+	// 如果没有 binding，默认检查 IPv4
+	if len(bindings) == 0 {
+		return backend.GetIP() != ""
+	}
+	for _, binding := range bindings {
+		addressIPVersion := binding.AddressIPVersion
+		if addressIPVersion == nil {
+			// AddressIPVersion 为空，检查 IPv4 和 IPv6 是否都可用
+			if backend.GetIP() == "" && backend.GetIPv6() == "" {
+				return false
+			}
+		} else if util.IsIPv6LB(addressIPVersion) {
+			if backend.GetIPv6() == "" {
+				return false
+			}
+		} else {
+			if backend.GetIP() == "" {
+				return false
+			}
+		}
+	}
+	return true
+}
 
 func (r *CLBBindingReconciler[T]) ensurePortAllocated(ctx context.Context, bd clbbinding.CLBBinding) error {
 	status := bd.GetStatus()
@@ -876,6 +929,7 @@ LOOP_PORT:
 					LoadbalancerId:   allocatedPort.LbId,
 					LoadbalancerPort: allocatedPort.Port,
 					Region:           allocatedPort.Region,
+					AddressIPVersion: r.getLBAddressIPVersion(ctx, allocatedPort.Name, allocatedPort.LbId),
 				}
 				if allocatedPort.EndPort > 0 {
 					binding.LoadbalancerEndPort = &allocatedPort.EndPort

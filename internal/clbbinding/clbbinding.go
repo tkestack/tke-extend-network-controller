@@ -25,6 +25,7 @@ type CLBBinding interface {
 type Backend interface {
 	client.Object
 	GetIP() string
+	GetIPv6() string
 	GetObject() client.Object
 	GetNode(ctx context.Context) (*corev1.Node, error)
 	TriggerReconcile()

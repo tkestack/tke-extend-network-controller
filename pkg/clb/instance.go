@@ -176,6 +176,7 @@ type CLBInfo struct {
 	Ips              []string
 	Hostname         *string
 	Tags             map[string]string
+	AddressIPVersion *string
 }
 
 func getTagsMap(tags []*clb.TagInfo) map[string]string {
@@ -211,14 +212,19 @@ func BatchGetClbInfo(ctx context.Context, lbIds []string, region string) (info m
 		}
 		for _, ins := range res.Response.LoadBalancerSet {
 			lbInfo := &CLBInfo{
-				LoadbalancerID:   *ins.LoadBalancerId,
-				LoadbalancerName: *ins.LoadBalancerName,
-				Tags:             getTagsMap(ins.Tags),
+				LoadbalancerID:    *ins.LoadBalancerId,
+				LoadbalancerName:  *ins.LoadBalancerName,
+				Tags:              getTagsMap(ins.Tags),
+				AddressIPVersion:  ins.AddressIPVersion,
 			}
 			if util.GetValue(ins.Domain) != "" {
 				lbInfo.Hostname = ins.Domain
 			} else {
 				lbInfo.Ips = util.ConvertPtrSlice(ins.LoadBalancerVips)
+				// IPv6 CLB 的 VIP 不在 LoadBalancerVips 中，而在 AddressIPv6 字段
+				if len(lbInfo.Ips) == 0 && util.IsIPv6LB(ins.AddressIPVersion) && ins.AddressIPv6 != nil {
+					lbInfo.Ips = []string{*ins.AddressIPv6}
+				}
 			}
 			info[*ins.LoadBalancerId] = lbInfo
 			insIds = append(insIds, ins.LoadBalancerId)
@@ -258,4 +264,13 @@ func BatchGetClbInfo(ctx context.Context, lbIds []string, region string) (info m
 		}
 	}
 	return
+}
+
+// GetLBAddressIPVersion 获取 CLB 的 IP 版本（带缓存）
+func GetLBAddressIPVersion(ctx context.Context, lbId, region string) *string {
+	lb, err := GetClb(ctx, lbId, region)
+	if err != nil {
+		return nil
+	}
+	return lb.AddressIPVersion
 }

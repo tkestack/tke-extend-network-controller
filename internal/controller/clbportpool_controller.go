@@ -211,6 +211,7 @@ func (r *CLBPortPoolReconciler) ensureExistedLB(pool *networkingv1alpha1.CLBPort
 			LoadbalancerName: lbInfo.LoadbalancerName,
 			Ips:              lbInfo.Ips,
 			Hostname:         lbInfo.Hostname,
+			AddressIPVersion: lbInfo.AddressIPVersion,
 		}
 		lbToAdd = append(lbToAdd, lbStatus)
 	}
@@ -287,6 +288,7 @@ func (r *CLBPortPoolReconciler) ensureLbStatus(ctx context.Context, pool *networ
 			lbStatus.Ips = info.Ips
 			lbStatus.Hostname = info.Hostname
 			lbStatus.LoadbalancerName = info.LoadbalancerName
+			lbStatus.AddressIPVersion = info.AddressIPVersion
 			lbStatus.Allocated = portpool.Allocator.AllocatedPorts(pool.Name, lbKey)
 			if util.GetValue(lbStatus.AutoCreated) { // 自动创建的 lb，确保标签正确，计算数量（用于自动创建最大clb数量限制的校验）
 				autoCreatedLbNum++

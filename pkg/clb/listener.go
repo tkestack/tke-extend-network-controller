@@ -4,13 +4,34 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"sync"
 	"time"
 
 	"github.com/pkg/errors"
 	clb "github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/clb/v20180317"
 	"github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common"
+	"github.com/tkestack/tke-extend-network-controller/pkg/util"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
+
+// clbIPv6Cache 缓存 CLB 的 IPv6 状态，避免频繁查询 CLB API
+var clbIPv6Cache sync.Map // map[string]bool, key: lbId
+
+// isIPv6CLB 检查 CLB 是否为 IPv6 类型（带缓存）
+func isIPv6CLB(ctx context.Context, lbId, region string) bool {
+	if v, ok := clbIPv6Cache.Load(lbId); ok {
+		return v.(bool)
+	}
+	lb, err := GetClb(ctx, lbId, region)
+	if err != nil {
+		log.FromContext(ctx).Error(err, "isIPv6CLB: failed to get CLB info", "lbId", lbId, "region", region)
+		return false
+	}
+	ipv6 := util.IsIPv6LB(lb.AddressIPVersion)
+	log.FromContext(ctx).V(1).Info("isIPv6CLB: detected CLB IP version", "lbId", lbId, "addressIPVersion", util.GetValue(lb.AddressIPVersion), "isIPv6", ipv6)
+	clbIPv6Cache.Store(lbId, ipv6)
+	return ipv6
+}
 
 type Listener struct {
 	Port         int64
@@ -119,9 +140,14 @@ func BatchCreateListener(ctx context.Context, region, lbId, protocol string, por
 		res, err := ApiCall(context.Background(), true, "CreateListener", region, func(ctx context.Context, client *clb.Client) (req *clb.CreateListenerRequest, res *clb.CreateListenerResponse, err error) {
 			req = clb.NewCreateListenerRequest()
 			req.LoadBalancerId = &lbId
+			// IPv6 CLB 的健康检查源 IP 只能使用 VIP (SourceIpType=0)
+			sourceIpType := int64(1)
+			if isIPv6CLB(ctx, lbId, region) {
+				sourceIpType = 0
+			}
 			req.HealthCheck = &clb.HealthCheck{
 				HealthSwitch: common.Int64Ptr(0),
-				SourceIpType: common.Int64Ptr(1),
+				SourceIpType: &sourceIpType,
 			}
 			req.Protocol = &protocol
 			for _, port := range batchPorts {
@@ -201,9 +227,14 @@ func CreateListenerTryBatch(ctx context.Context, region, lbId string, port, endP
 
 func CreateListener(ctx context.Context, region, lbId string, port, endPort int64, protocol, certId, extensiveParameters, listenerName string) (id string, err error) {
 	req := clb.NewCreateListenerRequest()
+	// IPv6 CLB 的健康检查源 IP 只能使用 VIP (SourceIpType=0)
+	sourceIpType := int64(1)
+	if isIPv6CLB(ctx, lbId, region) {
+		sourceIpType = 0
+	}
 	req.HealthCheck = &clb.HealthCheck{
 		HealthSwitch: common.Int64Ptr(0),
-		SourceIpType: common.Int64Ptr(1),
+		SourceIpType: &sourceIpType,
 	}
 	if certId != "" {
 		req.Certificate = &clb.CertificateInput{

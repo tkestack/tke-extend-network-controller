@@ -2,6 +2,7 @@ package clbbinding
 
 import (
 	"context"
+	"strings"
 
 	"github.com/pkg/errors"
 	networkingv1alpha1 "github.com/tkestack/tke-extend-network-controller/api/v1alpha1"
@@ -62,6 +63,16 @@ type nodeBackend struct {
 func (b nodeBackend) GetIP() string {
 	for _, address := range b.Status.Addresses {
 		if address.Type == corev1.NodeInternalIP {
+			return address.Address
+		}
+	}
+	return ""
+}
+
+// GetIPv6 返回 Node 的 IPv6 内网地址，如果 Node 没有分配 IPv6 地址则返回空字符串
+func (b nodeBackend) GetIPv6() string {
+	for _, address := range b.Status.Addresses {
+		if address.Type == corev1.NodeInternalIP && strings.Contains(address.Address, ":") {
 			return address.Address
 		}
 	}
