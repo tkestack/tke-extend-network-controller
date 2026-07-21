@@ -731,6 +731,83 @@ spec:
 > 1. 需确保预创的 TCP 和 UDP 监听器数量加起来等于 CLB 监听器数量上限的配额，如果业务监听的端口都同时提供 TCP 和 UDP 两种协议，配置预创监听器时可以 TCP 和 UDP 各一半；如果只监听单一的协议，预创监听器可只配置这一种协议。
 > 2. 存量非预创监听器不能直接转换为预创监听器，可新建预创监听器端口池，增量 Pod 的端口映射使用新的端口池来逐渐迁移到预创监听器端口池；同理，预创监听器也不能直接转换为非预创监听器，可使用类似方法来逐步迁移。
 
+## 使用 IPv6 CLB
+
+从 v2.5.0 起，tke-extend-network-controller 支持 IPv6 全链路（CLB VIP (IPv6) → Pod IPv6 地址）。既可以用已有 IPv6 CLB，也可以让端口池自动创建 IPv6 CLB。
+
+### 前提条件
+
+1. **VPC 和子网已开启 IPv6 CIDR**：VPC 和 Pod 所在子网需已获取 IPv6 网段。
+2. **Pod 需有 IPv6 地址**：后端 target 必须注册 IPv6 地址。最简单的方式是使用超级节点，给 Pod 加注解 `tke.cloud.tencent.com/need-ipv6-addr: "true"` 即可在普通 IPv4 集群中获得 IPv6 地址，无需双栈集群。参考 [TKE IPv6 使用文档](https://imroc.cc/tke/networking/ipv6)。
+
+### 使用已有 IPv6 CLB
+
+提前在 [CLB 控制台](https://console.cloud.tencent.com/clb) 创建好 IPv6 类型的公网 CLB 实例，然后通过 `exsistedLoadBalancerIDs` 加入端口池：
+
+```yaml
+apiVersion: networking.cloud.tencent.com/v1alpha1
+kind: CLBPortPool
+metadata:
+  name: pool-ipv6
+spec:
+  startPort: 30000
+  exsistedLoadBalancerIDs: [lb-xxxxx] # 已有的 IPv6 CLB 实例 ID
+```
+
+### 自动创建 IPv6 CLB
+
+在端口池中配置自动创建，指定 `addressIPVersion: IPv6FullChain`：
+
+```yaml
+apiVersion: networking.cloud.tencent.com/v1alpha1
+kind: CLBPortPool
+metadata:
+  name: pool-ipv6
+spec:
+  startPort: 30000
+  autoCreate:
+    enabled: true
+    parameters:
+      addressIPVersion: IPv6FullChain # 自动创建 IPv6 CLB
+      vpcId: vpc-xxxxx # VPC 需已开启 IPv6
+```
+
+### Pod 配置示例
+
+创建带 IPv6 注解的 Pod（超级节点场景，无需双栈集群）：
+
+```yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: gameserver
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: gameserver
+  template:
+    metadata:
+      annotations:
+        networking.cloud.tencent.com/enable-clb-port-mapping: "true"
+        networking.cloud.tencent.com/clb-port-mapping: "8000 TCP pool-ipv6"
+        tke.cloud.tencent.com/need-ipv6-addr: "true" # 超级节点获得 IPv6 地址
+      labels:
+        app: gameserver
+    spec:
+      nodeSelector:
+        node.kubernetes.io/instance-type: eklet # 强制调度到超级节点
+      containers:
+      - name: gameserver
+        image: your-gameserver-image
+```
+
+映射结果中 `ips` 和 `address` 字段会是 IPv6 地址：
+
+```yaml
+networking.cloud.tencent.com/clb-port-mapping-result: '[{"port":8000,"protocol":"TCP","pool":"pool-ipv6","region":"ap-chengdu","loadbalancerId":"lb-xxx","loadbalancerPort":30000,"listenerId":"lbl-xxx","ips":["2402:4e00:c000:2e00:b8e2:4756:6648:1"],"address":"2402:4e00:c000:2e00:b8e2:4756:6648:1:30000"}]'
+```
+
 ## 通过 Downward API 获取 Pod 映射公网地址
 
 当配置好 Pod 注解后，会为 Pod 自动分配 CLB 公网地址的映射，并将映射的结果写到 Pod 的 `networking.cloud.tencent.com/clb-port-mapping-result` 注解中：

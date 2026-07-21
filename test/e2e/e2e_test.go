@@ -140,6 +140,59 @@ func autoCreateLBSpec(startPort uint16) networkingv1alpha1.CLBPortPoolSpec {
 	}
 }
 
+func ipv6AutoCreateLBSpec(startPort uint16) networkingv1alpha1.CLBPortPoolSpec {
+	return networkingv1alpha1.CLBPortPoolSpec{
+		StartPort: startPort,
+		Region:    ptr(getDefaultRegion()),
+		AutoCreate: &networkingv1alpha1.AutoCreateConfig{
+			Enabled: true,
+			Parameters: &networkingv1alpha1.CreateLBParameters{
+				AddressIPVersion: ptr("IPv6FullChain"),
+			},
+		},
+	}
+}
+
+func createIPv6Dep(ctx context.Context, name string, annotations map[string]string, replicas int32, ports ...int32) *appsv1.Deployment {
+	containerPorts := make([]corev1.ContainerPort, len(ports))
+	for i, p := range ports {
+		containerPorts[i] = corev1.ContainerPort{ContainerPort: p}
+	}
+	dep := &appsv1.Deployment{
+		ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: testNamespace},
+		Spec: appsv1.DeploymentSpec{
+			Replicas: &replicas,
+			Selector: &metav1.LabelSelector{MatchLabels: map[string]string{"app": name}},
+			Template: corev1.PodTemplateSpec{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: annotations,
+					Labels:      map[string]string{"app": name},
+				},
+				Spec: corev1.PodSpec{
+					NodeSelector: map[string]string{"node.kubernetes.io/instance-type": "eklet"},
+					Containers: []corev1.Container{{
+						Name:  "app",
+						Image: getImage(),
+						Ports: containerPorts,
+						Resources: corev1.ResourceRequirements{
+							Requests: corev1.ResourceList{
+								corev1.ResourceCPU:    resource.MustParse("100m"),
+								corev1.ResourceMemory: resource.MustParse("128Mi"),
+							},
+						},
+					}},
+				},
+			},
+		},
+	}
+	Expect(k8sClient.Create(ctx, dep)).To(Succeed())
+	return dep
+}
+
+func isIPv6Address(addr string) bool {
+	return strings.Contains(addr, ":")
+}
+
 func createPool(ctx context.Context, name string, spec networkingv1alpha1.CLBPortPoolSpec) {
 	pool := &networkingv1alpha1.CLBPortPool{
 		ObjectMeta: metav1.ObjectMeta{Name: name},
@@ -758,6 +811,58 @@ var _ = Describe("tke-extend-network-controller e2e", func() {
 
 			mappings := waitMappingReady(ctx, depName)
 			Expect(mappings).NotTo(BeEmpty())
+		})
+	})
+
+	// 17. IPv6 CLB 端口映射
+	Describe("IPv6 CLB 端口映射", func() {
+		It("应自动创建 IPv6 CLB 并将 Pod 的 IPv6 地址注册为后端", func() {
+			poolName := poolPrefix + "ipv6"
+			createPool(ctx, poolName, ipv6AutoCreateLBSpec(31700))
+			defer deletePool(ctx, poolName)
+			waitPoolActive(ctx, poolName)
+
+			depName := appPrefix + "ipv6"
+			ann := mappingAnnotations(80, "TCP", poolName)
+			ann["tke.cloud.tencent.com/need-ipv6-addr"] = "true" // 超级节点获得 IPv6 地址
+			createIPv6Dep(ctx, depName, ann, 1, 80)
+			defer deleteDep(ctx, depName)
+
+			mappings := waitMappingReady(ctx, depName)
+			Expect(mappings).NotTo(BeEmpty())
+			Expect(mappings[0].Protocol).To(Equal("TCP"))
+			Expect(mappings[0].Port).To(Equal(uint16(80)))
+			Expect(mappings[0].LoadbalancerId).NotTo(BeEmpty())
+			Expect(mappings[0].ListenerId).NotTo(BeEmpty())
+			// 验证映射结果中的地址是 IPv6 格式
+			Expect(mappings[0].Address).NotTo(BeEmpty())
+			Expect(isIPv6Address(mappings[0].Address)).To(BeTrue(),
+				"IPv6 CLB 的映射地址应为 IPv6 格式，实际: %s", mappings[0].Address)
+			Expect(mappings[0].Ips).NotTo(BeEmpty())
+			Expect(isIPv6Address(mappings[0].Ips[0])).To(BeTrue(),
+				"IPv6 CLB 的 VIP 应为 IPv6 格式，实际: %s", mappings[0].Ips[0])
+		})
+
+		It("IPv6 CLB 映射结果应写入 Pod 注解并通过 Downward API 可用", func() {
+			poolName := poolPrefix + "ipv6-anno"
+			createPool(ctx, poolName, ipv6AutoCreateLBSpec(31800))
+			defer deletePool(ctx, poolName)
+			waitPoolActive(ctx, poolName)
+
+			depName := appPrefix + "ipv6-anno"
+			ann := mappingAnnotations(8080, "TCPUDP", poolName)
+			ann["tke.cloud.tencent.com/need-ipv6-addr"] = "true"
+			createIPv6Dep(ctx, depName, ann, 1, 8080)
+			defer deleteDep(ctx, depName)
+
+			mappings := waitMappingReady(ctx, depName)
+			Expect(mappings).To(HaveLen(2), "TCPUDP 应该产生 2 个映射（TCP + UDP）")
+			for _, m := range mappings {
+				Expect(isIPv6Address(m.Address)).To(BeTrue(),
+					"IPv6 CLB 的映射地址应为 IPv6 格式")
+				Expect(isIPv6Address(m.Ips[0])).To(BeTrue(),
+					"IPv6 CLB 的 VIP 应为 IPv6 格式")
+			}
 		})
 	})
 })

@@ -223,6 +223,9 @@ type LoadBalancerStatus struct {
 	Hostname *string `json:"hostname,omitempty"`
 	// 已分配的监听器数量
 	Allocated uint16 `json:"allocated"`
+	// CLB 的 IP 版本，可选值：IPV4、IPV6、IPv6FullChain
+	// +optional
+	AddressIPVersion *string `json:"addressIPVersion,omitempty"`
 }
 
 // +kubebuilder:object:root=true

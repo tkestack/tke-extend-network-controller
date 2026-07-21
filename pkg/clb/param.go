@@ -85,7 +85,10 @@ func ConvertCreateLoadBalancerRequest(p *networkingv1alpha1.CreateLBParameters, 
 		req.DynamicVip = common.BoolPtr(false)
 	}
 	if req.LoadBalancerPassToTarget == nil { // 默认放通后端
-		req.LoadBalancerPassToTarget = common.BoolPtr(true)
+		// IPv6 CLB 不支持设置 LoadBalancerPassToTarget 参数，保持 nil（不传该参数）
+		if !util.IsIPv6LB(p.AddressIPVersion) {
+			req.LoadBalancerPassToTarget = common.BoolPtr(true)
+		}
 	}
 
 	// 转换Tags

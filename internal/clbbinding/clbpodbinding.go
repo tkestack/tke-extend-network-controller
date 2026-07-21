@@ -2,6 +2,7 @@ package clbbinding
 
 import (
 	"context"
+	"strings"
 
 	agonesv1 "agones.dev/agones/pkg/apis/agones/v1"
 	"github.com/pkg/errors"
@@ -63,6 +64,17 @@ type podBackend struct {
 
 func (b podBackend) GetIP() string {
 	return b.Pod.Status.PodIP
+}
+
+// GetIPv6 返回 Pod 的 IPv6 地址，如果 Pod 没有分配 IPv6 地址则返回空字符串
+func (b podBackend) GetIPv6() string {
+	for _, podIP := range b.Pod.Status.PodIPs {
+		ip := podIP.IP
+		if strings.Contains(ip, ":") {
+			return ip
+		}
+	}
+	return ""
 }
 
 func (b podBackend) GetObject() client.Object {

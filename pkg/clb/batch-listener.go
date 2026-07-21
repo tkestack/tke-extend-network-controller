@@ -54,9 +54,14 @@ func doBatchCreateListener(apiName, region, lbId, protocol, certId, extensivePar
 	res, err := ApiCall(context.Background(), true, apiName, region, func(ctx context.Context, client *clb.Client) (req *clb.CreateListenerRequest, res *clb.CreateListenerResponse, err error) {
 		req = clb.NewCreateListenerRequest()
 		req.LoadBalancerId = &lbId
+		// IPv6 CLB 的健康检查源 IP 只能使用 VIP (SourceIpType=0)
+		sourceIpType := int64(1)
+		if isIPv6CLB(ctx, lbId, region) {
+			sourceIpType = 0
+		}
 		req.HealthCheck = &clb.HealthCheck{
 			HealthSwitch: common.Int64Ptr(0),
-			SourceIpType: common.Int64Ptr(1),
+			SourceIpType: &sourceIpType,
 		}
 		if certId != "" {
 			req.Certificate = &clb.CertificateInput{

@@ -67,6 +67,10 @@ type PortBindingStatus struct {
 	LoadbalancerEndPort *uint16 `json:"loadbalancerEndPort,omitempty"`
 	// 监听器ID
 	ListenerId string `json:"listenerId"`
+	// CLB 的 IP 版本，可选值：IPV4、IPV6、IPv6FullChain
+	// 用于确定注册后端时使用 Pod/Node 的 IPv4 还是 IPv6 地址
+	// +optional
+	AddressIPVersion *string `json:"addressIPVersion,omitempty"`
 }
 
 // CLBBindingSpec defines the desired state of CLBPodBinding.
