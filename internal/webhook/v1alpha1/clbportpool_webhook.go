@@ -40,9 +40,9 @@ var clbportpoollog = logf.Log.WithName("clbportpool-resource")
 
 // SetupCLBPortPoolWebhookWithManager registers the webhook for CLBPortPool in the manager.
 func SetupCLBPortPoolWebhookWithManager(mgr ctrl.Manager) error {
-	return ctrl.NewWebhookManagedBy(mgr).For(&networkingv1alpha1.CLBPortPool{}).
-		WithValidator(&CLBPortPoolCustomValidator{}).
-		WithDefaulter(&CLBPortPoolCustomDefaulter{}).
+	return ctrl.NewWebhookManagedBy(mgr, &networkingv1alpha1.CLBPortPool{}).
+		WithCustomValidator(&CLBPortPoolCustomValidator{}).
+		WithCustomDefaulter(&CLBPortPoolCustomDefaulter{}).
 		Complete()
 }
 
