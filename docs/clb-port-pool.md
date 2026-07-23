@@ -733,7 +733,7 @@ spec:
 
 ## 使用 IPv6 CLB
 
-从 v2.5.0 起，tke-extend-network-controller 支持 IPv6 全链路（CLB VIP (IPv6) → Pod IPv6 地址）。既可以用已有 IPv6 CLB，也可以让端口池自动创建 IPv6 CLB。
+从 v2.5.0 起（待发布），tke-extend-network-controller 支持 IPv6 全链路（CLB VIP (IPv6) → Pod IPv6 地址）。既可以用已有 IPv6 CLB，也可以让端口池自动创建 IPv6 CLB。
 
 ### 前提条件
 
@@ -768,8 +768,10 @@ spec:
   autoCreate:
     enabled: true
     parameters:
-      addressIPVersion: IPv6FullChain # 自动创建 IPv6 CLB
+      addressIPVersion: IPv6FullChain # IPv6 类型 CLB
+      loadBalancerType: OPEN # IPv6 只支持公网
       vpcId: vpc-xxxxx # VPC 需已开启 IPv6
+      subnetId: subnet-xxxxxxxx # 默认情况下，VipIsp 如果没有指定为 CMCC、CUCC 或 CTCC，IP 是 VPC 管理的，所以要传子网来获取一个v6网段（如果账号开白了IPv6 2.0的能力，则不需要传子网）
 ```
 
 ### Pod 配置示例
