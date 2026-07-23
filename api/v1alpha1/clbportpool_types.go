@@ -134,7 +134,9 @@ type CreateLBParameters struct {
 	MasterZoneId *string `json:"masterZoneId,omitempty"`
 	// 仅适用于公网且IP版本为IPv4的负载均衡。可用区ID，指定可用区以创建负载均衡实例。
 	ZoneId *string `json:"zoneId,omitempty"`
-	// 在私有网络内购买内网负载均衡实例的情况下，必须指定子网 ID，内网负载均衡实例的 VIP 将从这个子网中产生。创建内网负载均衡实例时，此参数必填，创建公网IPv4负载均衡实例时，不支持指定该参数。
+	// 在私有网络内购买内网负载均衡实例的情况下，必须指定子网 ID，内网负载均衡实例的 VIP 将从这个子网中产生。
+	// 创建内网负载均衡实例，或者创建 IPv6FullChain 版本的负载均衡实例，此参数必填。
+	// 创建公网IPv4负载均衡实例时，不支持指定该参数。
 	SubnetId *string `json:"subnetId,omitempty"`
 	// 性能容量型规格。
 	// 若需要创建性能容量型实例，则此参数必填，取值范围：

@@ -38,7 +38,9 @@ spec:
     parameters: # 可选，自动创建 CLB 时购买 CLB 的参数，参考 CreateLoadBalancer 接口: https://cloud.tencent.com/document/api/214/30692
       # 负载均衡实例的网络类型：OPEN：公网属性， INTERNAL：内网属性。默认使用 OPEN（公网负载均衡）。
       loadBalancerType: OPEN
-      # 在私有网络内购买内网负载均衡实例的情况下，必须指定子网 ID，内网负载均衡实例的 VIP 将从这个子网中产生。创建内网负载均衡实例时，此参数必填，创建公网IPv4负载均衡实例时，不支持指定该参数。
+      # 在私有网络内购买内网负载均衡实例的情况下，必须指定子网 ID，内网负载均衡实例的 VIP 将从这个子网中产生。
+      # 创建内网负载均衡实例，或者创建 IPv6FullChain 版本的负载均衡实例，此参数必填。
+      # 创建公网IPv4负载均衡实例时，不支持指定该参数。
       subnetId: subnet-k57djpow
       # 负载均衡实例的名称。规则：1-60 个英文、汉字、数字、连接线“-”或下划线“_”。 注意：如果名称与系统中已有负载均衡实例的名称相同，则系统将会自动生成此次创建的负载均衡实例的名称。
       loadBalancerName: test
