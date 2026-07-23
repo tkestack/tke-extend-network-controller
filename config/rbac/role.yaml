@@ -5,16 +5,6 @@ metadata:
   name: tke-extend-network-controller-role
 rules:
 - apiGroups:
-  - agones.dev
-  resources:
-  - gameservers
-  verbs:
-  - get
-  - list
-  - patch
-  - update
-  - watch
-- apiGroups:
   - ""
   resources:
   - events
@@ -25,29 +15,6 @@ rules:
   - ""
   resources:
   - nodes
-  verbs:
-  - get
-  - list
-  - patch
-  - update
-  - watch
-- apiGroups:
-  - ""
-  resources:
-  - nodes/finalizers
-  verbs:
-  - update
-- apiGroups:
-  - ""
-  resources:
-  - nodes/status
-  verbs:
-  - get
-  - patch
-  - update
-- apiGroups:
-  - ""
-  resources:
   - pods
   verbs:
   - get
@@ -58,12 +25,14 @@ rules:
 - apiGroups:
   - ""
   resources:
+  - nodes/finalizers
   - pods/finalizers
   verbs:
   - update
 - apiGroups:
   - ""
   resources:
+  - nodes/status
   - pods/status
   verbs:
   - get
@@ -76,6 +45,16 @@ rules:
   verbs:
   - get
   - list
+  - watch
+- apiGroups:
+  - agones.dev
+  resources:
+  - gameservers
+  verbs:
+  - get
+  - list
+  - patch
+  - update
   - watch
 - apiGroups:
   - game.kruise.io
@@ -97,57 +76,7 @@ rules:
   - networking.cloud.tencent.com
   resources:
   - clbnodebindings
-  verbs:
-  - create
-  - delete
-  - get
-  - list
-  - patch
-  - update
-  - watch
-- apiGroups:
-  - networking.cloud.tencent.com
-  resources:
-  - clbnodebindings/finalizers
-  verbs:
-  - update
-- apiGroups:
-  - networking.cloud.tencent.com
-  resources:
-  - clbnodebindings/status
-  verbs:
-  - get
-  - patch
-  - update
-- apiGroups:
-  - networking.cloud.tencent.com
-  resources:
   - clbpodbindings
-  verbs:
-  - create
-  - delete
-  - get
-  - list
-  - patch
-  - update
-  - watch
-- apiGroups:
-  - networking.cloud.tencent.com
-  resources:
-  - clbpodbindings/finalizers
-  verbs:
-  - update
-- apiGroups:
-  - networking.cloud.tencent.com
-  resources:
-  - clbpodbindings/status
-  verbs:
-  - get
-  - patch
-  - update
-- apiGroups:
-  - networking.cloud.tencent.com
-  resources:
   - clbportpools
   verbs:
   - create
@@ -160,12 +89,16 @@ rules:
 - apiGroups:
   - networking.cloud.tencent.com
   resources:
+  - clbnodebindings/finalizers
+  - clbpodbindings/finalizers
   - clbportpools/finalizers
   verbs:
   - update
 - apiGroups:
   - networking.cloud.tencent.com
   resources:
+  - clbnodebindings/status
+  - clbpodbindings/status
   - clbportpools/status
   verbs:
   - get
