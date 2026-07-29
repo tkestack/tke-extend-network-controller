@@ -1,5 +1,13 @@
 # 版本说明
 
+## v2.5.0 (2026-07-29)
+
+- 新特性：支持 IPv6 CLB 全链路。端口池支持创建 IPv6 类型的公网 CLB，自动将后端 Pod/Node 的 IPv6 地址注册到 CLB，实现 CLB VIP (IPv6) → Pod IPv6 地址的全链路 IPv6 通信。既可使用已有 IPv6 CLB（通过 `exsistedLoadBalancerIDs` 指定），也可通过 `addressIPVersion: IPv6FullChain` 自动创建。超级节点场景下 Pod 加注解 `tke.cloud.tencent.com/need-ipv6-addr: "true"` 即可获得 IPv6 地址，无需双栈集群。
+- 修复：取消当指定子网（`subnetId`）时自动将 CLB 转换为内网类型的自动创建逻辑。此前指定子网会触发内网 CLB 自动创建，与 IPv6 场景（IPv6 CLB 只支持公网）冲突，现移除该自动转换逻辑。
+- 升级：controller-tools 升级到 v0.21.0，重新生成 CRD（`addressIPVersion` 等新字段同步到 CRD schema）。
+- 升级：Go 依赖升级到最新版本。
+- 升级：Dockerfile 构建镜像升级到 Golang 1.26。
+
 ## v2.4.3 (2026-07-09)
 
 - 修复：IP 复用导致 OtherTargetBound 死锁。VPC-CNI 非固定 IP 场景下，Pod 创建后 IP 变更，旧 IP 被其它 Pod 复用时，controller 想把 CLB 后端从旧 IP 更新为新 IP，但发现旧 IP 已属于另一个 Pod，OtherTargetBound 保护逻辑直接放弃纠正，导致端口永久指向错误 Pod，流量不可达。修复方式：收敛冲突判定，只有当持有旧 IP 的对象通过自己的 CLBBinding 合法占用了同一监听器时才保护（真冲突），否则视为历史残留，允许安全清理并替换为当前 Pod 真实 IP。CLBPodBinding 和 CLBNodeBinding 均适用。
