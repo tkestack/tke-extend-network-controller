@@ -733,7 +733,7 @@ spec:
 
 ## 使用 IPv6 CLB
 
-从 v2.5.0 起（待发布），tke-extend-network-controller 支持 IPv6 全链路（CLB VIP (IPv6) → Pod IPv6 地址）。既可以用已有 IPv6 CLB，也可以让端口池自动创建 IPv6 CLB。
+从 v2.5.0 起，tke-extend-network-controller 支持 IPv6 全链路（CLB VIP (IPv6) → Pod IPv6 地址）。既可以用已有 IPv6 CLB，也可以让端口池自动创建 IPv6 CLB。
 
 ### 前提条件
 
