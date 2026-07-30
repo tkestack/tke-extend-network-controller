@@ -154,3 +154,13 @@ gh release view vX.Y.Z --repo tkestack/tke-extend-network-controller
 - **本仓库存在两类 release**：`vX.Y.Z Release`（控制器版本，tag `vX.Y.Z`，本 skill 产出）和 `tke-extend-network-controller-X.Y.Z`（chart 版本）。本 skill 创建的是前者。
 - **不要并发发布**：buildx 运行期间不要重复执行 `make release`，会重复创建 builder、打 tag 冲突。
 - **失败回滚**：若 buildx 失败，本地已有 commit 和 tag 但未 push。可 `git tag -d vX.Y.Z` 删本地 tag、`git reset --hard HEAD^` 撤 release commit（仅当确认未 push 时），修正后重跑。已 push 的 tag/commit 不要轻易回滚，宁可发补丁版本。
+
+## Step 7：发版后同步（应用市场）
+
+发版完成后还需同步到 TKE 应用市场，详见组件开发文档（`components/tke-extend-network-controller.md`）的「应用市场镜像同步」和「应用市场 Chart 更新」章节。完整步骤：
+
+1. **tkestack/charts PR**：更新 `incubator/tke-extend-network-controller/Chart.yaml` 的 version/appVersion，提 PR 到 tkestack/charts。
+2. **镜像同步到 CCR**：`skopeo copy -a` 将 dockerhub 镜像同步到 `ccr.ccs.tencentyun.com/paas`。
+3. **智研流水线同步到 tke-market**：触发智研流水线（project 9590, pipeline 281141），将镜像从 paas 同步到 tke-market 全地域。流水线有两个人工审批节点。
+4. **应用市场上架**：触发智研流水线（project 9590, pipeline 10923384），参数 `onlyPushChart: true`, `chartRepo: tke-market-qcloud`。审批时 chartPackage 选 `tke-extend-network-controller`。
+5. **现网验证**：创建测试集群部署组件，验证新功能，生成现网验证报告。
