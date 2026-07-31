@@ -3,6 +3,7 @@ package clb
 import (
 	"context"
 	"fmt"
+	"sync"
 	"time"
 
 	"github.com/pkg/errors"
@@ -266,11 +267,18 @@ func BatchGetClbInfo(ctx context.Context, lbIds []string, region string) (info m
 	return
 }
 
+// clbIPVersionCache 缓存 CLB 的 IP 版本，避免频繁查询 CLB API
+var clbIPVersionCache sync.Map // map[string]*string, key: lbId
+
 // GetLBAddressIPVersion 获取 CLB 的 IP 版本（带缓存）
 func GetLBAddressIPVersion(ctx context.Context, lbId, region string) *string {
+	if v, ok := clbIPVersionCache.Load(lbId); ok {
+		return v.(*string)
+	}
 	lb, err := GetClb(ctx, lbId, region)
 	if err != nil {
 		return nil
 	}
+	clbIPVersionCache.Store(lbId, lb.AddressIPVersion)
 	return lb.AddressIPVersion
 }

@@ -14,8 +14,8 @@ func init() {
 	if concurrency < 1 {
 		concurrency = 1
 	}
-	// RegisterTargets 一次性最大支持同时绑定 20 个 target: https://cloud.tencent.com/document/api/214/30676
-	go startRegisterTargetsProccessor(20)
+	// BatchRegisterTargets 一次性最大支持同时绑定 200 个 target（CLB 现网实测上限）
+	go startRegisterTargetsProccessor(200)
 	go startCreateListenerProccessor(800)
 	// DescribeListeners 一次性最大支持查 100 个监听器: https://cloud.tencent.com/document/api/214/30686
 	go startDescribeListenerProccessor(100)

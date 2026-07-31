@@ -48,13 +48,7 @@ func startRegisterTargetsProccessor(concurrent int) {
 			}
 			return
 		}
-		_, err = Wait(context.Background(), region, *res.Response.RequestId, apiName, DefaultWaitInterval)
-		if err != nil {
-			for _, task := range tasks {
-				task.Result <- err
-			}
-			return
-		}
+		// BatchRegisterTargets 是同步接口，返回即代表操作完成，无需 Wait DescribeTaskStatus
 		if len(res.Response.FailListenerIdSet) > 0 {
 			failedMap := make(map[string]bool)
 			for _, listenerId := range res.Response.FailListenerIdSet {
@@ -183,13 +177,7 @@ func startDeregisterTargetsProccessor(concurrent int) {
 			}
 			return
 		}
-		_, err = Wait(context.Background(), region, *res.Response.RequestId, apiName, DefaultWaitInterval)
-		if err != nil {
-			for _, task := range tasks {
-				task.Result <- err
-			}
-			return
-		}
+		// BatchDeregisterTargets 是同步接口，无需 Wait
 		// 全部解绑成功
 		if len(res.Response.FailListenerIdSet) == 0 {
 			for _, task := range tasks {
