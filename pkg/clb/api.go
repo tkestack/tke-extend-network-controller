@@ -9,8 +9,16 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
+const (
+	// resourceInOperatingRetryMax 对 CLB desState 冲突（ResourceInOperating）的最大重试次数
+	resourceInOperatingRetryMax = 5
+	// resourceInOperatingRetryBaseInterval 冲突重试的基础退避间隔
+	resourceInOperatingRetryBaseInterval = 500 * time.Millisecond
+)
+
 func ApiCall[Req, Res any](ctx context.Context, writeOp bool, apiName, region string, doReq func(ctx context.Context, client *clb.Client) (req Req, res Res, err error)) (res Res, err error) {
 	reqCount := 0
+	inOperatingRetry := 0
 	start := time.Now()
 	defer func() {
 		totalCost := time.Since(start).String()
@@ -47,6 +55,23 @@ func ApiCall[Req, Res any](ctx context.Context, writeOp bool, apiName, region st
 				time.Sleep(time.Second)
 				continue
 			} else { // 其它错误，抛给调用者
+				// CLB desState 冲突（如批量 500 大操作后 CLB 尚未恢复），写操作退避重试
+				if writeOp && IsResourceInOperatingError(err) && inOperatingRetry < resourceInOperatingRetryMax {
+					inOperatingRetry++
+					log.FromContext(ctx).Info(
+						"clb resource in operating, retry with backoff",
+						"api", apiName,
+						"retry", inOperatingRetry,
+						"err", err,
+					)
+					select { // context 撤销，不继续重试
+					case <-ctx.Done():
+						return res, err
+					default:
+					}
+					time.Sleep(resourceInOperatingRetryBaseInterval * time.Duration(1<<(inOperatingRetry-1)))
+					continue
+				}
 				return res, errors.WithStack(err)
 			}
 		} else { // 请求成功，返回 response
