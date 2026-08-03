@@ -20,6 +20,7 @@ require (
 	github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/tag v1.3.110
 	github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/vpc v1.3.141
 	go.uber.org/multierr v1.11.0
+	golang.org/x/sync v0.21.0
 	golang.org/x/time v0.15.0
 	k8s.io/api v0.36.3
 	k8s.io/apimachinery v0.36.3
@@ -92,7 +93,6 @@ require (
 	golang.org/x/mod v0.36.0 // indirect
 	golang.org/x/net v0.56.0 // indirect
 	golang.org/x/oauth2 v0.34.0 // indirect
-	golang.org/x/sync v0.21.0 // indirect
 	golang.org/x/sys v0.46.0 // indirect
 	golang.org/x/term v0.44.0 // indirect
 	golang.org/x/text v0.38.0 // indirect

@@ -24,7 +24,9 @@ func (t *RegisterTargetTask) GetRegion() string {
 	return t.Region
 }
 
-var RegisterTargetChan = make(chan *RegisterTargetTask, 100)
+// RegisterTargetChan 缓存设为 maxAccumulatedTask(800) 量级，
+// 避免大规模场景下 300 个 worker 并发入队时通道打满导致 reconcile 阻塞
+var RegisterTargetChan = make(chan *RegisterTargetTask, 800)
 
 func startRegisterTargetsProccessor(concurrent int) {
 	apiName := "BatchRegisterTargets"
@@ -150,7 +152,8 @@ func (t *DeregisterTargetsTask) GetRegion() string {
 	return t.Region
 }
 
-var DeregisterTargetsChan = make(chan *DeregisterTargetsTask, 100)
+// DeregisterTargetsChan 同样加大缓冲，避免大规模缩容时 worker 阻塞
+var DeregisterTargetsChan = make(chan *DeregisterTargetsTask, 800)
 
 func startDeregisterTargetsProccessor(concurrent int) {
 	apiName := "BatchDeregisterTargets"
