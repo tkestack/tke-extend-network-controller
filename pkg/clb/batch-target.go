@@ -24,7 +24,9 @@ func (t *RegisterTargetTask) GetRegion() string {
 	return t.Region
 }
 
-var RegisterTargetChan = make(chan *RegisterTargetTask, 100)
+// RegisterTargetChan 缓存设为 maxAccumulatedTask(800) 量级，
+// 避免大规模场景下 300 个 worker 并发入队时通道打满导致 reconcile 阻塞
+var RegisterTargetChan = make(chan *RegisterTargetTask, 800)
 
 func startRegisterTargetsProccessor(concurrent int) {
 	apiName := "BatchRegisterTargets"
@@ -48,13 +50,7 @@ func startRegisterTargetsProccessor(concurrent int) {
 			}
 			return
 		}
-		_, err = Wait(context.Background(), region, *res.Response.RequestId, apiName, DefaultWaitInterval)
-		if err != nil {
-			for _, task := range tasks {
-				task.Result <- err
-			}
-			return
-		}
+		// BatchRegisterTargets 是同步接口，返回即代表操作完成，无需 Wait DescribeTaskStatus
 		if len(res.Response.FailListenerIdSet) > 0 {
 			failedMap := make(map[string]bool)
 			for _, listenerId := range res.Response.FailListenerIdSet {
@@ -156,7 +152,8 @@ func (t *DeregisterTargetsTask) GetRegion() string {
 	return t.Region
 }
 
-var DeregisterTargetsChan = make(chan *DeregisterTargetsTask, 100)
+// DeregisterTargetsChan 同样加大缓冲，避免大规模缩容时 worker 阻塞
+var DeregisterTargetsChan = make(chan *DeregisterTargetsTask, 800)
 
 func startDeregisterTargetsProccessor(concurrent int) {
 	apiName := "BatchDeregisterTargets"
@@ -183,13 +180,7 @@ func startDeregisterTargetsProccessor(concurrent int) {
 			}
 			return
 		}
-		_, err = Wait(context.Background(), region, *res.Response.RequestId, apiName, DefaultWaitInterval)
-		if err != nil {
-			for _, task := range tasks {
-				task.Result <- err
-			}
-			return
-		}
+		// BatchDeregisterTargets 是同步接口，无需 Wait
 		// 全部解绑成功
 		if len(res.Response.FailListenerIdSet) == 0 {
 			for _, task := range tasks {

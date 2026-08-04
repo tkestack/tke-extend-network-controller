@@ -3,9 +3,11 @@ package clb
 import (
 	"context"
 	"fmt"
+	"sync"
 	"time"
 
 	"github.com/pkg/errors"
+	"golang.org/x/sync/singleflight"
 
 	clb "github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/clb/v20180317"
 	"github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common"
@@ -266,11 +268,38 @@ func BatchGetClbInfo(ctx context.Context, lbIds []string, region string) (info m
 	return
 }
 
-// GetLBAddressIPVersion 获取 CLB 的 IP 版本（带缓存）
+// clbIPVersionCache 缓存 CLB 的 IP 版本，避免频繁查询 CLB API。
+// CLB 的 IP 版本在创建后固定不变，且 lbId 全局唯一不重用，因此缓存无需失效。
+// 值为字符串拷贝（避免指针引用共享），查询失败时不缓存（下次重查）。
+var (
+	clbIPVersionCache sync.Map // map[string]string, key: lbId, value: *AddressIPVersion 的值拷贝
+	clbIPVersionSF    singleflight.Group
+)
+
+// GetLBAddressIPVersion 获取 CLB 的 IP 版本（带缓存 + 并发单飞）
 func GetLBAddressIPVersion(ctx context.Context, lbId, region string) *string {
-	lb, err := GetClb(ctx, lbId, region)
-	if err != nil {
-		return nil
+	if v, ok := clbIPVersionCache.Load(lbId); ok {
+		s := v.(string)
+		return &s
 	}
-	return lb.AddressIPVersion
+	v, _, _ := clbIPVersionSF.Do(lbId, func() (any, error) {
+		// double check：单飞等待期间可能已有其它 goroutine 完成缓存
+		if v, ok := clbIPVersionCache.Load(lbId); ok {
+			return v, nil
+		}
+		lb, err := GetClb(ctx, lbId, region)
+		if err != nil {
+			return "", err
+		}
+		if lb.AddressIPVersion == nil {
+			return "", nil
+		}
+		s := *lb.AddressIPVersion
+		clbIPVersionCache.Store(lbId, s)
+		return s, nil
+	})
+	if s, ok := v.(string); ok && s != "" {
+		return &s
+	}
+	return nil
 }

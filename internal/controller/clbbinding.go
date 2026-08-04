@@ -1106,6 +1106,17 @@ func (r *CLBBindingReconciler[T]) cleanupPortBinding(ctx context.Context, bindin
 		case clb.ErrListenerNotFound: // 监听器不存在，忽略
 			log.Info("delete listener while listener not found, ignore")
 			return nil
+		case clb.ErrOtherListenerNotFound:
+			// 批量删除时因同批其它监听器已被并发删除导致本批次未删除，按端口慢路径重试
+			// （重新查询最新 listenerId 再删，若已不存在则忽略）
+			log.Info("delete listener conflict with other listener not found, retry by port")
+			if _, err := clb.DeleteListenerByPort(ctx, binding.Region, binding.LoadbalancerId, int64(binding.LoadbalancerPort), binding.Protocol); err != nil {
+				if clb.IsListenerNotFound(err) {
+					return nil
+				}
+				return errors.WithStack(err)
+			}
+			return nil
 		default:
 			if clb.IsLoadBalancerNotExistsError(errCause) { // lb 不存在，忽略
 				log.Info("lb not found, ignore when cleanup listener")
