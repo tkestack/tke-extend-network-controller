@@ -1,5 +1,15 @@
 # 版本说明
 
+## v2.5.1 (2026-08-04)
+
+- 性能优化：大规模 CLB 端口映射收敛速度提升。针对游戏房间场景批量扩容（200~900+ Pod × 16 监听器/Pod）下收敛耗时过长的问题，优化批处理链路：
+  - `GetLBAddressIPVersion` 增加 `sync.Map` 缓存 + `singleflight` 并发单飞，消除每次 reconcile 重复调用 `DescribeLoadBalancers`（200 Pod 场景 1700+ 次→0 次）。
+  - 去掉 `BatchRegisterTargets`/`BatchDeregisterTargets` 后多余的 `Wait()` 轮询（同步接口无需等待 `DescribeTaskStatus`），每批节省 ≥100ms。
+  - 批量粒度 20→500（CLB 侧确认的真实单次上限），减少 per-LB 锁串行批次数。
+  - 批处理通道容量 100→800，匹配 `maxAccumulatedTask` 缓冲需求，避免高并发入队阻塞。
+- 修复：CLB desState 冲突（`FailedOperation.ResourceInOperating`）导致 CPB 绑定失败。批量 500 后单次操作在 CLB 上执行时间长，per-LB 锁释放后连续写操作撞上 CLB desState 未恢复窗口。`ApiCall` 对写操作增加指数退避重试（最多 5 次，500ms→8s）。
+- 修复：大规模缩容时删除监听器竞态导致 CPB 卡在 Deleting 状态。并发批量删除同一 CLB 监听器时部分 `ListenerId` 已被其它批次删除，`ErrOtherListenerNotFound` 被误判为致命错误导致 finalizer 无法移除。改为走按端口慢路径兜底（重新查询最新 listenerId 再删，已不存在则忽略）。
+
 ## v2.5.0 (2026-07-29)
 
 - 新特性：支持 IPv6 CLB 全链路。端口池支持创建 IPv6 类型的公网 CLB，自动将后端 Pod/Node 的 IPv6 地址注册到 CLB，实现 CLB VIP (IPv6) → Pod IPv6 地址的全链路 IPv6 通信。既可使用已有 IPv6 CLB（通过 `exsistedLoadBalancerIDs` 指定），也可通过 `addressIPVersion: IPv6FullChain` 自动创建。超级节点场景下 Pod 加注解 `tke.cloud.tencent.com/need-ipv6-addr: "true"` 即可获得 IPv6 地址，无需双栈集群。
