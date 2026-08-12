@@ -53,6 +53,7 @@ func runManager() {
 		viper.GetString(secretIdFlag),
 		viper.GetString(secretKeyFlag),
 	)
+	cloudapi.SetEndpointSuffix(viper.GetString(cloudAPIEndpointSuffixFlag))
 	_, err := clb.Quota.Get(context.Background(), region)
 	if err != nil {
 		setupLog.Error(err, "failed to get clb quota")
