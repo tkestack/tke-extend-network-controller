@@ -1,5 +1,10 @@
 # 版本说明
 
+## v2.5.2 (2026-08-17)
+
+- 修复：chart 内置 CRD 与代码不一致。v2.5.0 升级 controller-tools 到 v0.21.0 并重新生成 CRD（新增 `addressIPVersion` 等字段），但 chart 内置的 CRD 模板未同步，仍为 v0.15.0 版本——通过 chart 安装/升级的集群缺少这些字段，controller 写入 status 时新字段会被 API Server 静默剪枝，只能回退到每次查询 CLB 兜底（额外云 API 调用）。本次将最新 CRD 同步到 chart，升级后自动应用，存量 binding 后续 reconcile 会自动补全字段。
+- 新增：支持测试环境云 API 域名。新增 `cloudAPI.endpointSuffix` 配置，非空时（如测试环境填 `test`）SDK 将 clb/vpc/cam/tag 四个云 API client 的 endpoint 指向 `<service>.<suffix>.tencentcloudapi.com`，hostAliases 同步按后缀渲染测试域名；默认留空，行为与现网完全一致。
+
 ## v2.5.1 (2026-08-04)
 
 - 性能优化：大规模 CLB 端口映射收敛速度提升。针对游戏房间场景批量扩容（200~900+ Pod × 16 监听器/Pod）下收敛耗时过长的问题，优化批处理链路：
