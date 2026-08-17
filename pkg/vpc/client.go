@@ -1,7 +1,6 @@
 package vpc
 
 import (
-	"github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common/profile"
 	vpc "github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/vpc/v20170312"
 	"github.com/tkestack/tke-extend-network-controller/pkg/cloudapi"
 	"github.com/tkestack/tke-extend-network-controller/pkg/clusterinfo"
@@ -19,7 +18,7 @@ func GetClient(region string) *vpc.Client {
 	if client, ok := clients[region]; ok {
 		return client
 	}
-	client, err := vpc.NewClient(cloudapi.GetCredential(), region, profile.NewClientProfile())
+	client, err := vpc.NewClient(cloudapi.GetCredential(), region, cloudapi.NewClientProfile("vpc"))
 	if err != nil {
 		panic(err)
 	}

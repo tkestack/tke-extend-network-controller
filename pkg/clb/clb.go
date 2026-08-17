@@ -6,7 +6,6 @@ import (
 
 	"github.com/go-logr/logr"
 	clb "github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/clb/v20180317"
-	"github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common/profile"
 	"github.com/tkestack/tke-extend-network-controller/pkg/cloudapi"
 	"github.com/tkestack/tke-extend-network-controller/pkg/clusterinfo"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -24,7 +23,7 @@ func GetClient(region string) *clb.Client {
 	if client, ok := clients[region]; ok {
 		return client
 	}
-	client, err := clb.NewClient(cloudapi.GetCredential(), region, profile.NewClientProfile())
+	client, err := clb.NewClient(cloudapi.GetCredential(), region, cloudapi.NewClientProfile("clb"))
 	if err != nil {
 		panic(err)
 	}

@@ -11,7 +11,6 @@ import (
 
 	clb "github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/clb/v20180317"
 	"github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common"
-	"github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common/profile"
 	tag "github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/tag/v20180813"
 	vpc "github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/vpc/v20170312"
 	"github.com/tkestack/tke-extend-network-controller/pkg/cloudapi"
@@ -100,7 +99,7 @@ func ListCLBsByTags(ctx context.Context, region string, tags map[string]string) 
 
 // EnsureCLBTags ensures CLB has the specified tags
 func EnsureCLBTags(ctx context.Context, region, lbId string, tags map[string]string) error {
-	client, err := tag.NewClient(cloudapi.GetCredential(), "", profile.NewClientProfile())
+	client, err := tag.NewClient(cloudapi.GetCredential(), "", cloudapi.NewClientProfile("tag"))
 	if err != nil {
 		return errors.WithStack(err)
 	}

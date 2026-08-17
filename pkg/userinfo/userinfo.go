@@ -3,7 +3,6 @@ package userinfo
 import (
 	"github.com/pkg/errors"
 	cam "github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/cam/v20190116"
-	"github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common/profile"
 	"github.com/tkestack/tke-extend-network-controller/pkg/cloudapi"
 	"github.com/tkestack/tke-extend-network-controller/pkg/util"
 )
@@ -11,7 +10,7 @@ import (
 var OwnerUin string
 
 func Init() error {
-	client, err := cam.NewClient(cloudapi.GetCredential(), "", profile.NewClientProfile())
+	client, err := cam.NewClient(cloudapi.GetCredential(), "", cloudapi.NewClientProfile("cam"))
 	if err != nil {
 		return errors.WithStack(err)
 	}

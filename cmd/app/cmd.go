@@ -28,6 +28,7 @@ const (
 	regionFlag                 = "region"
 	vpcIdFlag                  = "vpcid"
 	clusterIdFlag              = "cluster-id"
+	cloudAPIEndpointSuffixFlag = "cloud-api-endpoint-suffix"
 )
 
 var (
@@ -49,6 +50,7 @@ func init() {
 	addStringFlag(flags, secretKeyFlag, "", "Secret Key")
 	addStringFlag(flags, regionFlag, "", "The region of TKE cluster")
 	addStringFlag(flags, vpcIdFlag, "", "The VPC ID of TKE cluster")
+	addStringFlag(flags, cloudAPIEndpointSuffixFlag, "", "Cloud API endpoint suffix, e.g. 'test' for test env (clb.test.tencentcloudapi.com), empty for production")
 }
 
 func addStringFlag(flags *pflag.FlagSet, name, value, usage string) {
