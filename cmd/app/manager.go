@@ -29,6 +29,10 @@ var setupLog = ctrl.Log.WithName("setup")
 func runManager() {
 	ctrl.SetLogger(zap.New(zap.UseFlagOptions(zapOptions)))
 
+	if err := initCloudAPIEnvironment(); err != nil {
+		setupLog.Error(err, "invalid cloud API environment")
+		os.Exit(1)
+	}
 	region := viper.GetString(regionFlag)
 	if region == "" {
 		var err error
@@ -53,7 +57,6 @@ func runManager() {
 		viper.GetString(secretIdFlag),
 		viper.GetString(secretKeyFlag),
 	)
-	cloudapi.SetEndpointSuffix(viper.GetString(cloudAPIEndpointSuffixFlag))
 	_, err := clb.Quota.Get(context.Background(), region)
 	if err != nil {
 		setupLog.Error(err, "failed to get clb quota")
@@ -95,4 +98,8 @@ func runManager() {
 		setupLog.Error(err, "problem running manager")
 		os.Exit(1)
 	}
+}
+
+func initCloudAPIEnvironment() error {
+	return cloudapi.SetEnvironment(viper.GetString(cloudAPIEnvironmentFlag))
 }

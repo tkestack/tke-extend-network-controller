@@ -1,5 +1,10 @@
 # 版本说明
 
+## v2.6.0 (2026-08-18)
+
+- 变更：新增 `environment` 配置，仅支持 `prod` 与 `test`，默认 `prod`，替代已移除的 `cloudAPI.endpointSuffix`；测试环境无需再通过域名后缀间接表达。
+- 修复：云 API 默认改走内网域名 `<service>.internal.tencentcloudapi.com`，并移除 chart 中固定解析云 API 域名的 hostAlias。此前默认使用公网域名并依赖 hostAlias 将其解析到内网 IP，访问密钥网络访问限制策略无法按“专有网络”策略识别该流量；改用内网域名后，可在访问密钥的专有网络策略中选择集群所在地域和 VPC，并放行控制器访问云 API 的 VPC 内网源 IP 或网段。域名解析交给集群 DNS，不再固化内网 API IP。
+
 ## v2.5.2 (2026-08-17)
 
 - 修复：chart 内置 CRD 与代码不一致。v2.5.0 升级 controller-tools 到 v0.21.0 并重新生成 CRD（新增 `addressIPVersion` 等字段），但 chart 内置的 CRD 模板未同步，仍为 v0.15.0 版本——通过 chart 安装/升级的集群缺少这些字段，controller 写入 status 时新字段会被 API Server 静默剪枝，只能回退到每次查询 CLB 兜底（额外云 API 调用）。本次将最新 CRD 同步到 chart，升级后自动应用，存量 binding 后续 reconcile 会自动补全字段。

@@ -27,6 +27,7 @@ func GetClient(region string) *clb.Client {
 	if err != nil {
 		panic(err)
 	}
+	client.WithHttpTransport(cloudapi.NewHTTPTransport("clb"))
 	clients[region] = client
 	return client
 }

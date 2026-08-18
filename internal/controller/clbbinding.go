@@ -266,6 +266,18 @@ func (r *CLBBindingReconciler[T]) createListener(ctx context.Context, bd clbbind
 	return binding, errors.WithStack(err)
 }
 
+func (r *CLBBindingReconciler[T]) recordPortBindingRemoved(bd clbbinding.CLBBinding, binding *networkingv1alpha1.PortBindingStatus) {
+	r.Recorder.Eventf(
+		bd.GetObject(),
+		corev1.EventTypeNormal,
+		"PortBindingRemoved",
+		"lb %q not exists, remove port binding (lbPort:%d protocol:%s)",
+		binding.LoadbalancerId,
+		binding.LoadbalancerPort,
+		binding.Protocol,
+	)
+}
+
 // 对账单个监听器
 func (r *CLBBindingReconciler[T]) ensureListener(ctx context.Context, bd clbbinding.CLBBinding, binding *networkingv1alpha1.PortBindingStatus) (*networkingv1alpha1.PortBindingStatus, error) {
 	log := log.FromContext(ctx, "binding", binding)
@@ -273,7 +285,7 @@ func (r *CLBBindingReconciler[T]) ensureListener(ctx context.Context, bd clbbind
 	// 如果 lb 已被移除，且当前还未绑定成功，则移除该端口绑定，等待重新分配端口（配错 lb导致一直无法绑定成功，更正后，可以触发重新分配以便能够成功绑定）
 	if bd.GetStatus().State != networkingv1alpha1.CLBBindingStateBound && !portpool.Allocator.IsLbExists(binding.Pool, portpool.NewLBKeyFromBinding(binding)) {
 		log.Info("remove allocated clbbinding due to lb not exists")
-		r.Recorder.Eventf(bd.GetObject(), corev1.EventTypeNormal, "PortBindingRemoved", "lb %q not exists, remove port binding (lbPort:%s protocol:%s)", binding.LoadbalancerId, binding.LoadbalancerPort, binding.Protocol)
+		r.recordPortBindingRemoved(bd, binding)
 		// 确保监听器被清理（pool 可能已被删除，无法获取预创建状态，传 false 直接删除监听器）
 		if err := r.cleanupPortBinding(ctx, binding, log, false); err != nil {
 			return binding, errors.WithStack(err)

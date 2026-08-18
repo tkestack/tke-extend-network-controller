@@ -14,6 +14,7 @@ func Init() error {
 	if err != nil {
 		return errors.WithStack(err)
 	}
+	client.WithHttpTransport(cloudapi.NewHTTPTransport("cam"))
 	req := cam.NewGetUserAppIdRequest()
 	resp, err := client.GetUserAppId(req)
 	if err != nil {

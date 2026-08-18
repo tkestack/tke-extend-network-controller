@@ -46,12 +46,20 @@ var _ = Describe("CLBNodeBinding Controller", func() {
 			By("creating the custom resource for the Kind CLBNodeBinding")
 			err := k8sClient.Get(ctx, typeNamespacedName, clbnodebinding)
 			if err != nil && errors.IsNotFound(err) {
+				disabled := true
 				resource := &networkingv1alpha1.CLBNodeBinding{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      resourceName,
 						Namespace: "default",
 					},
-					// TODO(user): Specify other spec details if needed.
+					Spec: networkingv1alpha1.CLBBindingSpec{
+						Disabled: &disabled,
+						Ports: []networkingv1alpha1.PortEntry{{
+							Port:     8080,
+							Protocol: "TCP",
+							Pools:    []string{"test-pool"},
+						}},
+					},
 				}
 				Expect(k8sClient.Create(ctx, resource)).To(Succeed())
 			}
