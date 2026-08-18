@@ -8,6 +8,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
+	"github.com/tkestack/tke-extend-network-controller/pkg/cloudapi"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 )
 
@@ -28,7 +29,7 @@ const (
 	regionFlag                 = "region"
 	vpcIdFlag                  = "vpcid"
 	clusterIdFlag              = "cluster-id"
-	cloudAPIEndpointSuffixFlag = "cloud-api-endpoint-suffix"
+	cloudAPIEnvironmentFlag    = "cloud-api-environment"
 )
 
 var (
@@ -50,7 +51,7 @@ func init() {
 	addStringFlag(flags, secretKeyFlag, "", "Secret Key")
 	addStringFlag(flags, regionFlag, "", "The region of TKE cluster")
 	addStringFlag(flags, vpcIdFlag, "", "The VPC ID of TKE cluster")
-	addStringFlag(flags, cloudAPIEndpointSuffixFlag, "", "Cloud API endpoint suffix, e.g. 'test' for test env (clb.test.tencentcloudapi.com), empty for production")
+	addStringFlag(flags, cloudAPIEnvironmentFlag, cloudapi.EnvironmentProd, "Cloud API environment, must be 'prod' or 'test'")
 }
 
 func addStringFlag(flags *pflag.FlagSet, name, value, usage string) {

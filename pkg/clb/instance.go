@@ -99,7 +99,7 @@ func ListCLBsByTags(ctx context.Context, region string, tags map[string]string) 
 
 // EnsureCLBTags ensures CLB has the specified tags
 func EnsureCLBTags(ctx context.Context, region, lbId string, tags map[string]string) error {
-	client, err := tag.NewClient(cloudapi.GetCredential(), "", cloudapi.NewClientProfile("tag"))
+	client, err := getTagClient()
 	if err != nil {
 		return errors.WithStack(err)
 	}
@@ -118,6 +118,22 @@ func EnsureCLBTags(ctx context.Context, region, lbId string, tags map[string]str
 		return errors.WithStack(err)
 	}
 	return nil
+}
+
+var (
+	tagClient  *tag.Client
+	tagInitErr error
+	tagOnce    sync.Once
+)
+
+func getTagClient() (*tag.Client, error) {
+	tagOnce.Do(func() {
+		tagClient, tagInitErr = tag.NewClient(cloudapi.GetCredential(), "", cloudapi.NewClientProfile("tag"))
+		if tagInitErr == nil {
+			tagClient.WithHttpTransport(cloudapi.NewHTTPTransport("tag"))
+		}
+	})
+	return tagClient, tagInitErr
 }
 
 func Delete(ctx context.Context, region string, lbIds ...string) error {
@@ -213,10 +229,10 @@ func BatchGetClbInfo(ctx context.Context, lbIds []string, region string) (info m
 		}
 		for _, ins := range res.Response.LoadBalancerSet {
 			lbInfo := &CLBInfo{
-				LoadbalancerID:    *ins.LoadBalancerId,
-				LoadbalancerName:  *ins.LoadBalancerName,
-				Tags:              getTagsMap(ins.Tags),
-				AddressIPVersion:  ins.AddressIPVersion,
+				LoadbalancerID:   *ins.LoadBalancerId,
+				LoadbalancerName: *ins.LoadBalancerName,
+				Tags:             getTagsMap(ins.Tags),
+				AddressIPVersion: ins.AddressIPVersion,
 			}
 			if util.GetValue(ins.Domain) != "" {
 				lbInfo.Hostname = ins.Domain

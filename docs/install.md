@@ -7,7 +7,8 @@
 1. 确保腾讯云账号是带宽上移账号，参考 [账户类型说明](https://cloud.tencent.com/document/product/1199/49090) 进行判断或升级账号类型（如果账号创建的时间很早，有可能是传统账号）。
 2. 创建了 [TKE](https://cloud.tencent.com/product/tke) 集群，且集群版本大于等于 1.26。
 3. 集群中安装了 [cert-manager](https://cert-manager.io/docs/installation/) (webhook 依赖证书)，可通过 [TKE 应用市场](https://console.cloud.tencent.com/tke2/helm/market) 安装。
-4. 需要一个腾讯云子账号的访问密钥(SecretID、SecretKey)，参考[子账号访问密钥管理](https://cloud.tencent.com/document/product/598/37140)，要求账号至少具有以下权限：
+4. 集群 DNS 可正常解析腾讯云内网 API 域名（如 `clb.internal.tencentcloudapi.com`）。控制器默认通过内网 API 域名访问云 API，不再通过 hostAlias 固定解析 API IP。
+5. 需要一个腾讯云子账号的访问密钥(SecretID、SecretKey)，参考[子账号访问密钥管理](https://cloud.tencent.com/document/product/598/37140)，要求账号至少具有以下权限：
    ```json
    {
      "version": "2.0",
@@ -39,6 +40,8 @@
      ]
    }
    ```
+
+> 如果为访问密钥启用了[网络访问限制策略](https://cloud.tencent.com/document/product/598/131331)，需要在“专有网络”策略中选择集群所在地域和 VPC，并放行控制器访问云 API 的 VPC 内网源 IP 或网段。若策略不生效，可通过云 API 操作审计确认该 SecretId 的实际来源 IP 与访问域名。
 
 ## 安装方法
 

@@ -28,6 +28,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	networkingv1alpha1 "github.com/tkestack/tke-extend-network-controller/api/v1alpha1"
+	"github.com/tkestack/tke-extend-network-controller/internal/constant"
 )
 
 var _ = Describe("CLBPortPool Controller", func() {
@@ -48,12 +49,17 @@ var _ = Describe("CLBPortPool Controller", func() {
 			if err != nil && errors.IsNotFound(err) {
 				resource := &networkingv1alpha1.CLBPortPool{
 					ObjectMeta: metav1.ObjectMeta{
-						Name:      resourceName,
-						Namespace: "default",
+						Name:       resourceName,
+						Namespace:  "default",
+						Finalizers: []string{constant.Finalizer},
 					},
-					// TODO(user): Specify other spec details if needed.
+					Spec: networkingv1alpha1.CLBPortPoolSpec{
+						StartPort: 8080,
+					},
 				}
 				Expect(k8sClient.Create(ctx, resource)).To(Succeed())
+				// 走 cleanup 路径，避免脚手架用例依赖真实云 API。
+				Expect(k8sClient.Delete(ctx, resource)).To(Succeed())
 			}
 		})
 
@@ -61,6 +67,9 @@ var _ = Describe("CLBPortPool Controller", func() {
 			// TODO(user): Cleanup logic after each test, like removing the resource instance.
 			resource := &networkingv1alpha1.CLBPortPool{}
 			err := k8sClient.Get(ctx, typeNamespacedName, resource)
+			if errors.IsNotFound(err) {
+				return
+			}
 			Expect(err).NotTo(HaveOccurred())
 
 			By("Cleanup the specific resource instance CLBPortPool")

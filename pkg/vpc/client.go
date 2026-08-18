@@ -22,6 +22,7 @@ func GetClient(region string) *vpc.Client {
 	if err != nil {
 		panic(err)
 	}
+	client.WithHttpTransport(cloudapi.NewHTTPTransport("vpc"))
 	clients[region] = client
 	return client
 }
